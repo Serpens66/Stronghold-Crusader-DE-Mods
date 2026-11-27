@@ -51,7 +51,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 budget.MaximumUnits<1 || budget.MaximumUnitId<1 || budget.TileCapacity<1)
             {reason="invalid-discovery-input";return false;}
             if(changed.Count>budget.MaximumCells){reason="mutation-cell-budget";return false;}
-            var delta=new Dictionary<int,RescueTile>();var halo=new SortedSet<int>();
+            var delta=new Dictionary<int,RescueTile>();var halo=new HashSet<int>();
             var heads=new Dictionary<int,int>();var records=new Dictionary<int,Node>();
             int visits=0,selectedCount=0;
             try
@@ -75,16 +75,21 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     }
                 // Each tile head is captured once. Auxiliary heads may share any
                 // suffix: native8FA is one outgoing link per physical unit record.
+                var occupiedTiles=new List<int>();
                 foreach(int tile in halo)
                 {
                     int id=head(tile);
                     if(id<0 || id>budget.MaximumUnitId){reason="invalid-or-cyclic-occupancy-chain";return false;}
+                    if(id==0)continue;
                     heads.Add(tile,id);
+                    occupiedTiles.Add(tile);
                 }
+                if(occupiedTiles.Count==0)return true;
+                occupiedTiles.Sort();
                 List<int> path=null;
-                foreach(int tile in halo)
+                foreach(int tile in occupiedTiles)
                 {
-                    int id=heads[tile];if(id==0)continue;
+                    int id=heads[tile];
                     if(path==null)path=new List<int>();else path.Clear();
                     while(id!=0)
                     {

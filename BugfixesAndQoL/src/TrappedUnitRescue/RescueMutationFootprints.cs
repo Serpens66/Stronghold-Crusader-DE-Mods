@@ -61,7 +61,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
     internal static class RescueMutationFootprints
     {
         internal static bool TryPlan(RescueMutationFootprintRequest request, RescueFootprintContext context,
-            RescueFootprintBudget budget, out List<RescueTile> tiles, out string reason)
+            RescueFootprintBudget budget, out List<RescueTile> tiles, out string reason, bool includeCleanup = true)
         {
             tiles = new List<RescueTile>(); reason = null;
             if (request == null || context == null || context.TileAt == null || budget.MaximumTiles < 1 || budget.MaximumWork < 1 || budget.TileCapacity < 1)
@@ -69,7 +69,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             try
             {
                 var plan = new Planner(context, budget);
-                plan.Build(request);
+                plan.Build(request, includeCleanup);
                 tiles.AddRange(plan.Tiles.Values);
                 tiles.Sort((a, b) => a.TileId.CompareTo(b.TileId));
                 return true;
@@ -195,7 +195,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             }
             private void BrushSquare(int x, int y, int size, int width)
             { foreach (var p in Square(x, y, size)) Brush(checked(x + p.X), checked(y + p.Y), width); }
-            internal void Build(RescueMutationFootprintRequest r)
+            internal void Build(RescueMutationFootprintRequest r, bool includeCleanup)
             {
                 // Native source coordinates are bounded before any derived footprint arithmetic.
                 // 800 is the audited native XY capacity, not the current active-map size.
@@ -215,7 +215,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                         Rectangle(checked(left - 1), checked(top - 1), checked(Math.Abs(r.EndX - r.X) + 3), checked(Math.Abs(r.EndY - r.Y) + 3)); return;
                     case RescueMutationSource.AivBuilding:
                         // Cleanup can remove linked compounds not visible in its local rectangle.
-                        Cleanup(r);
+                        if (includeCleanup) Cleanup(r);
                         break;
                     case RescueMutationSource.Building: break;
                     default: Reject("unsupported-mutation-source"); break;

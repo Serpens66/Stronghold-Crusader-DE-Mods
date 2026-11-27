@@ -161,9 +161,73 @@ namespace TrappedUnitRescueTest.Tests
             }
             Require(measured.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_DRAWBRIDGE,0,new[]{Memory.Tile(30,30)},out mapped,out _,out reason,AivBuildStepState.Built) &&
                 mapped.Count>0,"built AIV step retains possible rebuild footprint, never treated as no-op");
+            DenseConstruction();
             Console.WriteLine("Footprint cost: bridge reads=" + bridgeMetrics.NativeReads + "; moat reads=" + moatMetrics.NativeReads + "; farm reads=" + farmMetrics.NativeReads +
                 "; keep reads=" + keepMetrics.NativeReads + "; keep buildingSlots=" + keepMetrics.BuildingSlots + "; keep brushSearches=" + keepMetrics.BrushSearches + "; keep cacheHits=" + keepMetrics.BrushCacheHits + "; keep nodes=" + keepMetrics.BrushNodes);
             Console.WriteLine("NativeMutationFootprintsFixture: " + checks + " checks passed.");
+        }
+        private static void DenseConstruction()
+        {
+            var memory = new Memory();
+            const int buildingCount = 1600;
+            for (int id = 1; id <= buildingCount; id++) memory.AddBuilding(id, eStructs.STRUCT_HOVEL, 60, 60, 1, 0);
+            memory.AddBuilding(buildingCount + 1, eStructs.STRUCT_HOPSFARM, 70, 70, 1, 123);
+            memory.AddBuilding(buildingCount + 2, eStructs.STRUCT_HOVEL, 85, 85, 1, 123);
+            for (int i = 0; i < 24; i++) memory.Words[Memory.Record(buildingCount + 1) + 0x1C8 + i * 4] = Memory.Tile(70, 70);
+            memory.Words[Memory.Record(buildingCount + 1) + 0x1C8 + 35 * 4] = Memory.Tile(16, 20);
+            memory.Flags[Memory.Tile(16, 20)] = 0x04000000;
+            memory.Flags[Memory.Tile(77, 77)] = 4;
+            var frame = new int[63];
+            for (int i = 0; i < 61; i++) frame[i] = Memory.Tile(10 + i, 20);
+            frame[61] = Memory.Tile(76, 77);
+            frame[62] = frame[0]; // Overlapping cleanup, including an identical anchor.
+            var adapter = new NativeMutationFootprints(memory, new RescueFootprintBudget(2048, 131072));
+            for (int i = 0; i < 32; i++)
+            {
+                int reads = memory.ReadCount;
+                Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, frame, out var waiting, out var cost, out _,
+                    AivBuildStepState.Built, 1 + i) && waiting.Count == 0 && cost.NativeReads == 0 && memory.ReadCount == reads,
+                    "ordered built frame waiting for cooldown does not scan terrain or buildings");
+            }
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_DRAWBRIDGE, 0, frame, out var retry, out _, out _,
+                AivBuildStepState.RetryPending, 1) && retry.Count == 0, "ordinary building retry with delay skips capture");
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, frame, out var restricted, out _, out _,
+                restrictedMode: 1) && restricted.Count == 0, "restricted mode skips non-hovel work");
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_HOVEL, 0, new[] { frame[0] }, out var hovel, out _, out _,
+                restrictedMode: 1) && hovel.Count > 0, "restricted mode admits hovels");
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_STAIR1, 0, new[] { frame[0] }, out var stair, out _, out _,
+                AivBuildStepState.Built, 1) && stair.Count == 0, "built stair cooldown skips native cleanup");
+            int anchor = Memory.Tile(60, 60);
+            memory.Layer[anchor] = 1;
+            int before = memory.ReadCount;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_HOVEL, 0, new[] { anchor }, out hovel, out _, out _,
+                AivBuildStepState.Built) && hovel.Count == 0 && memory.ReadCount - before == 2,
+                "already built structure checks only the live layer and type");
+            memory.Layer.Remove(anchor);
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_HOVEL, 0, new[] { anchor }, out hovel, out _, out _,
+                AivBuildStepState.Built) && hovel.Count > 0, "removed structure is observed on its next build attempt");
+            foreach (var state in new[] { AivBuildStepState.Built, AivBuildStepState.RetryPending })
+            {
+                Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, frame, out var tiles, out var cost, out string reason, state) &&
+                    Contains(tiles, 8, 18) && Contains(tiles, 72, 22) && Contains(tiles, 85, 85) && !Contains(tiles, 60, 60),
+                    "eligible ordered frame retains local and distant closures: " + reason);
+                Require(cost.NativeReads < 4 * buildingCount && cost.BuildingSlots == buildingCount + 2,
+                    "one sparse slot scan across a dense ordered frame; reads=" + cost.NativeReads + " slots=" + cost.BuildingSlots);
+            }
+            memory.Flags.Remove(Memory.Tile(16, 20));
+            for (int y = 18; y <= 22; y++)
+                for (int x = 10; x < 40; x++) memory.Flags[Memory.Tile(x, y)] = 4;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, frame, out var densePrep, out _, out _) &&
+                Contains(densePrep, 85, 85), "dense prep queries include the matched farm's distant compound link");
+
+            var farms = new Memory();
+            for (int id = 1; id <= buildingCount; id++) farms.AddBuilding(id, eStructs.STRUCT_APPLEFARM, 70, 70, 1, 0);
+            farms.Flags[Memory.Tile(20, 20)] = 4;
+            var farmAdapter = new NativeMutationFootprints(farms, new RescueFootprintBudget(2048, 131072));
+            Require(farmAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { Memory.Tile(20, 20) },
+                out var sparsePrep, out var farmCost, out string farmReason) && sparsePrep.Count == 25 && farmCost.NativeReads < 6 * buildingCount &&
+                farms.ReadCount < 5 * buildingCount,
+                "single prep marker uses bounded work even with many unrelated farms: " + farmReason + " work=" + farmCost.NativeReads);
         }
         private static WorldMutationContext Mutation(WorldMutationSource source, params long[] args)
         { return (WorldMutationContext)Activator.CreateInstance(typeof(WorldMutationContext), BindingFlags.Instance | BindingFlags.NonPublic,

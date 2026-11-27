@@ -312,3 +312,17 @@ Canonical DLL SHA-256 was freshly checked as `FBCB93195FC7EFCA9BDAC5204852EFDD76
 - This does not authorize ignoring other states. Pending/unknown2 proceed to ordinary gates; state3 can rebuild after loss of its original building; retry5 can decrement a delay or reach construction. Their later `0x5CD90` cleanup precedes `0xC3BF0` and `0x6D580`, so a failed eventual build is not proof of an empty geometry footprint.
 - `0x539B0` starts its prepared-frame search at index1, not at the first active frame. In `0x53D00`, raster mapper61 takes the Keep-anchor branch and marks the raster visited without populating that frame's ordinary prepared record. The final preparation loop sets state0 for mapper0, mapper62 and mapper325..328. Thus a counted AIV can legitimately contain an inactive zero-mapper hole which the executor repeatedly receives and safely skips. A zero payload in such a record is not an ordinary building anchor to decode.
 - These claims describe Vanilla's state at the actual executor entry. They do not guarantee that an arbitrary foreign observer which changes native frame storage leaves the later original invocation unchanged.
+
+## Executor cooldown and existing-building returns, 27 November 2026 [Vanilla facts]
+
+On the same canonical hash, `0x51790` rejects restricted-mode attempts before
+geometry except for mapper `0x36` (hovel). RetryPending (state 5) with a nonzero
+rebuild delay only decrements that delay. Built (state 3) with a nonzero delay
+also skips geometry on the ordered wall, moat and pitch branches and on the
+single-stair branch for mappers `0xB5` through `0xB8`. With zero delay these
+branches can still reach writers. The ordinary Built branch reads the anchor's
+building-layer slot and compares its structure field to `0xC77C0`'s native
+mapper conversion. A match returns before `0x5CD90` cleanup or placement.
+The drawbridge preflight `0x7A170` before this comparison writes scratch state.
+These outcomes bound geometry observation only. The original call still owns
+the retry byte, messages, and other placement state.

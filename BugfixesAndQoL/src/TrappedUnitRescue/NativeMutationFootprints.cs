@@ -71,6 +71,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     // Constant-cost progress filter before allocating a footprint session or reading terrain.
                     if (!RescueCleanupProjection.MoatCanChangeGeometry(source.Source == WorldMutationSource.MoatFill, memory.Byte(task + 13))) return true;
                 }
+                eMappers aivMapper = default;
+                int aivDirection = 0;
+                Span<int> aivFields = default;
+                if (source.Source == WorldMutationSource.AivBuildStep)
+                {
+                    if (!TryReadAiv(source, out owner, out aivMapper, out aivDirection, out aivFields, out reason)) return false;
+                    if (aivFields.IsEmpty) return true;
+                }
                 var session = new Session(memory, budget, maximumBuildingReads);
 #if SERP_DEVDIAG
                 diagnosticSession=session;
@@ -78,7 +86,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 var requests = new List<RescueMutationFootprintRequest>();
                 if (source.Source == WorldMutationSource.AivBuildStep)
                 {
-                    if (!Aiv(source, session, requests, out owner, out reason)) return false;
+                    BuildAivRequests(session, requests, aivMapper, aivDirection, aivFields);
                 }
                 else
                 {
@@ -148,9 +156,10 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         {
                 tiles = new List<RescueTile>(); reason = null;
                 var union = new Dictionary<int, RescueTile>();
+            session.AddCleanupUnion(requests, union);
                 foreach (var request in requests)
                 {
-                    if (!RescueMutationFootprints.TryPlan(request, session.Context, budget, out var part, out reason)) return false;
+                if (!RescueMutationFootprints.TryPlan(request, session.Context, budget, out var part, out reason, includeCleanup: false)) return false;
                     foreach (var tile in part)
                     {
                         if (union.TryGetValue(tile.TileId, out var previous) && (previous.X != tile.X || previous.Y != tile.Y))
@@ -163,12 +172,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         }
 
         private static bool IsKeep(eStructs type) => type >= eStructs.STRUCT_KEEP_ONE && type <= eStructs.STRUCT_KEEP_FIVE;
+        private static eStructs EffectiveStructure(eMappers mapper) =>
+            mapper == eMappers.MAPPER_KEEP4 || mapper == eMappers.MAPPER_KEEP5 ? eStructs.STRUCT_NULL : mapper.ConvertToEStructs();
         private static void AddBuilding(List<RescueMutationFootprintRequest> requests, Session session, int x, int y, eMappers mapper, int size, int direction, bool cleanup)
         {
             if (!Enum.IsDefined(typeof(eMappers), mapper)) throw new InvalidOperationException("unknown-effective-mapper");
             // Installed SDK maps legacy KEEP4/5 despite C77C0's audited default-zero entries.
             // Their native scale is-1; never manufacture a supported keep from these aliases.
-            eStructs type = mapper == eMappers.MAPPER_KEEP4 || mapper == eMappers.MAPPER_KEEP5 ? eStructs.STRUCT_NULL : mapper.ConvertToEStructs();
+            eStructs type = EffectiveStructure(mapper);
             if (type < eStructs.STRUCT_HOVEL || type > eStructs.STRUCT_DOCK) throw new InvalidOperationException("unsupported-effective-native-mapper");
             // 77E60 runs after the common boundary and can determine the later replacement path.
             // Capture its possible5D3A0 effects even when the current scratch flag is still zero.
@@ -182,9 +193,11 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     CleanupPreservesBrushFlags = cleanup });
         }
 
-        private bool Aiv(WorldMutationContext source, Session session, List<RescueMutationFootprintRequest> requests, out int owner, out string reason)
+        private bool TryReadAiv(WorldMutationContext source, out int owner, out eMappers mapper, out int direction,
+            out Span<int> fields, out string reason)
         {
             owner = source.PlayerId; reason = null;
+            mapper = default; direction = 0; fields = default;
             var api = GameAIVManagerAPI.Instance;
             if (owner < 1 || owner > 8 || source.NativeContextAddress != (ulong)api.GetAIVSystemPointer() ||
                 !api.TryGetVillageSlotByPlayerId(owner, out int villageSlot) || !api.TryGetVillageBySlot(villageSlot, out var village) ||
@@ -194,26 +207,45 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             // Prepared Keep/overwritten frames can legitimately retain MapperNull.
             // Resolve no map payload for an inactive step: its zero payload is not a tile.
             if (AivGeometryIsNoop(step->State)) return true;
-            eMappers mapper = step->BuildingType;
-            var fields = api.GetBuildStepMapTiles(villageSlot, source.FrameIndex);
+            mapper = step->BuildingType;
+            if (AivWaiting(step->State, mapper, step->RebuildDelay, (int)source.GetArgument(3))) return true;
+            fields = api.GetBuildStepMapTiles(villageSlot, source.FrameIndex);
             if (fields.Length > budget.MaximumTiles) { reason = "aiv-field-budget"; return false; }
             if (fields.Length == 0)
             {
                 if (GameAIVManagerAPI.UsesOrderedMapTileBuffer(mapper) && step->TileCount == 0) return true;
                 reason = "aiv-field-reference-contract"; return false;
             }
-            int direction = (int)village->Rotation;
-            var copiedFields = new int[fields.Length];
-            for (int i = 0; i < fields.Length; i++) copiedFields[i] = fields[i];
-            BuildAivRequests(session, requests, mapper, direction, copiedFields);
+            if (BuiltAivStructureStillPresent(step->State, mapper, fields)) { fields = default; return true; }
+            direction = (int)village->Rotation;
             return true;
         }
         internal static bool AivGeometryIsNoop(AivBuildStepState state) =>
             state == AivBuildStepState.Inactive || state == AivBuildStepState.Abandoned;
+        private static bool AivWaiting(AivBuildStepState state, eMappers mapper, int rebuildDelay, int restrictedMode) =>
+            // 51790 admits only hovels in restricted mode. The waiting branches only decrement the delay.
+            (restrictedMode != 0 && mapper != eMappers.MAPPER_HOVEL) ||
+            (rebuildDelay != 0 && (state == AivBuildStepState.RetryPending ||
+                (state == AivBuildStepState.Built && (GameAIVManagerAPI.UsesOrderedMapTileBuffer(mapper) ||
+                    (mapper >= eMappers.MAPPER_STAIR1 && mapper <= eMappers.MAPPER_STAIR4)))));
 
-        private void BuildAivRequests(Session session, List<RescueMutationFootprintRequest> requests, eMappers mapper, int direction, int[] fields)
+        private bool BuiltAivStructureStillPresent(AivBuildStepState state, eMappers mapper, ReadOnlySpan<int> fields)
         {
-            if (fields == null) throw new InvalidOperationException("aiv-field-reference-contract");
+            if (state != AivBuildStepState.Built || fields.Length != 1 || GameAIVManagerAPI.UsesOrderedMapTileBuffer(mapper) ||
+                (mapper >= eMappers.MAPPER_STAIR1 && mapper <= eMappers.MAPPER_STAIR6)) return false;
+            int tile = fields[0];
+            if ((uint)tile >= budget.TileCapacity) return false;
+            // 51790 checks the building-layer slot's type before any cleanup. Keep4/5 are
+            // legacy SDK mappings that differ from the native C77C0 conversion.
+            int id = memory.Int16(0x4B6AA50 + tile * 2);
+            if (id <= 0 || id >= 4000) return false;
+            eStructs type = EffectiveStructure(mapper);
+            return type >= eStructs.STRUCT_HOVEL && type <= eStructs.STRUCT_DOCK &&
+                memory.Int16(0x64CCC0C + id * 0x32C + 0xD2) == (short)type;
+        }
+
+        private void BuildAivRequests(Session session, List<RescueMutationFootprintRequest> requests, eMappers mapper, int direction, ReadOnlySpan<int> fields)
+        {
             if (fields.Length > budget.MaximumTiles) throw new InvalidOperationException("aiv-field-budget");
             // Native non-square gate selectors and drawbridge validation are shape-specific.
             // The shape planner does not use those selectors; cardinal compound anchors do.
@@ -261,12 +293,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         internal RescueFootprintContext ContextForOfflineFixture() => new Session(memory, budget, maximumBuildingReads).Context;
         internal bool TryPlanAivFieldsForOfflineFixture(eMappers mapper, int direction, int[] fields,
             out List<RescueTile> tiles, out RescueFootprintMetrics metrics, out string reason,
-            AivBuildStepState state = AivBuildStepState.Pending)
+            AivBuildStepState state = AivBuildStepState.Pending, int rebuildDelay = 0, int restrictedMode = 0)
         {
             tiles = new List<RescueTile>(); metrics = default; reason = null;
             // Uses the identical production early-return predicate above, before
             // any payload decoding, memory-backed session or footprint planning.
-            if (AivGeometryIsNoop(state)) return true;
+            if (AivGeometryIsNoop(state) || AivWaiting(state, mapper, rebuildDelay, restrictedMode)) return true;
+            if (fields == null) { reason = "aiv-field-reference-contract"; return false; }
+            if (BuiltAivStructureStillPresent(state, mapper, fields)) return true;
             var session = new Session(memory, budget, maximumBuildingReads);
             try
             {
@@ -287,11 +321,10 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         }
         private sealed class BuildingRecord
         {
-            internal int Id, Owner, X, Y, Size, Alive;
+            internal int Id, Owner, X, Y, Size;
             internal uint Global, Compound;
             internal eStructs Type;
             internal int[] Plots;
-            internal int[] FarmLookupPlots;
         }
         private sealed class Session
         {
@@ -299,11 +332,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             private readonly RescueFootprintBudget budget;
             private readonly int maximumBuildings;
             private int reads, buildingsRead;
-            private Dictionary<int, BuildingRecord> index;
+            private readonly Dictionary<int, BuildingRecord> buildings = new Dictionary<int, BuildingRecord>();
+            private List<int> liveSlots;
+            private Dictionary<uint, List<int>> compounds;
             private readonly Dictionary<int, int> dwords = new Dictionary<int, int>();
             private readonly Dictionary<int, short> words = new Dictionary<int, short>();
             private readonly Dictionary<int, byte> bytes = new Dictionary<int, byte>();
-            private int indexedLimit;
+            private int indexedLimit = 1;
+            private readonly Dictionary<int, RescueFootprintOffset[]> squares = new Dictionary<int, RescueFootprintOffset[]>();
             private RescueFootprintOffset[] cleanupSpill;
             internal readonly RescueFootprintContext Context;
             internal int Reads => reads;
@@ -376,38 +412,46 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             internal BuildingRecord Building(int id)
             {
                 if (id < 1 || id >= 4000) throw new InvalidOperationException("footprint-building-id-contract");
-                if (index != null && index.TryGetValue(id, out var cached)) return cached;
-                if (++buildingsRead > maximumBuildings) throw new InvalidOperationException("footprint-building-read-budget");
+                if (buildings.TryGetValue(id, out var cached)) return cached;
+                if (id >= indexedLimit) SpendBuildingSlot();
                 int record = 0x64CCC0C + id * 0x32C;
                 int alive = Int16(record + 0xD0);
                 if (alive == 0) throw new InvalidOperationException("footprint-building-not-present");
-                var b = new BuildingRecord { Id = id, Alive = alive, Type = (eStructs)Int16(record + 0xD2), Owner = Int16(record + 0xD6),
+                var b = new BuildingRecord { Id = id, Type = (eStructs)Int16(record + 0xD2), Owner = Int16(record + 0xD6),
                     Global = unchecked((uint)Int32(record + 0xD8)), X = Int16(record + 0xEE), Y = Int16(record + 0xF0), Size = Int32(record + 0xF8), Compound = unchecked((uint)Int32(record + 0x2A8)) };
                 if (b.Global == 0 || b.Size < 1 || b.Size > 13 || b.Owner < 0 || b.Owner > 8 || ActiveTile(b.X, b.Y) < 0)
                     throw new InvalidOperationException("footprint-building-record-contract");
                 int count = PlotCount(b.Type);
                 if (count != 0)
                 {
-                    b.Plots = new int[count]; b.FarmLookupPlots = new int[36];
-                    // B8ED0 compares all36 entries for every farm type, including unused tail entries.
-                    for (int i = 0; i < 36; i++) { int plot = Int32(record + 0x1C8 + i * 4); b.FarmLookupPlots[i] = plot; if (i < count) b.Plots[i] = plot; }
+                    b.Plots = new int[count];
+                    for (int i = 0; i < count; i++) b.Plots[i] = Int32(record + 0x1C8 + i * 4);
                 }
+                buildings.Add(id, b);
                 return b;
             }
-            private void EnsureIndex(bool fullCapacity = false)
+            private void SpendBuildingSlot()
             {
-                if (index != null && (!fullCapacity || indexedLimit == 4000)) return;
-                var records = index ?? new Dictionary<int, BuildingRecord>();
+                if (++buildingsRead > maximumBuildings) throw new InvalidOperationException("footprint-building-read-budget");
+            }
+            private int BuildingLimit()
+            {
                 int limit = Int32(BuildingManagerRva + 0x50);
                 if (limit < 1 || limit > 4000) throw new InvalidOperationException("footprint-building-limit-contract");
-                if (fullCapacity) limit = 4000;
-                for (int id = Math.Max(1, indexedLimit); id < limit; id++)
+                return limit;
+            }
+            private void ReadSlots(int limit)
+            {
+                if (liveSlots == null) liveSlots = new List<int>();
+                for (int id = indexedLimit; id < limit; id++)
                 {
-                    if (++buildingsRead > maximumBuildings) throw new InvalidOperationException("footprint-building-read-budget");
-                    if (Int16(0x64CCC0C + id * 0x32C + 0xD0) == 0) continue;
-                    buildingsRead--; records.Add(id, Building(id));
+                    if (!buildings.ContainsKey(id)) SpendBuildingSlot();
+                    // Read each slot once. Store only live IDs and states, without caching empty RVAs.
+                    Spend();
+                    ushort alive = unchecked((ushort)memory.Int16(0x64CCC0C + id * 0x32C + 0xD0));
+                    if (alive != 0) liveSlots.Add(id << 16 | alive);
                 }
-                index = records; indexedLimit = limit;
+                indexedLimit = Math.Max(indexedLimit, limit);
             }
             internal void KeepReplacement(List<RescueMutationFootprintRequest> requests, int x, int y, eStructs type, int size)
             {
@@ -421,8 +465,9 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 foreach (var tile in probes.Values)
                 { int id = Int16(0x4B6AA50 + tile.TileId * 2); if (id != 0) selected.Add(id); }
                 // Unlike C43A0's high-water loop, the final5D3A0 pass checks all3999 slots.
-                EnsureIndex(true);
-                foreach (var b in index.Values) if (b.Alive == 3) selected.Add(b.Id);
+                BuildingLimit();
+                ReadSlots(4000);
+                foreach (int slot in liveSlots) if ((ushort)slot == 3) selected.Add(slot >> 16);
                 foreach (int id in selected)
                 {
                     var b = Building(id);
@@ -434,17 +479,35 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             private void Add(Dictionary<int, RescueTile> tiles, int x, int y)
             {
                 int tile = ActiveTile(x, y); if (tile < 0) return;
-                tiles[tile] = new RescueTile(x, y, tile);
+                if (tiles.TryGetValue(tile, out var existing))
+                {
+                    if (existing.X != x || existing.Y != y) throw new InvalidOperationException("footprint-coordinate-alias");
+                    return;
+                }
+                tiles.Add(tile, new RescueTile(x, y, tile));
                 if (tiles.Count > budget.MaximumTiles) throw new InvalidOperationException("footprint-removal-tile-budget");
             }
             private void Square(Dictionary<int, RescueTile> tiles, int x, int y, int size, bool nativeCleanupSpill = false)
             {
                 if (size < 1 || size > (nativeCleanupSpill ? 14 : 13) || nativeCleanupSpill && size != 14) throw new InvalidOperationException("footprint-removal-size-contract");
-                var seen = new HashSet<long>();
-                for (int i = 0; i < size * size; i++)
+                if (!squares.TryGetValue(size, out var offsets))
                 {
-                    var p = SquareOffset(size, i);
-                    if (!nativeCleanupSpill && ((uint)p.X >= size || (uint)p.Y >= size || !seen.Add(((long)p.X << 32) | (uint)p.Y))) throw new InvalidOperationException("footprint-square-contract");
+                    offsets = new RescueFootprintOffset[size * size];
+                    var seen = nativeCleanupSpill ? null : new bool[offsets.Length];
+                    for (int i = 0; i < offsets.Length; i++)
+                    {
+                        var p = SquareOffset(size, i);
+                        if (seen != null)
+                        {
+                            if ((uint)p.X >= size || (uint)p.Y >= size || seen[p.Y * size + p.X]) throw new InvalidOperationException("footprint-square-contract");
+                            seen[p.Y * size + p.X] = true;
+                        }
+                        offsets[i] = p;
+                    }
+                    squares.Add(size, offsets);
+                }
+                foreach (var p in offsets)
+                {
                     if (nativeCleanupSpill && ((long)x + p.X < 0 || (long)x + p.X >= 800 || (long)y + p.Y < 0 || (long)y + p.Y >= 800)) throw new InvalidOperationException("footprint-native-spill-coordinate-contract");
                     Add(tiles, checked(x + p.X), checked(y + p.Y));
                 }
@@ -460,39 +523,119 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 if (b.Type == eStructs.STRUCT_GOODS_YARD)
                     for (int i = 0; i < 9; i++) Add(tiles, checked(b.X + Table(0x2D3060 + i * 8)), checked(b.Y + Table(0x2D3064 + i * 8)));
             }
-            private void AddClosure(Dictionary<int, RescueTile> tiles, BuildingRecord b)
+            private void AddClosure(Dictionary<int, RescueTile> tiles, BuildingRecord b, HashSet<uint> expandedCompounds)
             {
                 Geometry(tiles, b);
-                if (b.Compound == 0) return;
-                EnsureIndex();
-                foreach (var linked in index.Values) if (linked.Compound == b.Compound && linked.Id != b.Id) Geometry(tiles, linked);
+                if (b.Compound == 0 || !expandedCompounds.Add(b.Compound)) return;
+                if (compounds == null)
+                {
+                    int limit = BuildingLimit();
+                    ReadSlots(limit);
+                    compounds = new Dictionary<uint, List<int>>();
+                    foreach (int slot in liveSlots)
+                    {
+                        int id = slot >> 16;
+                        if (id >= limit) break;
+                        uint key = unchecked((uint)Int32(0x64CCC0C + id * 0x32C + 0x2A8));
+                        if (key == 0) continue;
+                        if (!compounds.TryGetValue(key, out var ids)) compounds.Add(key, ids = new List<int>());
+                        ids.Add(id);
+                    }
+                }
+                if (compounds.TryGetValue(b.Compound, out var linked))
+                    foreach (int id in linked) if (id != b.Id) Geometry(tiles, Building(id));
             }
             private IList<RescueTile> Removal(int id)
-            { var tiles = new Dictionary<int, RescueTile>(); AddClosure(tiles, Building(id)); return new List<RescueTile>(tiles.Values); }
+            { var tiles = new Dictionary<int, RescueTile>(); AddClosure(tiles, Building(id), new HashSet<uint>()); return new List<RescueTile>(tiles.Values); }
+            internal void AddCleanupUnion(List<RescueMutationFootprintRequest> requests, Dictionary<int, RescueTile> tiles)
+            {
+                // All requests describe the same pre-mutation state. Only local cleanup
+                // cells seed lookups; tiles added by removals must not seed them again.
+                foreach (var request in requests)
+                    if (request.Source == RescueMutationSource.AivBuilding)
+                    {
+                        if (!request.CleanupPreservesBrushFlags) throw new InvalidOperationException("footprint-aiv-cleanup-contract-required");
+                        AddCleanupSquares(tiles, request.X, request.Y, request.Size);
+                    }
+                if (tiles.Count != 0) ExpandCleanup(tiles);
+            }
             private IList<RescueTile> Cleanup(int x, int y, int size)
             {
-                var footprint = new Dictionary<int, RescueTile>(); Square(footprint, x, y, size);
+                var footprint = new Dictionary<int, RescueTile>();
+                AddCleanupSquares(footprint, x, y, size);
+                ExpandCleanup(footprint);
+                return new List<RescueTile>(footprint.Values);
+            }
+            private void AddCleanupSquares(Dictionary<int, RescueTile> footprint, int x, int y, int size)
+            {
+                Square(footprint, x, y, size);
                 if (size <= 11) { int halo = size == 11 ? 1 : 2; int side = size == 11 ? 13 : size + 4; Square(footprint, checked(x - halo), checked(y - halo), side, side == 14); }
+            }
+            private void ExpandCleanup(Dictionary<int, RescueTile> footprint)
+            {
                 var affected = new HashSet<int>();
+                HashSet<int> farmPlotTiles = null;
+                HashSet<int> farmPrepCoordinates = null;
                 foreach (var tile in footprint.Values)
                 {
                     int building = Int16(0x4B6AA50 + tile.TileId * 2);
                     if (building != 0) { affected.Add(building); continue; }
                     uint flags = Flags(tile.TileId);
-                    if ((flags & 0x04000004U) == 0) continue;
-                    EnsureIndex();
-                    foreach (var candidate in index.Values)
+                    if ((flags & 0x04000000U) != 0) (farmPlotTiles ?? (farmPlotTiles = new HashSet<int>())).Add(tile.TileId);
+                    if ((flags & 4) != 0) (farmPrepCoordinates ?? (farmPrepCoordinates = new HashSet<int>())).Add(tile.Y * 800 + tile.X);
+                }
+                if (farmPlotTiles != null || farmPrepCoordinates != null)
+                {
+                    int limit = BuildingLimit();
+                    ReadSlots(limit);
+                    foreach (int slot in liveSlots)
                     {
-                        // B8ED0/B8E00 consider Alive2 farms only; include every matching one.
-                        if (candidate.Alive != 2 || candidate.Plots == null) continue;
-                        if ((flags & 0x04000000U) != 0 && Array.IndexOf(candidate.FarmLookupPlots, tile.TileId) >= 0) affected.Add(candidate.Id);
-                        int prep = candidate.Type == eStructs.STRUCT_WHEATFARM || candidate.Type == eStructs.STRUCT_HOPSFARM ? 9 : 10;
-                        if ((flags & 4) != 0 && tile.X >= candidate.X && tile.X < candidate.X + prep && tile.Y >= candidate.Y && tile.Y < candidate.Y + prep) affected.Add(candidate.Id);
-                        Spend();
+                        int id = slot >> 16;
+                        if (id >= limit) break;
+                        if ((ushort)slot != 2 || affected.Contains(id)) continue;
+                        int record = 0x64CCC0C + id * 0x32C;
+                        var type = (eStructs)Int16(record + 0xD2);
+                        if (PlotCount(type) == 0) continue;
+                        // B8ED0 matches all 36 stored entries, including unused tail entries.
+                        bool matches = false;
+                        if (farmPlotTiles != null)
+                            for (int i = 0; i < 36 && !matches; i++) matches = farmPlotTiles.Contains(Int32(record + 0x1C8 + i * 4));
+                        if (!matches && farmPrepCoordinates != null)
+                        {
+                            int x = Int16(record + 0xEE), y = Int16(record + 0xF0);
+                            if ((uint)x >= 800 || (uint)y >= 800)
+                                throw new InvalidOperationException("footprint-building-record-contract");
+                            int side = type == eStructs.STRUCT_WHEATFARM || type == eStructs.STRUCT_HOPSFARM ? 9 : 10;
+                            matches = FarmPrepMatches(farmPrepCoordinates, x, y, side);
+                        }
+                        if (matches) affected.Add(id);
                     }
                 }
-                foreach (int id in affected) AddClosure(footprint, Building(id));
-                return new List<RescueTile>(footprint.Values);
+                if (affected.Count == 0) return;
+                var expandedCompounds = new HashSet<uint>();
+                foreach (int id in affected) AddClosure(footprint, Building(id), expandedCompounds);
+            }
+            private bool FarmPrepMatches(HashSet<int> coordinates, int x, int y, int side)
+            {
+                if (coordinates.Count <= side * side)
+                {
+                    foreach (int coordinate in coordinates)
+                    {
+                        Spend();
+                        if ((uint)(coordinate % 800 - x) < side && (uint)(coordinate / 800 - y) < side) return true;
+                    }
+                }
+                else
+                {
+                    int right = Math.Min(800, x + side), bottom = Math.Min(800, y + side);
+                    for (int row = y; row < bottom; row++)
+                        for (int column = x; column < right; column++)
+                        {
+                            Spend();
+                            if (coordinates.Contains(row * 800 + column)) return true;
+                        }
+                }
+                return false;
             }
         }
     }
