@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Pathfinding",
   "Description": "Faster and smarter unit movement: shared group routes, better commands, gate routing, Assassin climbing, formations, command queue and synchronized troop movement.",
-  "Version": "0.1.16",
+  "Version": "0.1.17",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.3",
   "MaximumScriptExtenderVersion": "",
@@ -19,6 +19,13 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.17",
+      "Changes": [
+        "Fast individual and group routes now straighten back-and-forth diagonal bends when units can take the straight section for the same or lower movement cost.",
+        "On clear ground, newly calculated direct routes keep their heading for longer, with the same number of steps."
+      ]
+    },
     {
       "Version": "0.1.16",
       "Changes": [

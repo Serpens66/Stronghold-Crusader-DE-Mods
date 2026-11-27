@@ -18,9 +18,9 @@ namespace PathfindingSurfaceTest
     internal sealed partial class Fixture
     {
         // Specific player report: the former raster alternated on almost every
-        // step for this slope (44 turns). Keep the route in its one-tile corridor
+        // step for this slope (44 turns). Keep the route in its two-tile corridor
         // while requiring substantially fewer turns, not a particular byte string.
-        private const int ShapeDeltaX = 45, ShapeDeltaY = 22, ShapeMaximumTurns = 15;
+        private const int ShapeDeltaX = 45, ShapeDeltaY = 22, ShapeMaximumTurns = 7;
         private string shapeRegionFailure;
 
         private IEnumerable<AutomationWait> PrepareShape(AutomationRun run)
@@ -133,17 +133,25 @@ namespace PathfindingSurfaceTest
             for (int i = 0; i < 180; i++)
             {
                 yield return run.WaitForTicks(run.CurrentMission, 32);
-                if (run.InSimulation(run.CurrentMission, () => { Require(error == null, error); ObserveActor(actors[0]); return actors[0].Arrived; })) break;
+                if (run.InSimulation(run.CurrentMission, ObserveShapeArrival)) break;
             }
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
             Execute(run, () => {
-                Require(error == null, error); Require(actors[0].Arrived, "Shape actor did not arrive at the requested endpoint");
+                Require(ObserveShapeArrival(), "Shape actor did not stop on the requested endpoint");
                 log("shape-arrived kind=" + (group ? "group" : "individual") + " actor=" + actors[0].Id + " tile=" + actors[0].X + "," + actors[0].Y);
                 capture = false; KillActor(actors[0]); actors.Clear();
             });
             foreach (var wait in run.SetPause(run.CurrentMission, false)) yield return wait;
             yield return run.WaitForTicks(run.CurrentMission, 40);
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
+        }
+
+        private unsafe bool ObserveShapeArrival()
+        {
+            Require(error == null, error);
+            Actor actor = actors[0];
+            ObserveActor(actor);
+            return actor.X == actor.TargetX && actor.Y == actor.TargetY && !Walking(ActorUnit(actor));
         }
 
         private unsafe void IssueShape(bool group)
@@ -178,7 +186,7 @@ namespace PathfindingSurfaceTest
                 x += Dx[d]; y += Dy[d];
                 int cross = Math.Abs((x - cx) * ShapeDeltaY - (y - cy) * ShapeDeltaX);
                 maximumCross = Math.Max(maximumCross, cross);
-                Require(cross <= ShapeDeltaX, "Shape route left its one-tile direct corridor");
+                Require(cross <= 2 * ShapeDeltaX, "Shape route left its two-tile direct band");
                 if (previous >= 0 && d != previous) turns++;
                 previous = d;
                 if (runDirection == d) runLength++;

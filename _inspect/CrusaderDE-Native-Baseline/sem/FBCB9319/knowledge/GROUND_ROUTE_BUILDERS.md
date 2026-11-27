@@ -87,3 +87,18 @@ The installed DLL was rehashed and matched the complete reference hash above. St
 - 196280 publishes a positive route into the unit-owned packed buffer. 1855A0 consumes those direction nibbles without a later straightening pass. Direction 3 changes both fine coordinates positively; direction 5 decreases x and increases y; direction 4 changes only y. Every direction advances to the next tile after eight fine steps.
 - The ordinary movement cadence in 182B00 and terrain-delay calculation in 19B260 do not apply a square-root-of-two diagonal factor. The additional crowd delay can be written by 1802A0 through 180230 and later decays in 1855A0; it depends on co-located units and their delays, not the geometric direction. On otherwise identical free terrain an isolated unit therefore needs the same number of native fine steps for twenty direction-4 steps as for ten direction-3 plus ten direction-5 steps. This does not assert identical arrival times under crowding, terrain changes or rejected transitions.
 - Consequently, a visually longer right-angle screen path is not by itself evidence of a proportional native travel-time penalty. Mod-side geometric cost approximations are not evidence of the native movement cadence.
+
+## 2026-11-27 — direction codes and fine XY [Vanilla facts]
+
+Rechecked the installed DLL against the hash above. In ordinary routed movement,
+`0x1855A0` reads the packed direction and uses it for the connection and surface
+checks in `0xDCE60` / `0xDCD60`. It computes the neighbouring tile from the
+row's eight offsets at `0x405EDB0` and resets fine XY to the current tile centre
+(`tile * 8 + 4`) when starting the step. The same direction then controls each
+fine XY update. The machine code at `0x185B5C` compares the direction against 7;
+`0x185B5F` takes the no-coordinate-update branch for out-of-range values. The
+switch at `0x185B6C` has only the eight movement deltas; codes 2, 3 and 1 give
+`(+1,0)`, `(+1,+1)`, and `(+1,-1)` respectively. The range check in the fine
+switch does not validate an out-of-range route code for earlier table reads.
+`0x180230` commits the selected neighbour for occupancy. `0x18BE50` and
+`0x18BC00` update view offsets and supply no extra physical direction.

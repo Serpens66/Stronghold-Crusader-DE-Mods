@@ -387,14 +387,18 @@ static void NaturalFrozenRegressionTests() {
             Check(mma_single_route(f.context,1,target,1,0,2,start,&byte,0,&shortResult) == Ok &&
                 shortResult.status == OverLimit && shortResult.length == 0 && byte == 0xA5,
                 "natural single ignores a zero-size publication buffer");
-            int g = n, w = 0; auto excluded = baseline;
+            // These profiles can straighten a cost-preserving bend, but must
+            // still skip the optional corridor search and its extra steps.
+            int g = n, w = 0; auto excluded = baseline, bendsOnly = baseline;
+            NormalizeBends(f.context->map,view,start,bendsOnly.data(),n,1,7);
             StraightenRoute(f.context->map,view,scratch,start,excluded,1,7,g,w);
-            Check(excluded == baseline, "natural corridor changes an excluded moat-profile baseline");
+            Check(excluded == bendsOnly, "optional corridor search changes an excluded moat-profile route");
             int outside = 0, changed = 0; uint8_t penalty = 1;
             Check(mma_penalty_update(f.context,1,&outside,&penalty,1,&changed) == Ok, "excluded penalty fixture ABI");
-            excluded = baseline; g = n; w = 0;
+            excluded = bendsOnly = baseline; g = n; w = 0;
+            NormalizeBends(f.context->map,view,start,bendsOnly.data(),n,1,0);
             StraightenRoute(f.context->map,view,scratch,start,excluded,1,0,g,w);
-            Check(excluded == baseline, "natural corridor changes a baseline when a penalty profile is active");
+            Check(excluded == bendsOnly, "optional corridor search changes a route when a penalty profile is active");
         }
     }
 }
@@ -419,18 +423,20 @@ static void NaturalRankedWholeRouteTests() {
         const auto leg = std::find(nodes.begin(),nodes.end(),legStart);
         Check(leg != nodes.end() && nodes.end()-leg-1 == 223, "whole farmer capture lost its long local leg");
         const size_t legIndex = size_t(leg-nodes.begin());
-        auto check = [&](const std::vector<uint8_t>& path) {
+        auto check = [&](const std::vector<uint8_t>& path, bool corridorOnly) {
             const auto quality = MeasureNaturalQuality(f,start,path,start,target);
             CheckNaturalWholeBounds(before,quality,target,MaxSteps);
             Check(path.size() == baseline.size() && quality.geometric < before.geometric,
                 "whole farmer corridor loses its original primary cost or does not improve geometry");
-            Check(std::equal(baseline.begin(),baseline.begin()+first.a,path.begin()) &&
-                std::equal(baseline.begin()+first.b,baseline.end(),path.begin()+first.b),
-                "a lower-ranked window modifies or replaces the already qualified whole-route result");
-            const std::vector<uint8_t> oldWindow(baseline.begin()+first.a,baseline.begin()+first.b);
-            const std::vector<uint8_t> newWindow(path.begin()+first.a,path.begin()+first.b);
-            CheckNaturalWindowQuality(MeasureNaturalQuality(f,nodes[first.a],oldWindow,nodes[first.a],nodes[first.b]),
-                MeasureNaturalQuality(f,nodes[first.a],newWindow,nodes[first.a],nodes[first.b]),false);
+            if (corridorOnly) {
+                Check(std::equal(baseline.begin(),baseline.begin()+first.a,path.begin()) &&
+                    std::equal(baseline.begin()+first.b,baseline.end(),path.begin()+first.b),
+                    "a lower-ranked window modifies or replaces the already qualified whole-route result");
+                const std::vector<uint8_t> oldWindow(baseline.begin()+first.a,baseline.begin()+first.b);
+                const std::vector<uint8_t> newWindow(path.begin()+first.a,path.begin()+first.b);
+                CheckNaturalWindowQuality(MeasureNaturalQuality(f,nodes[first.a],oldWindow,nodes[first.a],nodes[first.b]),
+                    MeasureNaturalQuality(f,nodes[first.a],newWindow,nodes[first.a],nodes[first.b]),false);
+            }
             const std::vector<uint8_t> local(path.begin()+legIndex,path.end());
             const auto localQuality = MeasureNaturalQuality(f,legStart,local,legStart,target);
             Check(localQuality.maxCross <= 12*223,
@@ -441,14 +447,14 @@ static void NaturalRankedWholeRouteTests() {
         ImproveCorridors(f.context->map,view,*f.context->scratch,start,improved,1,MaxSteps,rays,segments,capped);
         Check(!capped && improved != baseline,
             "an ineffective early window consumes the major-bend budget or discards an already qualified correction");
-        check(improved);
+        check(improved,true);
         std::vector<uint8_t> published; auto result = f.single(start,target,2,published);
         Check(result.status == Found && result.cost == result.length && result.ground == result.length && result.moat == 0,
-            "whole farmer single publication misreports its actual primary cost"); check(published);
+            "whole farmer single publication misreports its actual primary cost"); check(published,false);
         const int task = f.task(target,2,{start}); f.step(2);
         result = f.query(task,start,target,published);
         Check(result.status == Found && result.cost == result.length && result.ground == result.length && result.moat == 0,
-            "whole farmer group publication misreports its actual primary cost"); check(published);
+            "whole farmer group publication misreports its actual primary cost"); check(published,false);
         for (int workers : {1,8}) {
             std::vector<int> from(19,start), to(19,target);
             std::vector<uint8_t> bytes(from.size()*MaxSteps,0xA5); std::vector<QueryResult> results(from.size());
@@ -656,10 +662,10 @@ static std::vector<uint8_t> PreviousRaster(int sx, int sy, int tx, int ty) {
     return path;
 }
 
-// A minimum step count alone accepts the reported large L. The cross product also
-// bounds the actual emitted route to one raster cell from the reference segment.
+// A minimum step count alone would accept a large L. The cross product also
+// bounds the emitted route to the direct ray's two-cell raster band.
 static void VerifyStraightRay(const Fixture& f, int start, int target,
-    const QueryResult& result, const std::vector<uint8_t>& path, bool bfsOracle = true) {
+    const QueryResult& result, const std::vector<uint8_t>& path, bool bfsOracle = true, int band = 2) {
     if (bfsOracle) f.verify(start,target,2,result,path,true);
     else Check(result.status == Found, "free minimum-cost ray not found");
     const int sx = start % f.width, sy = start / f.width;
@@ -676,7 +682,7 @@ static void VerifyStraightRay(const Fixture& f, int start, int target,
         x += dx[path[i]]; y += dy[path[i]];
         Check(x >= 0 && x < f.width && y >= 0 && y < f.height && f.allowed(f.node(x,y),2),
             "direct ray leaves the map or enters a forbidden surface");
-        Check(std::abs((x-sx)*vy - (y-sy)*vx) <= length,
+        Check(std::abs((x-sx)*vy - (y-sy)*vx) <= band*length,
             "minimum-cost route still makes a large L instead of following the segment");
         Check(std::max(std::abs(tx-x),std::abs(ty-y)) == length-int(i)-1,
             "direct ray does not advance along its major axis");
@@ -706,7 +712,7 @@ static void DirectGroundRayTests() {
         if (std::abs(offset[0]) == std::abs(offset[1]) || offset[0] == 0 || offset[1] == 0)
             Check(turns == 0, "a supported eight-direction ray needlessly changes heading");
         if (result.length == 45)
-            Check(turns <= 15, "reported 45/22 route retains per-tile heading changes");
+            Check(turns <= 7, "reported 45/22 route does not use the wider band");
         Check(bytes[result.length] == 0xA5, "direct single writes past active route");
         starts.push_back(start); targets.push_back(target); expected.push_back(path);
     }
@@ -772,7 +778,10 @@ static void QuietGroundSlopeTests() {
         "reported route single ABI");
     std::vector<uint8_t> path(bytes,bytes+actual.length);
     VerifyStraightRay(f,from,to,actual,path);
-    Check(DirectionChanges(PreviousRaster(16,44,61,22)) == 44 && DirectionChanges(path) <= 15,
+    Check(std::count(path.begin(),path.end(),uint8_t(1)) == 22 &&
+        std::count(path.begin(),path.end(),uint8_t(2)) == 23,
+        "wider free ray changes the number of either step type");
+    Check(DirectionChanges(PreviousRaster(16,44,61,22)) == 44 && DirectionChanges(path) <= 7,
         "reported 44-turn raster has not become a quieter 45-step route");
 }
 
@@ -824,6 +833,38 @@ static void SelectedEdgePermissionTests() {
 
 static void QuietGroundFallbackAndBridgeTests() {
     {
+        Fixture f(35,35);
+        const int start = f.node(10,10);
+        const std::vector<uint8_t> narrow{2,2,2,2,3,3,2,2};
+        const int target = AddDirectedRoute(f,start,narrow);
+        f.publish();
+        uint8_t bytes[MaxSteps+1]; std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5));
+        QueryResult result{};
+        Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+            "narrow-only directed corridor ABI");
+        std::vector<uint8_t> path(bytes,bytes+result.length);
+        VerifyStraightRay(f,start,target,result,path,true,1);
+        Check(path == narrow && bytes[result.length] == 0xA5,
+            "widened direct route loses the legal narrow path");
+    }
+    {
+        Fixture f(35,35);
+        const int start = f.node(10,10);
+        const std::vector<uint8_t> bresenham{2,3,2,2};
+        const int target = AddDirectedRoute(f,start,bresenham);
+        f.publish();
+        uint8_t bytes[MaxSteps+1]; std::fill(std::begin(bytes),std::end(bytes),uint8_t(0xA5));
+        QueryResult result{};
+        // Both Quiet versions try 2,2,2,3. At index 1, even their two-step
+        // bridge ends on a different tile than this only legal route.
+        Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
+            "Bresenham-only directed corridor ABI");
+        const std::vector<uint8_t> path(bytes,bytes+result.length);
+        VerifyStraightRay(f,start,target,result,path,true,1);
+        Check(path == bresenham && bytes[result.length] == 0xA5,
+            "the two Quiet attempts hide the legal Bresenham fallback");
+    }
+    {
         Fixture f(80,80);
         const int sx = 10, sy = 40, tx = 55, ty = 18;
         const auto previous = PreviousRaster(sx,sy,tx,ty);
@@ -834,7 +875,7 @@ static void QuietGroundFallbackAndBridgeTests() {
         Check(mma_single_route_limited(f.context,1,target,1,0,2,start,1,bytes,MaxSteps,&result) == Ok,
             "blocked quiet corridor fallback ABI");
         std::vector<uint8_t> path(bytes,bytes+result.length);
-        VerifyStraightRay(f,start,target,result,path);
+        VerifyStraightRay(f,start,target,result,path,true,1);
         Check(path == previous && bytes[result.length] == 0xA5,
             "blocked quiet corridor loses the legal previous raster or adds search work");
     }
@@ -894,6 +935,115 @@ static i64 EmittedWeightedCost(const Fixture& f, int start, int target,
     }
     Check(node == target, "weighted ray lost its exact endpoint");
     return cost;
+}
+
+static void NormalizeBendTests() {
+    for (int middle : {0,2,4,6}) for (bool reflect : {false,true}) {
+        Fixture f(36,36); OpenGround(f); f.publish();
+        const int first = (middle+(reflect ? 1 : 7))&7, last = (middle+(reflect ? 7 : 1))&7;
+        const int start = f.node(18,18);
+        const TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        auto check = [&](std::vector<uint8_t> path, const std::vector<uint8_t>& expected) {
+            NormalizeBends(f.context->map,view,start,path.data(),int(path.size()),1,0);
+            Check(path == expected, "bend loses a remainder or keeps an avoidable change of direction");
+        };
+        check({uint8_t(first),uint8_t(last)},{uint8_t(middle),uint8_t(middle)});
+        check({uint8_t(first),uint8_t(first),uint8_t(first),uint8_t(middle),uint8_t(last)},
+            {uint8_t(first),uint8_t(first),uint8_t(middle),uint8_t(middle),uint8_t(middle)});
+        check({uint8_t(first),uint8_t(last),uint8_t(last),uint8_t(first)},
+            std::vector<uint8_t>(4,uint8_t(middle)));
+    }
+    {
+        Fixture f(36,36); OpenGround(f);
+        const int start = f.node(10,14);
+        const std::vector<uint8_t> bend{1,1,1,3,3,3};
+        const std::vector<uint8_t> partial{1,2,2,2,2,3};
+        // The largest chord needs the edge at (12,14); the next smaller one
+        // lies on row 13 and can remain legal even when row 14 is blocked.
+        f.words[f.node(12,14)] &= ~((1u<<2)|(1u<<10));
+        f.publish();
+        const TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        auto path = bend;
+        NormalizeBends(f.context->map,view,start,path.data(),int(path.size()),1,0);
+        Check(path == partial, "blocked largest chord prevents a legal shorter chord");
+        f.surface(f.node(13,13),0x80); f.surface(f.node(13,12),0x80);
+        path = bend;
+        NormalizeBends(f.context->map,view,start,path.data(),int(path.size()),1,0);
+        Check(path == bend, "bend normalizer enters a forbidden surface");
+    }
+    {
+        Fixture f(36,36); OpenGround(f); f.publish();
+        const int start = f.node(10,14), middleTile = f.node(11,14);
+        const std::vector<uint8_t> bend{1,3};
+        const uint8_t surcharge = 4;
+        Check(mma_penalty_update(f.context,1,&middleTile,&surcharge,1,nullptr) == Ok, "bend surcharge");
+        const TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        auto path = bend;
+        NormalizeBends(f.context->map,view,start,path.data(),int(path.size()),1,0);
+        Check(path == bend, "a more expensive straight chord replaces a legal weighted bend");
+        f.words[start] |= 1u<<(16+2);
+        f.publish();
+        const TraversalView wetView(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        path = bend;
+        NormalizeBends(f.context->map,wetView,start,path.data(),int(path.size()),1,7);
+        Check(path == bend, "a more expensive wet step replaces a dry diagonal pair");
+    }
+    {
+        Fixture f(36,36); OpenGround(f);
+        const int start = f.node(10,14), target = f.node(15,14);
+        f.words[start] |= 1u<<(16+1);
+        f.words[f.node(11,13)] |= 1u<<(16+1);
+        f.words[f.node(15,13)] |= 1u<<(16+4);
+        f.publish();
+        const TraversalView view(f.context->map,*f.context->mask(1),*f.context->surfaces,2);
+        std::vector<uint8_t> path{1,1,1,3,3,4};
+        const auto totals = NormalizeBends<true>(f.context->map,view,start,path.data(),int(path.size()),1,7);
+        Check(path == std::vector<uint8_t>{1,2,2,2,2,4} && totals.wetSteps == 2 && totals.cost == 18 &&
+            totals.cost == EmittedWeightedCost(f,start,target,path,1,7,std::vector<uint8_t>(f.words.size())),
+            "weighted bend accounting includes the removed wet suffix or loses an untouched wet step");
+    }
+}
+
+static void CapturedBendTests() {
+    const auto data = FrozenNaturalMap::read();
+    Fixture f(data.width,data.height); data.publish(f);
+    const int start = data.node(379,392), target = data.node(497,392);
+    const int entry = data.node(405,368), exit = data.node(445,368);
+    auto verify = [&](const QueryResult& r, const std::vector<uint8_t>& path) {
+        const auto measured = MeasureNaturalQuality(f,start,path,start,target);
+        Check(r.status == Found && r.cost == 118 && measured.steps == 118 && measured.end == target,
+            "captured bend changes route cost, length or endpoint");
+        int node = start, index = 0;
+        while (node != entry && index < int(path.size())) node += f.context->map.off[path[index++]];
+        Check(node == entry && index+40 <= int(path.size()), "captured route misses the verified chord entry");
+        for (int i = 0; i < 40; ++i) {
+            Check(path[index+i] == 2, "captured route did not take the 40-step straight chord");
+            node += f.context->map.off[path[index+i]];
+        }
+        Check(node == exit, "captured straight chord misses its exit");
+    };
+    std::vector<uint8_t> path;
+    auto single = f.single(start,target,2,path);
+    verify(single,path);
+    const auto expected = path;
+    const int task = f.task(target,2,{start});
+    f.step(1);
+    auto group = f.query(task,start,target,path);
+    verify(group,path);
+    std::vector<int> starts(24,start), targets(24,target);
+    for (int workers : {1,2,4,8}) {
+        std::vector<uint8_t> bytes(starts.size()*MaxSteps);
+        std::vector<QueryResult> results(starts.size());
+        Check(mma_query_batch(f.context,task,starts.data(),targets.data(),int(starts.size()),8,
+            workers,bytes.data(),MaxSteps,results.data()) == Ok, "captured bend batch ABI");
+        for (size_t i = 0; i < starts.size(); ++i) {
+            const auto begin = bytes.begin()+i*MaxSteps;
+            const std::vector<uint8_t> batch(begin,begin+results[i].length);
+            verify(results[i],batch);
+            Check(batch == path, "captured bend depends on worker count");
+        }
+    }
+    Check(expected == path, "captured single and group have different outputs for the same settled route");
 }
 
 static void QuietWeightedRayTests() {
@@ -1288,12 +1438,19 @@ static void StraightenedObstacleTests() {
             std::vector<uint8_t> path; auto r = f.query(task,s[i],t[i],path);
             f.verify(s[i],t[i],0,r,path,false);
             Check(r.cost == f.distance(s[i],t[i],0), "group route around an obstacle is not optimal");
-            Check(StraightPieces(path) <= 3, "group route around a large obstacle keeps L-shaped sections");
+            if (shape == 1 && i == 3) {
+                // The old route fits three one-cell raster pieces but changes
+                // direction eleven times. The legal straight chord crosses a
+                // piece boundary and saves one turn and two diagonal steps.
+                Check(StraightPieces(path) <= 4 && DirectionChanges(path) <= 10 &&
+                    std::count_if(path.begin(),path.end(),[](uint8_t d) { return (d&1) != 0; }) <= 27,
+                    "straight chord does not improve the isolated block corner");
+            } else Check(StraightPieces(path) <= 3, "group route around a large obstacle keeps L-shaped sections");
         }
         i64 stats[StatCount] = {}; Check(mma_stats(f.context,stats,StatCount,0) == Ok, "stats");
         // The published counter now includes the optional corridor budget as well
-        // as string pulling. A safe corridor fallback may cap; the exact route cost,
-        // legal edges and three-piece shape remain checked above without relaxation.
+        // as string pulling. A safe corridor fallback may cap; exact cost,
+        // legal edges and route shape are checked above.
         Check(stats[StraightenRoutes] > 0 && stats[StraightenSegments] > 0 &&
             stats[StraightenCapped] >= 0 && stats[StraightenCapped] <= stats[StraightenRoutes], "straightening counters");
     }
@@ -1373,7 +1530,7 @@ static void RandomWeightedTests() {
 int main(int argc, char** argv) {
     try { if (argc == 2 && std::string(argv[1]) == "--memory-probe") { MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); return 0; }
         Check(mma_contract() == 0x04000012, "private ABI"); CorridorTests(); DirectGroundRayTests(); QuietGroundSlopeTests(); QuietRunQuotientTests(); SelectedEdgePermissionTests();
-        QuietGroundFallbackAndBridgeTests(); QuietWeightedRayTests(); QuietLongRouteAccountingTests(); DirectGroundObstaclesAndGuards();
+        QuietGroundFallbackAndBridgeTests(); NormalizeBendTests(); CapturedBendTests(); QuietWeightedRayTests(); QuietLongRouteAccountingTests(); DirectGroundObstaclesAndGuards();
         NaturalFrozenRegressionTests(); NaturalRankedWholeRouteTests(); NaturalCostBudgetTests(); NaturalGeometryThresholdTests(); NaturalCutProofTests(); NaturalWorkFallbackTests();
         SubanchorAndBatchTests(); RandomDirectedTests(); StraightenedObstacleTests(); RandomWeightedTests();
         MemoryWorkerProbe(); ProductionMemoryWorkerProbe(); AllocationFailureReentryTests();
