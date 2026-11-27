@@ -50,7 +50,7 @@
   <ItemGroup>
     <Compile Include="src/Plugin.cs"/>
     <Compile Include="src/AcceptanceHost.cs"/>
-    <Compile Include="src/Fixture*.cs" Exclude="src/Fixture.EarlyProvider.cs;src/Fixture.AssemblyLoadCache.cs"/>
+    <Compile Include="src/Fixture*.cs"/>
     <Compile Include="src/EditorBrush.cs"/><Compile Include="src/EditorAcceptanceBrushes.cs"/>
     <Compile Include="src/NoJestersState.DevDiag.cs"/>
     <Compile Include="../../Shared/Runtime/Native/CommittedMemory.cs"><Link>Shared/CommittedMemory.cs</Link></Compile>

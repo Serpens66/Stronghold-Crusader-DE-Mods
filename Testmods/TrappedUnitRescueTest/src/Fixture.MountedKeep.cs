@@ -222,38 +222,69 @@ namespace TrappedUnitRescueTest
             ulong image=unchecked((ulong)runtime.Native.ImageBase.ToInt64());
             byte[] bytes=Shared.CommittedMemory.ReadUpTo(hook.StubAddress,4096);
             var decoder=Iced.Intel.Decoder.Create(64,new Iced.Intel.ByteArrayCodeReader(bytes));decoder.IP=stub;
-            int traversalCalls=0;bool knownCalls=true;
+            var decoded=new List<Iced.Intel.Instruction>();
             while(decoder.IP<stub+(ulong)bytes.Length)
             {
-                var instruction=decoder.Decode();
+                var instruction=decoder.Decode();decoded.Add(instruction);
                 if(instruction.Mnemonic==Iced.Intel.Mnemonic.Call && instruction.Op0Kind==Iced.Intel.OpKind.NearBranch64)
                 {
                     log("mounted-hook-call updateRva="+(hook.TargetAddress-image).ToString("X")+
                         " callTargetRva="+unchecked(instruction.NearBranchTarget-image).ToString("X")+
                         " expectedTraversalRva=187110 source=actual-published-stub boundedRead=true");
-                    if(instruction.NearBranchTarget==image+0x187110)traversalCalls++;else knownCalls=false;
                 }
-                else if(instruction.Mnemonic==Iced.Intel.Mnemonic.Call)knownCalls=false;
                 if(instruction.Mnemonic==Iced.Intel.Mnemonic.Jmp && instruction.Op0Kind==Iced.Intel.OpKind.NearBranch64 &&
                     instruction.NearBranchTarget==hook.TargetAddress+(uint)hook.DisplacedByteCount)
-                {RequireMountedCallProof(hook,image,traversalCalls,knownCalls);return;}
+                {RequireMountedCallProof(hook,image,decoded);return;}
                 if(instruction.Mnemonic==Iced.Intel.Mnemonic.Jmp && instruction.IsIPRelativeMemoryOperand)
                 {
                     ulong slot=instruction.IPRelativeMemoryAddress;
                     if(slot>=stub && slot+8<=stub+(ulong)bytes.Length &&
                         BitConverter.ToUInt64(bytes,(int)(slot-stub))==hook.TargetAddress+(uint)hook.DisplacedByteCount)
-                    {RequireMountedCallProof(hook,image,traversalCalls,knownCalls);return;}
+                    {RequireMountedCallProof(hook,image,decoded);return;}
                 }
                 if(instruction.Code==Iced.Intel.Code.INVALID)break;
             }
             Require(false,"Mounted published stub could not be decoded through its verified original-resume boundary");
         }
-        private void RequireMountedCallProof(X64InlineHook hook,ulong image,int traversalCalls,bool knownCalls)
+        private void RequireMountedCallProof(X64InlineHook hook,ulong image,IReadOnlyList<Iced.Intel.Instruction> code)
         {
-            Require(knownCalls && traversalCalls==1,
-                "Mounted published stub does not call exactly the audited187110 traversal helper; abort before creating riders");
+            string state=MountedScannerEarlyProvider.State;
+            bool scalar=state!=null && state.StartsWith("AlreadyFixed:",StringComparison.Ordinal);
+            ulong gate=0,original=0,corrected=image+0x187110;
+            if(scalar)
+            {
+                // A single CALL is valid only for a genuinely fixed selected foreign contract.
+                var assembly=Chainloader.PluginInfos["fixes"].Instance.GetType().Assembly;
+                using(var module=Mono.Cecil.ModuleDefinition.ReadModule(assembly.Location))
+                    Require(module.Mvid==assembly.ManifestModule.ModuleVersionId &&
+                        MountedScannerContract.Classify(module,out _,out _)==MountedScannerClassification.AlreadyFixed,
+                        "Single-call mounted stub lacks the selected AlreadyFixed contract");
+            }
+            else
+            {
+                Require(state=="InstalledAwaitingNative","Mounted runtime scanner correction is unavailable: "+state);
+                var flags=BindingFlags.NonPublic|BindingFlags.Instance;
+                var capture=typeof(MountedScannerEarlyProvider).GetField("capture",BindingFlags.NonPublic|BindingFlags.Static)?.GetValue(null);
+                Require(capture!=null,"Published scanner producer receipt unavailable");
+                var type=capture.GetType();var activation=type.GetField("activation",flags);
+                var captured=type.GetField("capturedAddress",flags);var source=type.GetField("originalScanner",flags);
+                Require(activation?.FieldType==typeof(IntPtr) && captured?.FieldType==typeof(ulong) &&
+                    source?.FieldType==typeof(RedBird.X64.Memory.Scanners.DataScanner),"Published scanner receipt layout changed");
+                gate=unchecked((ulong)((IntPtr)activation.GetValue(capture)).ToInt64());
+                Require(gate!=0 && (ulong)captured.GetValue(capture)==corrected && Plugin.ProductionScannerGate(true)==1,
+                    "Actual mounted correction target/host activation is not ON before rider creation");
+                var shared=(RedBird.X64.Memory.Scanners.DataScanner)source.GetValue(capture);
+                Require(shared!=null && shared.Found,"Original delayed scanner identity unavailable");
+                // Audited ApplyNative performs no Scan after Commit. Bind the OFF target
+                // to the retained real producer, rather than allowing an arbitrary second CALL.
+                original=shared.CurrentAddress;
+            }
+            Require(MountedKeepCallContract.Validate(code,corrected,gate,original,scalar,out string reason),
+                "Mounted published stub call/branch/restore contract failed: "+reason+"; abort before creating riders");
             log("mounted-hook-call-proof updateRva="+(hook.TargetAddress-image).ToString("X")+
-                " traversalCalls="+traversalCalls+" allCallsKnown=true resumeVerified=true");
+                " mode="+(scalar?"already-fixed-single":"host-gated-original-and-corrected")+
+                " activeTargetRva=187110 originalOffTargetRva="+(scalar?"none":unchecked(original-image).ToString("X"))+
+                " nativeGate="+(scalar?"not-required":"1")+" gateIdentity=true branchFlow=true registerFlagsStackRestore=true resumeVerified=true");
         }
         private IEnumerable<AutomationWait> MountedKeepCase(AutomationRun run,eMappers mapper,int rotation,bool committed,eChimps type,bool blocked)
         {

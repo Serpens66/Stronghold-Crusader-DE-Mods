@@ -82,7 +82,11 @@ foreach($source in @($api,$patcher)){
 $apiDll=Join-Path $api 'APIShared.dll'
 if(![IO.File]::Exists($apiDll) -or ![IO.File]::Exists($patcher)){throw 'Explicit SDK plugin/bootstrap files are missing.'}
 $apiVersion=[Reflection.AssemblyName]::GetAssemblyName($apiDll).Version
-if($apiVersion -lt [Version]'0.74.0.0'){throw "SDK0.74 or newer required; supplied APIShared is $apiVersion"}
+$testManifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Encoding utf8 -Raw | ConvertFrom-Json
+$apiDependencies=@($testManifest.Dependencies | Where-Object { $_.GUID -ceq 'APIShared_Serp' })
+if($apiDependencies.Count -ne 1 -or [string]::IsNullOrWhiteSpace($apiDependencies[0].MinimumVersion)){throw 'Acceptance manifest must declare exactly one APIShared minimum version.'}
+$apiMinimum=[Version]$apiDependencies[0].MinimumVersion
+if($apiVersion -lt $apiMinimum){throw "SDK$apiMinimum or newer required by this acceptance package; supplied APIShared is $apiVersion"}
 if([Reflection.AssemblyName]::GetAssemblyName($apiDll).Name -cne 'APIShared' -or [Reflection.AssemblyName]::GetAssemblyName($patcher).Name -cne 'APIShared.DependencyBootstrap'){
     throw 'The supplied files are not the APIShared plugin/bootstrap assembly pair.'
 }

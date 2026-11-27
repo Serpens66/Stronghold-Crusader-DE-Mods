@@ -106,9 +106,11 @@ static void Scan(string[] arguments)
         Check(Directory.Exists(modRoot) && modRoot.StartsWith(root + Path.DirectorySeparatorChar,
             StringComparison.OrdinalIgnoreCase), "Mod directory must be inside the workspace");
     }
+    bool consumerOnly=arguments.Contains("--consumer-only");
     var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", "bin", "obj", "BepInEx", "tests", "packages", ".inspect", "_inspect", ".tools", ".native-analysis", ".work", ".release-output", "shcde-script-extender", "UCP", "x86_64" };
     int checkedFiles=0;
-    var scanRoots = modRoot == null ? new[] { root,Path.Combine(apiRoot,"src") } : new[] { modRoot,Path.Combine(apiRoot,"src") };
+    var scanRoots = ResolveScanRoots(root,apiRoot,modRoot,consumerOnly);
+    Console.WriteLine("UnitAccess scan scope: "+(consumerOnly?"consumer and explicit source links":"consumer plus selected SDK sources"));
     // Only source links actually compiled into this consumer, not every Shared helper.
     var linked = modRoot == null ? Enumerable.Empty<string>() : Directory.EnumerateFiles(modRoot, "*.csproj", SearchOption.TopDirectoryOnly)
         .SelectMany(p => XDocument.Load(p).Descendants().Where(e => e.Name.LocalName == "Compile")
@@ -130,8 +132,7 @@ static void Scan(string[] arguments)
     foreach (var projectEntry in inventory.RootElement.GetProperty("projects").EnumerateObject())
     {
         string projectPath=ResolveInventoryProject(root,apiRoot,projectEntry.Name);
-        if (modRoot != null && !Path.GetFullPath(projectPath).StartsWith(modRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
-            !projectEntry.Name.Replace('\\','/').StartsWith("APIShared/", StringComparison.OrdinalIgnoreCase)) continue;
+        if (!IncludeInventoryProject(projectPath,modRoot,apiRoot,consumerOnly)) continue;
         if (!File.Exists(projectPath) && projectEntry.Name.Replace('\\','/').StartsWith("Testmods/", StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine($"SKIP: inventory testmod project no longer present: {projectEntry.Name}");
@@ -171,6 +172,21 @@ static void Scan(string[] arguments)
 
 // Source-only scanner selection. Package provenance belongs to the outer build
 // gate; standalone source audits deliberately need no built SDK package.
+// Consumer-only mode excludes an unchanged SDK implementation, never actual
+// consumer files or explicitly compiled source links (concatenated by Scan).
+static string[] ResolveScanRoots(string root,string apiRoot,string modRoot,bool consumerOnly)
+{
+    Check(!consumerOnly || modRoot!=null,"Consumer-only scan requires an explicit mod directory");
+    return consumerOnly?new[]{modRoot}:modRoot==null?new[]{root,Path.Combine(apiRoot,"src")}:
+        new[]{modRoot,Path.Combine(apiRoot,"src")};
+}
+static bool IncludeInventoryProject(string project,string modRoot,string apiRoot,bool consumerOnly)
+{
+    if(modRoot==null)return !consumerOnly;
+    string path=Path.GetFullPath(project);
+    return path.StartsWith(modRoot+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) ||
+        !consumerOnly && path.StartsWith(apiRoot+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase);
+}
 static string ResolveApiSourceRoot(string root,string selection)
 {
     string chosen=Path.GetFullPath(string.IsNullOrEmpty(selection)?Path.Combine(root,"APIShared"):selection);
@@ -207,6 +223,16 @@ static void VerifySdkPathFixtures(string root,string apiRoot)
     bool rejected=false;
     try{ResolveApiSourceRoot(root,Path.Combine(root,"_inspect/UnitIdAccess/Tests/does-not-exist"));}catch(Exception){rejected=true;}
     Check(rejected,"Explicit invalid SDK selection fails closed without canonical fallback");
+    string mod=Path.Combine(root,"BugfixesAndQoL"),sdkSource=Path.Combine(apiRoot,"src");
+    Check(ResolveScanRoots(root,apiRoot,mod,true).SequenceEqual(new[]{mod}),"Consumer-only scan does not add the SDK source tree");
+    Check(ResolveScanRoots(root,apiRoot,mod,false).SequenceEqual(new[]{mod,sdkSource}),"Default scoped scan still checks the selected SDK");
+    Check(IncludeInventoryProject(Path.Combine(mod,"BugfixesAndQoL.csproj"),mod,apiRoot,true),"Consumer-only inventory retains its real consumer project");
+    Check(!IncludeInventoryProject(Path.Combine(apiRoot,"APIShared.csproj"),mod,apiRoot,true) &&
+        IncludeInventoryProject(Path.Combine(apiRoot,"APIShared.csproj"),mod,apiRoot,false),"SDK inventory obeys explicit consumer scope only");
+    Check(!IncludeInventoryProject(Path.Combine(mod+"-other","Other.csproj"),mod,apiRoot,true),"Consumer prefix siblings are excluded");
+    bool unscoped=false;try{ResolveScanRoots(root,apiRoot,null,true);}catch(Exception){unscoped=true;}
+    Check(unscoped,"Consumer-only never degenerates into a workspace or empty scan");
+    Console.WriteLine("PASS: consumer-only source/inventory selection and mandatory explicit scope.");
     Console.WriteLine("PASS: selected SDK source normalization, inventory resolution, sibling boundary and missing-root rejection.");
 }
 

@@ -18,7 +18,7 @@ namespace TrappedUnitRescueTest
 {
     [BepInPlugin(Guid, Name, Version)]
     [BepInDependency("000shcdese", "2.14.3")]
-    [BepInDependency("APIShared_Serp", "0.74.0")]
+    [BepInDependency("APIShared_Serp", "0.78.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("Pathfinding_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("BugfixesAndQoL_Serp")]

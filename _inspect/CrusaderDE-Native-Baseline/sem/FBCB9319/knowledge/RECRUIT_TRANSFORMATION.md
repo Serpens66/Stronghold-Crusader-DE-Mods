@@ -353,3 +353,15 @@ the database manifest and binary_hash must match CURRENT.json.
 These contracts neither free all job-specific resources synchronously
 nor authorize manually replaying work, modifying cargo or resuming
 an old job after a removal marker.
+
+
+## Free Peasant campfire movement and genuine accepted steps (27 November 2026) [Vanilla facts]
+
+Canonical native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, freshly checked during the closed feature audit. Confidence: confirmed static control/data flow. Complete hash-filtered exports were inspected for D2C40,17FEF0,12A8F0,CE400,BBF20,BD5D0,199D50,182B00,1855A0,196280,187200,19BA40,19B1B0,196840,199CD0 and190B30; compact working exports are `peasant-next-<RVA>.c` under `.work/a/rescue-sp/001` (regenerate from the CURRENT-selected semantic dataset if absent).
+
+- D2C40→17FEF0 produces real Peasant lifetimes. The native type1 handler12A8F0 sends free Peasants through AI0→CE400→AI7→AI8. CE400 validates the actual player's Campfire building (native type55 and owner), writes unit990/9C0, and derives destination992/994 through BBF20's24 stored places. For an ordinal above23, BBF20 uses unit9DC modulo24 as the substitute index; it does not simply reduce the ordinal modulo24.
+- Only a different destination XY makes AI0 call196280(mode0) and select AI7; an already reached place selects AI8. AI7 refreshes the Campfire place, may republish after197020 detects a changed target, and enters AI8 after188340 reports arrival. BD5D0 is the distinct KeepDoor route. AI8 publishes no ordinary new movement order itself; animation completion plus Campfire-global/ordinal/PCL disagreement can return it to AI0.199D50 concerns AI111..116. This proves neither eternal idleness nor an ordinary building-free Campfire route.
+- In182B00, the type-specific AI dispatch precedes generic1855A0. Generic movement handles real flags2/4 also for a Peasant in AI8; accepted Next73C/738/73A is published only when a step actually starts. The audited successful free-Peasant request through196280 publishes target744/746, positive754 and flags2 but does not by itself initialize accepted Next73C or change AI918. The failure path is separate:199CD0 can set AI110 for the audited wall-current/8FC0 case. A positive request or requested target alone is therefore not proof of an accepted physical step.
+-187200 only performs the9B0 unhide branch and180230 call; it is not an independent AI/route writer.19BA40 performs its separately audited pose/occupancy normalization without restoring a job/cargo or choosing a new AI.190B30's employer9F0 and recruitment/transition exclusions remain independent constraints; a temporary Peasant type does not identify a free, unreserved civilian.
+
+All numbers above are native RVAs or native unit-field offsets for this exact image, not offsets into the public biased GameUnit view. Test staging and the observed Campfire terrain qualification failure belong to the mod acceptance record, not to these Vanilla facts.

@@ -1,30 +1,31 @@
-# Einheitenrettung testen
+# Einheitenrettung in BugfixesAndQoL testen
 
-**Vorrang27.11.2026:** Vor einer Wiederaufnahme zuerst den aktiven [RESCUE-PLAN.md](RESCUE-PLAN.md) lesen. Ziel und autorisierte Singleplayer-Tests sind aktiv. Der neue frühe Entfernungspfad für Bauern/Arbeiter ist implementiert; der gemeinsame alte Code wird nach Consumergraph bereinigt. Seine Szenarien nicht unverändert als neue Abschlussliste ausführen. Nach Umstellung gilt für Bauern/Arbeiter endgültige native Entfernung statt gleicher Identität/Fracht und fortgesetzter Produktion; Soldaten-/Crew-Erhalt und gemeinsame Negativ-/Lifecycle-/Kompatibilitätsprüfungen bleiben maßgeblich. Historische Befehle und Ergebnisse unten belegen nur ihren ausdrücklich dokumentierten Stand.
+**Aktueller Integrationsstand, 27.11.2026:** Der separate Testmod automatisiert ausschließlich die tatsächliche BQoL-Runtime. Er besitzt keine eigene Rettungsruntime und keinen EarlyProvider. Maßgeblich sind der aktive [RESCUE-PLAN.md](RESCUE-PLAN.md), [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md) und das tatsächliche ausgewählte Paket; historische Prototyp-Ergebnisse ersetzen keine neue Produktionsabnahme.
 
-Fortlaufender Plan: [RESCUE-PLAN.md](RESCUE-PLAN.md). Aktueller Entwicklungsstand: [IMPLEMENTATION.md](IMPLEMENTATION.md). Vollständige offene Spielabnahme: [INGAME-PENDING.md](INGAME-PENDING.md).
+Die produktive Hostoption `EnableTrappedUnitRescue` ist standardmäßig AN. Zusammen mit `EnableMod` steuert sie sowohl die allgemeine SP-/Editor-Rettung als auch die entfernbare Fixes-Reiterkorrektur. Der Clientmaster steuert diese Hostfunktionen nicht. OFF führt keine eigene historische Arbeiterbereinigung aus. Im Testmod gibt es keine zusätzliche Produktoption; ohne gültige eigene Automationsanforderung beginnt kein Szenario.
 
-Der Testmod bleibt ein isolierter Versuchsstand; die experimentelle Einstellung ist standardmäßig aus. Die Quellen vom 25.11.2026 erweitern den älteren AIV-Brückenpiloten auf gemeinsame Bau-/Geländeereignisse, lokale Current-/Next-Erkennung, qualifizierte Arbeiter-/Befehlsfortsetzung und einen getrennten neuen Fluchtauftrag für untätige Einheiten auf frischem Moat. Sie brauchen das gemeinsam geprüfte Entwicklungs-SDK APIShared 0.74.0. Der aktuelle Singleplayerstand samt verbleibenden Grenzen steht in [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md); ältere Spielversuche des früheren Prototyps sind keine pauschale Abnahme des neuen Systems.
+## Ausgewählte Pakete bauen und ausführen
 
-Erfassung und Rettung sind getrennt: Originale einschließlich Fixes laufen zunächst unverändert, der Coordinator wartet auf den vollständigen äußeren Batch und versucht eigene Rettung erst im zugelassenen Simulationstick. Die Fixes-Unterdrückung bleibt auf eigene synchrone Rettungs-/Fortsetzungsaufrufe begrenzt und wird in finally ausgeschaltet. Die Fixture hat ihre gesonderte kontrollierte Testisolation.
+Vom Workspace-Root aus ein vollständig geprüftes APIShared-SDK samt passendem Bootstrap und ein aktuelles BQoL-Paket auswählen. Folgendes Beispiel verwendet den datierten lokalen Rescue-SDK-Pfad; ein anderer geprüfter SDK-Quellstand darf entsprechend ausdrücklich gewählt werden. Die beiden Auswahlvariablen verhindern, dass der Consumer-Precheck versehentlich den anderen APIShared-Checkout prüft.
 
-Neue Vorherdaten werden nur an tatsächlichen lokalen Änderungsereignissen erfasst. Bestehende Fallen ohne eigene kausale Daten werden nicht durch permanente Einheiten-/Kartenscans gesucht. Qualifizierte Arbeiterreisen, normale Schritte, begrenzte Queues und eigene Savedaten sind implementiert; Kontaktarbeit, legale Sonderbewegungen, echter Multiplayer und bisher nicht abgenommene Zustände sind damit nicht pauschal freigegeben. Die genaue Abdeckung und laufenden Abschlussarbeiten stehen in IMPLEMENTATION.md.
+```powershell
+$sdk = (Resolve-Path '.work/a/rescue-api/001').Path
+$env:SHCDE_BRANCH_API_ROOT = $sdk
+$env:SHCDE_BRANCH_API_COMMIT = (git -C $sdk rev-parse HEAD).Trim()
+$api = Join-Path $sdk 'BepInEx/plugins/APIShared_Serp'
+$patcher = Join-Path $sdk 'BepInEx/patchers/APIShared.DependencyBootstrap.dll'
+$main = (Resolve-Path 'BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp').Path
+& './Testmods/TrappedUnitRescueTest/build.bat' /source:working /nopause /noinstall -ApiSharedDir $api -BugfixesDir $main
+& './Testmods/TrappedUnitRescueTest/Run-Tests.ps1' -Layout Planner -Scenarios 'rescue-aivbridge-default-on,rescue-aivbridge-hostmaster-off,rescue-aivbridge-clientoff-on,rescue-aivbridge-off,rescue-aivbridge-on' -Map '4spielerkarte.map' -PeaceTimeMinutes 60 -ApiPluginPackage $api -ApiPatcherPackage $patcher -BugfixesPackage $main -SkipBuild
+```
 
-## Bauen und starten
+Der offizielle Build prüft die Serienorchestrierung, die echte Dispatcher-Emission und die Abwesenheit eines zweiten Runtime-/Scannerbesitzers im Acceptance-Paket. Die produktiven Kern-/Arbeiter-Guard-/Scannerprüfungen gehören zu `BugfixesAndQoL/tests/TrappedUnitRescue.Tests`; sie bleiben beim Entfernen des Prototyps erhalten.
 
-`build.bat /nopause` baut das Paket und führt die spielunabhängigen nativen und Regeltests aus. Es installiert nichts dauerhaft.
+Alle Layouts enthalten jetzt BQoL: `Minimal` verwendet Script Extender, APIShared und BQoL; `Fixes` fügt Fixes hinzu, `Integrated` zusätzlich Pathfinding und `Planner` zusätzlich CastlePlanner. RandomEvents ist aus dem Testlayout ausdrücklich ausgeschlossen. Die Szenarien setzen Welt, Modsettings, Frieden, Lage und erforderliche AIC/AIV-Voraussetzungen selbst und prüfen sie vor der jeweiligen Wirkung. Der Runner nutzt einen getrennten Win32-Desktop ohne globale Maus-/Tastatureingaben, sichert Dateien und stellt Plugins, Konfiguration und Einstellungen nach der Serie überprüft wieder her. Eine laufende Nutzerpartie wird nicht übernommen.
 
-In PowerShell im Testmod-Verzeichnis:
+Eine `rescue-series` umfasst bis64 expandierte Fälle in einem Spielprozess und einem Layouttausch. `rescue-mountedkeep-off/on` expandiert jeweils in13 Partitionen. In dieser Matrix bedeutet OFF eine testlokale Pause der allgemeinen Rettung bei tatsächlicher Hostoption/Scannerkorrektur AN; echte Produkt-OFF-Fälle sind die eigenen AIV-/Masterprofile. Der Liveprüfer bindet Gateadresse, ursprünglichen und korrigierten CALL sowie Zweigführung und Wiederherstellung, bevor Reiter erzeugt werden.
 
-    .\Run-Tests.ps1 -Layout Fixes -Scenarios rescue-off,rescue-on
-
-`Minimal` verwendet Script Extender + APIShared, `Fixes` zusätzlich Fixes, `Integrated` zusätzlich BugfixesAndQoL und Pathfinding, `Planner` zusätzlich CastlePlanner. Verwendet werden Kopien des aktuell installierten Abhängigkeitsstands. Die Läufe finden nacheinander statt; ein bereits laufendes Spiel wird nicht übernommen.
-
-Für längere Wirtschaftsläufe kann `-Layout Integrated -PeaceTimeMinutes 60` die reguläre Lobby-Friedenszeit anfordern. Diese Prüfung benötigt eine Lobby, die Friedenszeit anbietet; eine fehlende Option wird als Fehler gemeldet. Farm und Kornspeicher müssen während der gesamten Beobachtung dieselbe globale Identität behalten.
-
-Weitere Szenarien: `rescue-group-off/on`, `rescue-aiwall-off/on`, `rescue-moat-off/on`, `rescue-moatworker-off/on`, `rescue-worker-off/on`, `rescue-ox-off/on`, `rescue-siege-off/on` (jeweils die vollständigen Namen wie `rescue-siege-on` übergeben). `-Map` wählt eine vorhandene lokale Gefechtskarte; Standard ist `test AI.map`. Die Vorrichtungen prüfen freie, flache Flächen tatsächlich. Fehlende Voraussetzungen sind Fehler, keine bestandenen Tests.
-
-Der Runner erzeugt verwerfbare Gefechte, sichert Logs und stellt Plugins, Einstellungen und eigene Config wieder her. Er steuert keine globale Maus/Tastatur. Produktive Saves werden nicht geschrieben. Der Testmod bleibt nach dem Lauf nicht installiert; das Paket unter `BepInEx/plugins/TrappedUnitRescueTest_Serp` bleibt zum erneuten Testen erhalten.
+Normale Pakete und Diagnosepakete getrennt qualifizieren. Für Diagnose-/NoJesters-Performanceprofile müssen BQoL und Acceptance beide über ihren jeweiligen offiziellen `build.bat /devdiag` gebaut werden. Die alte Prototyp-Diagnoseklasse darf nicht zusätzlich kompiliert werden. Das9871-Profil verwendet die800er-Karte Back to Back, ein ausdrücklich künstliches Jester-freies Testweltprofil und ein explizites PerfProbe-Paket; seine Zahlen sind keine allgemeine Normalwelt-/FPS-Garantie. Performanceprofile laufen einzeln mit eigenen ABAB-Fenstern und strengem Logvalidator.
 
 ## Save-/Load-Fälle einzeln starten (27.11.2026)
 

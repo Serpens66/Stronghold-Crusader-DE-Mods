@@ -30,6 +30,7 @@ if (-not $BugfixesDir) { $BugfixesDir = $env:SHCDE_ACCEPTANCE_BQOL_DIR }
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'tests/Test-PerformanceLog.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Passive performance evidence contract tests failed.' }
 if ([string]::IsNullOrWhiteSpace($ApiSharedDir)) { throw 'Select an explicit APIShared plugin/bootstrap package for runtime and tests.' }
+if ([string]::IsNullOrWhiteSpace($BugfixesDir)) { throw 'Select an explicit BugfixesDir package for production acceptance tests.' }
 $arguments = @('msbuild', (Join-Path $PSScriptRoot 'TrappedUnitRescueTest.csproj'), '/t:Build', '/p:Configuration=Release', '/verbosity:minimal')
 if ($BugfixesDir) { $arguments += '/p:BugfixesDir=' + [IO.Path]::GetFullPath($BugfixesDir) }
 if ($ApiSharedDir) { $arguments += '/p:ApiSharedDir=' + [IO.Path]::GetFullPath($ApiSharedDir) }
@@ -39,6 +40,6 @@ $testArguments = @('msbuild', (Join-Path $PSScriptRoot 'tests/TrappedUnitRescueT
 if ($ApiSharedDir) { $testArguments += '/p:ApiSharedDir=' + [IO.Path]::GetFullPath($ApiSharedDir) }
 & dotnet @testArguments
 if ($LASTEXITCODE -ne 0) { throw 'Production acceptance orchestration/package tests did not compile.' }
-& (Join-Path $PSScriptRoot 'tests/bin/TrappedUnitRescueTest.Tests.exe') ([IO.Path]::GetFullPath($ApiSharedDir)) (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp/TrappedUnitRescueTest.dll')
+& (Join-Path $PSScriptRoot 'tests/bin/TrappedUnitRescueTest.Tests.exe') ([IO.Path]::GetFullPath($ApiSharedDir)) (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp/TrappedUnitRescueTest.dll') (Join-Path ([IO.Path]::GetFullPath($BugfixesDir)) 'BugfixesAndQoL.dll')
 if ($LASTEXITCODE -ne 0) { throw 'Production acceptance orchestration/package tests failed.' }
 Write-Output 'PASS: package built; installation and game runs use the transactional Invoke-InGameTest runner.'

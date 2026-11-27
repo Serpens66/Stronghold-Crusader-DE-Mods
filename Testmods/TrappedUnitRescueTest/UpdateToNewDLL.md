@@ -1,5 +1,7 @@
 # Trapped Unit Rescue Test: native contracts
 
+**Production migration,27 November2026:** The replaced prototype runtime sources have been retired. Current code and ownership are in [BQoL/src/TrappedUnitRescue](../../BugfixesAndQoL/src/TrappedUnitRescue/UpdateToNewDLL.md); that production contract takes precedence for changed ownership, activation, scanner gating and save identity. The detailed address/layout audit below is retained as historical evidence and the inherited inventory. Historical prototype `src/` references refer to their versioned source, not a second current runtime.
+
 Reference: canonical installed CrusaderDE.dll SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 These prototype contracts were inspected on 2026-11-15. Resolve future baselines through CURRENT.json. Unknown native images disable this test runtime; no semantic fallback is claimed for unit/grid layouts.
 

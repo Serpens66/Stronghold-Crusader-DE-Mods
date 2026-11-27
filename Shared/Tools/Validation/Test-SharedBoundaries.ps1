@@ -207,7 +207,7 @@ if ($ConsumerOnly) {
     }
 }
 if ($needsUnitChecks) {
-    & (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory -SkipPermanentHooks
+    & (Join-Path $PSScriptRoot 'Test-UnitAccess.ps1') -ModDirectory $ModDirectory -ConsumerOnly:$ConsumerOnly -SkipPermanentHooks
     if (-not $?) { throw 'UnitAccess contract preflight failed.' }
 } else { Write-Host '[Preflight] No unit access in the scoped runtime sources; unit behavior suite not applicable.' }
 $preflightWatch.Stop()

@@ -138,6 +138,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AcceptanceProgram.cs"/><Compile Include="SeriesFixture.cs"/><Compile Include="../src/Fixture.Series.cs"/>
+    <Compile Include="MountedKeepContractFixture.cs"/><Compile Include="../src/Fixture.MountedKeepContract.cs"/>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
   <Import Project="../../../Directory.Build.targets" />

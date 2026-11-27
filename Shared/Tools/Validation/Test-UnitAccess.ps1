@@ -1,6 +1,7 @@
 [CmdletBinding()]
-param([string]$ModDirectory, [switch]$SkipPermanentHooks)
+param([string]$ModDirectory, [switch]$SkipPermanentHooks, [switch]$ConsumerOnly)
 $ErrorActionPreference = 'Stop'
+if ($ConsumerOnly -and -not $ModDirectory) { throw 'ConsumerOnly requires an explicit mod scope.' }
 $unitAccessWatch = [Diagnostics.Stopwatch]::StartNew()
 Write-Host '[Preflight] Building and running production UnitAccess contract tests...'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
@@ -10,6 +11,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Production UnitAccess contract tests failed.' 
 Write-Host '[Preflight] Scanning workspace UnitAccess usage...'
 $scanArguments = @('--scan')
 if ($ModDirectory) { $scanArguments += @('--mod-directory', $ModDirectory) }
+if ($ConsumerOnly) { $scanArguments += '--consumer-only' }
 & dotnet run --no-build --project $project -- @scanArguments
 if ($LASTEXITCODE -ne 0) { throw 'Workspace UnitAccess regression failed.' }
 if (-not $SkipPermanentHooks) {

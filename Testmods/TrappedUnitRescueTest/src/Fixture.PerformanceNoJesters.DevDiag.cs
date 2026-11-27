@@ -263,9 +263,10 @@ namespace TrappedUnitRescueTest
             internal NativeWorldTokenReader()
             {
                 var assembly=typeof(ApiShared).Assembly;
-                // Actual SDK metadata was inspected from this exact staged DLL.
+                // Verified merged SDK 0.78 full build, 27 Nov 2026: NativeWorld 17 / NativeClock 22 IL;
+                // readonly World/Mission/Sequence and lifecycle match the 0.74 / 0.77 snapshots.
                 // Private producer semantics are not a public API guarantee.
-                Require(assembly.ManifestModule.ModuleVersionId==new Guid("7e86a061-1c79-4e33-96ca-04a1c1e66b5e"),
+                Require(assembly.ManifestModule.ModuleVersionId==new Guid("79234223-ffd6-4a3b-a1ab-6eb0d6aa39f2"),
                     "Unknown SDK private-world snapshot; only the artificial native-state profile is unavailable");
                 var service=assembly.GetType("APIShared.MissionLifecycleService",true);
                 const BindingFlags all=BindingFlags.NonPublic|BindingFlags.Public|BindingFlags.Static|BindingFlags.Instance;

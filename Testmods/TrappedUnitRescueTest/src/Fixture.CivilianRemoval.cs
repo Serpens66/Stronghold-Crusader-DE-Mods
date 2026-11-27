@@ -29,7 +29,8 @@ namespace TrappedUnitRescueTest
             internal IDisposable PeasantCreated;
             internal readonly Dictionary<int,string> RejectStates=new Dictionary<int,string>();
             internal int RejectLogs,CreatedCount,RetiredCount;
-            internal bool CensusCaptured,NativeStaged,ExternalMarkerWon;
+            internal bool CensusCaptured,NativeStaged,ExternalMarkerWon,PeasantTripPublished;
+            internal Actor PeasantTripActor;internal int PeasantTripTick;
         }
         private CivilianRemovalProof civilianRemoval;
         private static volatile Fixture civilianRemovalFixture;
@@ -47,10 +48,25 @@ namespace TrappedUnitRescueTest
         private static unsafe void ObserveCivilianRemoval(int tick)
         {
             var f=civilianRemovalFixture;var p=f?.civilianRemoval;
-            if(f==null || f.stopped || p==null || !p.Active || !p.Written || p.Actor==null || p.Fault!=null)return;
+            if(f==null || f.stopped || p==null || !p.Active || p.Fault!=null)return;
             try
             {
-                f.CivilianRemovalWorld();p.ObservedTicks++;
+                f.CivilianRemovalWorld();
+                if(!p.Written)
+                {
+                    if(!p.NextOnly || !p.PeasantTripPublished)return;
+                    if(!f.TryCivilianRemovalActor(p.PeasantTripActor,false))
+                    {
+                        Require(unchecked((uint)(tick-p.PeasantTripTick))<128,"Published real Peasant route produced no eligible early ordinary accepted step within128 native ticks");
+                        return;
+                    }
+                    f.log("civilian-removal-peasant-accepted-step tick="+tick+" unit="+p.Actor.Id+"/"+p.Actor.Global+
+                        " current="+p.Before.X+","+p.Before.Y+" next="+p.Before.NextX+","+p.Before.NextY+" substep="+p.Before.Substep+
+                        " currentOrdinaryAndMoatEligible=true nextOrdinaryAndMoatEligible=true actualNativeUnitStep=true");
+                    f.ApplyCivilianRemovalMoat();
+                }
+                if(p.Actor==null)return;
+                p.ObservedTicks++;
                 bool same=UnitAccess.TryGetById(p.Actor.Id,out GameUnit* u,out _) && u!=null && u->r_GlobalId==p.Actor.Global;
                 if(!p.FirstTick)
                 {
@@ -271,9 +287,9 @@ namespace TrappedUnitRescueTest
             }
             return false;
         }
-        private unsafe bool StageFreeCivilian(Actor actor,GameUnit* u)
+        private unsafe bool StageFreeCivilian(Actor actor,GameUnit* u,bool prepareNextTrip=false)
         {
-            var p=civilianRemoval;if(p.NextOnly || p.NativeStaged)return false;
+            var p=civilianRemoval;if(p.NextOnly && !prepareNextTrip || p.NativeStaged)return false;
             Require(!Plugin.GeneralObserver.IsActive,"Peasant native setup placement requires General OFF");
             int ai=u->r_AIState,tribe=u->r_TribeId;uint hp=u->r_CurrentHealth;
             for(int dy=-10;dy<=10;dy++)for(int dx=-10;dx<=10;dx++)
@@ -286,6 +302,16 @@ namespace TrappedUnitRescueTest
                     int neighbour=runtime.Native.Tile(x+ox,y+oy);
                     if(!MoatWorkerSourceEligible(neighbour) || GameTileManagerAPI.Instance.GetTileUnitId(neighbour)!=0)clear=false;
                 }
+                if(prepareNextTrip)
+                {
+                    int height=GameTileManagerAPI.Instance.GetTileHeight(tile);
+                    for(int yy=y-1;yy<=y+1 && clear;yy++)for(int xx=x-1;xx<=x+9;xx++)
+                    {
+                        int next=runtime.Native.Tile(xx,yy);
+                        if(!MoatWorkerSourceEligible(next) || GameTileManagerAPI.Instance.GetTileUnitId(next)!=0 ||
+                            GameTileManagerAPI.Instance.GetTileHeight(next)!=height){clear=false;break;}
+                    }
+                }
                 if(!clear)continue;
                 log("civilian-removal-native-setup unit="+actor.Id+"/"+actor.Global+" originalAI="+ai+
                     " originalCurrent="+u->r_CurrentTilePositionX+","+u->r_CurrentTilePositionY+" target="+x+","+y+" original="+AppleTreeTileFacts((int)u->r_CurrentPositionTileId));
@@ -297,6 +323,38 @@ namespace TrappedUnitRescueTest
                 return true;
             }
             return false;
+        }
+        private unsafe bool PrepareCivilianPeasantNextTrip(Actor actor)
+        {
+            var p=civilianRemoval;
+            if(!UnitAccess.TryGetById(actor.Id,out GameUnit* u,out _) || u==null || u->r_GlobalId!=actor.Global || !UnitAccess.IsReallyAlive(u) ||
+                u->r_ControllableForPlayerId!=owner || !CivilianIsNaturallyFreePeasant(u) || u->r_AIState!=8 || runtime.Native.Word(u,0x9CA)!=0)return false;
+            var admitted=runtime.SnapshotUnit(actor.Id,true,false);
+            if(admitted==null || admitted.GlobalId!=actor.Global || !admitted.CivilianRemoval || admitted.Unsupported!=null)return false;
+            uint health=u->r_CurrentHealth;int tribe=u->r_TribeId;
+            if(!StageFreeCivilian(actor,u,true))return false;
+            Require(UnitAccess.TryGetById(actor.Id,out u,out _) && u!=null,"Staged natural Peasant disappeared");
+            int x=u->r_CurrentTilePositionX+8,y=u->r_CurrentTilePositionY;
+            Require(runtime.Native.OrdinaryGround((int)u->r_CurrentPositionTileId) && MoatWorkerSourceEligible((int)u->r_CurrentPositionTileId) &&
+                MoatWorkerSourceEligible(runtime.Native.Tile(x,y)) && GameTileManagerAPI.Instance.GetTileUnitId(runtime.Native.Tile(x,y))==0,
+                "Natural Peasant setup trip lacks its unchanged ordinary source/goal");
+            bool accepted=runtime.Native.TryReissue(actor.Id,x,y,
+                ()=>!stopped && p.Active && !Plugin.GeneralObserver.IsActive && !Plugin.GeneralObserver.IsRecovering &&
+                    WorldMutationEvents.TryGetCurrentWorld(out long sid,out long world) && sid==p.Session && world==p.World,out var receipt);
+            Require(UnitAccess.TryGetById(actor.Id,out u,out _) && u!=null,"Native Peasant move lost its original slot");
+            log("civilian-removal-peasant-setup-move unit="+actor.Id+"/"+actor.Global+" target="+x+","+y+" accepted="+accepted+
+                " status="+receipt?.Status+" nativeInvoked="+receipt?.NativeInvoked+" nativeReturned="+receipt?.NativeReturned+" nativeResult="+receipt?.NativeResult+
+                " ai="+u->r_AIState+" flags="+u->r_PathPlanStateBitFlags+" substep="+u->r_MovementSubstep+" pathLength="+u->r_PathPlanLength+
+                " source="+u->r_CurrentTilePositionX+","+u->r_CurrentTilePositionY+" speed916="+(short)runtime.Native.Word(u,0x916)+
+                " explicitNativeSetupOnly=true rawAIOrNextWrites=false acceptedNextNotYetClaimed=true");
+            Require(accepted && receipt!=null && receipt.NativeInvoked && receipt.NativeReturned && receipt.NativeResult==1 &&
+                u->r_GlobalId==actor.Global && u->r_UnitChimp==actor.Type && u->r_ControllableForPlayerId==owner && UnitAccess.IsReallyAlive(u) &&
+                u->r_CurrentHealth==health && u->r_TribeId==tribe && u->r_AIState==8 && CivilianIsNaturallyFreePeasant(u) && runtime.Native.Word(u,0x9CA)==0 &&
+                u->r_PathPlanLength>0 && (u->r_PathPlanStateBitFlags==2 || u->r_PathPlanStateBitFlags==4) &&
+                u->r_TargetTilePositionX2==x && u->r_TargetTilePositionY2==y,
+                "Real Peasant setup command failed or changed natural identity/AI/free-role; no synthetic movement substitute");
+            Require(SimulationTickEvents.TryGetCurrentTick(out p.PeasantTripTick),"Prepared Peasant trip has no actual native tick");
+            actor.Health=health;p.PeasantTripActor=actor;p.PeasantTripPublished=true;return true;
         }
         private unsafe void CaptureNaturalFreePeasants()
         {
@@ -375,7 +433,7 @@ namespace TrappedUnitRescueTest
             if(p.NextOnly)
             {
                 // A first-tick Current-safe control, not a guessed post-midpoint acceptance.
-                if(!moving || b.Substep>1)return false;
+                if(!moving || b.Substep>1 || !MoatWorkerSourceEligible(b.TileId))return false;
                 x=b.NextX;y=b.NextY;
             }
             else if(moving)
@@ -439,6 +497,11 @@ namespace TrappedUnitRescueTest
                 int id=b->r_WorkerId_1;
                 if(id==0 || !UnitAccess.TryGetById(id,out GameUnit* u,out _) || u==null || u->r_GlobalId!=b->N0000176A)return false;
                 return TryCivilianRemovalActor(CivilianActor(u,id),true);
+            }
+            if(p.NextOnly)
+            {
+                if(!p.PeasantTripPublished)foreach(var a in p.FreePeasants)if(PrepareCivilianPeasantNextTrip(a))break;
+                return p.Written;
             }
             foreach(var a in p.FreePeasants)if(TryCivilianRemovalActor(a,false))return true;
             return false;
@@ -636,9 +699,10 @@ namespace TrappedUnitRescueTest
                     foreach(var w in run.SetPause(run.CurrentMission,true))yield return w;
                     if(sample%256==0)log("civilian-removal-acquire sample="+sample+" naturalWorker="+worker+" nextOnly="+p.NextOnly+" knownFree="+p.FreePeasants.Count);
                 }
+                Require(p.Fault==null,p.Fault);
                 Require(p.Before!=null,"No natural qualified civilian source acquired; no eligible natural identity/phase or controlled native source pose was acquired");
                 run.InSimulation(run.CurrentMission,()=>{
-                    ApplyCivilianRemovalMoat();
+                    if(!p.Written)ApplyCivilianRemovalMoat();
                     if(scenario=="rescue-removal-worker-replan-on")ReplanTrappedCivilianBeforeRecovery();
                     return true;
                 });

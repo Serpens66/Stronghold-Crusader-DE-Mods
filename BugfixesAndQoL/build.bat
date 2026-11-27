@@ -48,7 +48,7 @@ echo [%date% %time%] Test mode: %BUILD_TEST_MODE%
 if "%BUILD_TEST_MODE%"=="none" goto build_setup
 echo [%date% %time%] Workspace source and runtime preflight
 call :step_start "tests" "01-Test-SharedBoundaries.ps1"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory BugfixesAndQoL
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\Shared\Tools\Validation\Test-SharedBoundaries.ps1" -ModDirectory BugfixesAndQoL -ConsumerOnly
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" exit /b 1
 :build_setup

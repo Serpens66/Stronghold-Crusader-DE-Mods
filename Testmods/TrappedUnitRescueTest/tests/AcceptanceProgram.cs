@@ -11,14 +11,18 @@ namespace TrappedUnitRescueTest.Tests
         {
             try
             {
+                if(args.Length!=3)throw new ArgumentException("Pass selected SDK directory, acceptance DLL and selected BQoL DLL.");
+                string main=Path.GetFullPath(args[2]);
+                if(!File.Exists(main) || AssemblyName.GetAssemblyName(main).Name!="BugfixesAndQoL")
+                    throw new ArgumentException("The explicitly selected BQoL assembly is unavailable.");
                 string game="E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition";
-                var directories=new[]{args[0],Path.GetFullPath(Path.Combine(args[0],"../../patchers")),Path.Combine(game,"BepInEx/core"),
+                var directories=new[]{args[0],Path.GetFullPath(Path.Combine(args[0],"../../patchers")),Path.GetDirectoryName(main),Path.Combine(game,"BepInEx/core"),
                     Path.Combine(game,"BepInEx/plugins/000shcdese"),Path.Combine(game,"Stronghold Crusader Definitive Edition_Data/Managed")};
                 AppDomain.CurrentDomain.AssemblyResolve+=(sender,e)=>{
                     string name=new AssemblyName(e.Name).Name+".dll";
                     foreach(var directory in directories){string file=Path.Combine(directory,name);if(File.Exists(file))return Assembly.LoadFrom(file);}return null;
                 };
-                SeriesFixture.Run();VerifyPackage(args[1]);return 0;
+                SeriesFixture.Run();VerifyPackage(args[1]);MountedKeepContractFixture.Run(main);return 0;
             }
             catch(Exception error){Console.Error.WriteLine(error);return 1;}
         }
