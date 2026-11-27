@@ -1,6 +1,21 @@
 # Rescue performance acceptance plan
 
-Status: 26 November 2026, after completed runs 127, 129 and 132. The instrumented and passive 800-map/1000-actor ambient-AI ABAB series passed their fixture checks;129 and the new Rescue-DEVDIAG-span run132 passed whole-run offline qualification. Run129 required correction of a postprocessor blank-line binding error. Run132 establishes actual capture-span durations, without identifying individual native-call spikes. Full performance acceptance remains open; no FPS or saturation acceptance is claimed. This plan supplements the singleplayer functional cases in INGAME-PENDING.md. The current target for later integration is BugfixesAndQoL; this document does not authorize installation or integration by itself.
+Historical implementation snapshot, 26 November 2026, after completed runs 127, 129 and 132. The instrumented and passive 800-map/1000-actor ambient-AI ABAB series passed their fixture checks;129 and the new Rescue-DEVDIAG-span run132 passed whole-run offline qualification. Run129 required correction of a postprocessor blank-line binding error. Run132 establishes actual capture-span durations, without identifying individual native-call spikes. Full performance acceptance remains open; no FPS or saturation acceptance is claimed. This plan supplements the singleplayer functional cases in INGAME-PENDING.md. The current target for later integration is BugfixesAndQoL; this document does not authorize installation or integration by itself.
+
+## Current production-host result: 27 November 2026, run213
+
+Run `213/0ad2d176595b` completed the integrated BQoL diagnostic ABAB profile `rescue-perf-9871-nojesters-passive-on`: all9871 original actors, the constant1000-actor walking cohort, eight measured windows, five exact NativeLoaded/ManagedReady handoffs and four endpoint checks passed. The current181-check log validator qualifies the archived log (`Qualified=true`, `DiagnosticCompositionLimited=true`). Plugin/configuration restoration and the hidden desktop closure are confirmed. This is the artificial NoJesters common-save profile on the800-map, with no additional acceptance UnitMove demand; it is not an all9871-walking test, ordinary-world guarantee or general FPS claim.
+
+| Median of the two window means, wall ms | OFF | ON |
+|---|---:|---:|
+| Full-population idle | 5.011 | 4.8025 |
+| Constant1000 walking cohort | 5.3465 | 5.3395 |
+
+These are observed window comparisons with temporal variation, not evidence that enabling rescue improves performance. Each ON idle window recorded321 captures and each ON walking window916; all eight windows recorded zero attempts, rescues and removal requests. The three samples above50ms all occurred in the last ON walking window (maximum71.220ms); no sample exceeded100ms. Their cause is unassigned. There is no measured native-deletion completion or causal removal-cost result.
+
+After the generic NativeIndirectEntry trampoline correction,37 focused SDK checks and the full SDK build passed; the game emitted `NOTIFICATION_IDENTITY_READY`. Exactly one verified early `PITCH_MOAT_LINE_DISABLED` error came from PerfProbe's Monitor-wrapper composition before army creation. The same diagnostic composition was used OFF/ON. Qualification is expressly limited to this rescue profile: no complete BQoL/Pitch-feature compatibility approval follows.
+
+Authoritative evidence: [compact summary](../../.work/a/rescue-sp/001/n8-perf213-summary.json) and [current qualification](../../.work/a/rescue-game/213/0ad2d176595b/performance-validation-current.json). The summary's earlier `CurrentValidatorRequalificationPending=true` is superseded by that later current qualification. The separate normal final package subsequently passed214 (Planner14 cases) and215 (Minimal4 cases), with no Error/Fatal records, both Notification/PitchLine READY, verified restoration and normal Main/acceptance NoDevGate. Those runs establish the normal integration without PerfProbe; they do not remove213's instrumentation limitation. See [final acceptance](FINAL-ACCEPTANCE.md). Earlier run evidence below retains its dated scope.
 
 ## Purpose and architecture under test
 

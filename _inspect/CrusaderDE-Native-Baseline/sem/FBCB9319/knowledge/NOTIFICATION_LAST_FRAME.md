@@ -265,3 +265,47 @@ absolute custom-lord paths, text-only messages, foreign sources and unchanged HD
 wait/lifecycle/click safeguards. A soundless video runs to its own end; visible
 text may continue independently. These tests do not substitute for an actual
 post-fix game run or prove every decoder/media format.
+
+
+## 2026-11-27: shared notification trampoline validation [mod integration]
+
+This is an APIShared/Iced/RedBird compatibility finding, not a Vanilla defect or
+new notification gameplay rule. The canonical game image was rechecked against
+CURRENT SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
+
+The installed RedBird `TrampolineBuilder` decodes displaced instructions, appends
+a jump to the original entry plus the original displaced length, and encodes the
+block at its actual trampoline address with Iced `BlockEncoder`. At queue reset
+`0x102C30`, the audited six-byte source `40 53 48 83 EC 20` becomes the five-byte
+payload `53 48 83 EC 20`: the redundant REX prefix before PUSH RBX is omitted.
+The continuation remains `0x102C36`; it is not source+5. A raw six-byte prologue
+comparison therefore rejects a valid backend trampoline. The other audited
+notification entries are `0xFEE50`/6, `0x24220`/10, `0x87D10`/6 and `0x104240`/7.
+
+Actual runs211/840a4a85a511 and212/8435768fbe68 reproduced the resulting
+`NOTIFICATION_IDENTITY_UNAVAILABLE / Native indirect displaced instructions
+changed` error after preparation. This was not evidence of a competing hook:
+original source checks and five detour preparations succeeded, and validation
+failed before their publication. The shared internal verifier now derives the
+complete expected encoded payload and continuation from the audited originals,
+compares actual encoded size and all live trampoline bytes, and retains original
+span, owner, Indirect slot, entry/padding and undisplaced continuation checks.
+No signature, native continuation, gameplay call or public API was changed.
+Validation is at publication/integrity boundaries, not ordinary per-unit or
+production-tick callbacks; an explicit integrity query still verifies live bytes.
+
+Evidence: installed backend decompilation retained in
+`.work/a/rescue-sp/001/notification-trampoline-builder.cs` and
+`notification-native-detour.cs`; the actual five-prologue backend regression in
+`APIShared/tests/APISharedTests/WorldMutationNativeTests.cs`; compact
+`.work/a/rescue-sp/001/notification-trampoline-result.json` and its37/37 focused
+TRX/logs. Tests reject payload, resume, size, original, slot and padding changes
+on private guarded pages; original game function bodies are not executed there.
+The first testhost attempt stalled after discovery, was cancelled, and produced
+no qualified result; its cause remains unknown. The corrected observable retry
+passed. Subsequent normal Planner214 and Minimal215 have zero Error/Fatal lines
+and explicit notification READY, as recorded in the
+[SP acceptance](../../../../../Testmods/TrappedUnitRescueTest/SP-ACCEPTANCE.md#27112026--normale-endabnahme214215)
+and [final acceptance](../../../../../Testmods/TrappedUnitRescueTest/FINAL-ACCEPTANCE.md).
+These rescue/initialization runs do not establish all notification UI behavior,
+Noesis decoder timing or multiplayer acceptance.

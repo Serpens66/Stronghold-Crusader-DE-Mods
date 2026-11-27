@@ -192,9 +192,26 @@ function Assert-RescuePerformanceLog {
     Require ((Position $end[0]) -gt $cursor) 'Army manifest boundary chronology differs'
     $cursor=Position $end[0]
     $armyResults=0
+    $diagnosticCompositionLine=$null;$lastPerfProbeTrace=-1;$lineIndex=-1
+    $armyBeginPosition=Position $begin[0]
+    # One known diagnostic-only composition failure, never a general error allowlist.
+    # The real Harmony trace must precede the exact Error, both before this run's
+    # army creation. All later/changed/fatal/duplicate failures remain disqualifying.
+    $perfProbeTrace='^\[Info\s*:\s*HarmonyX\]\s+Running transpiler static System\.Collections\.Generic\.IEnumerable<HarmonyLib\.CodeInstruction> PerfProbe\.PerfProbeRunTiming::SafeTranspile\(System\.Collections\.Generic\.IEnumerable<HarmonyLib\.CodeInstruction> instructions, System\.Reflection\.MethodBase __originalMethod\)$'
+    $knownPitch='^\[Error\s*:\s*Bugfixes and QoL\]\s+\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\] PITCH_MOAT_LINE_DISABLED: incompatible locked engine tick after managed patch composition\.$'
     foreach($line in $Lines){
-        Require ($line -notmatch '\[(?:Error|Fatal)\s*:\s*(?:APIShared|Trapped Unit Rescue Test|SHCDE-SE|Perf Probe|Fixes)\s*\]' -and
-            $line -notmatch 'UNIT_MOVE_OBSERVER_FAILED|UNIT_MOVE_NATIVE_OWNER_CHANGED|Simulation tick callback failed:|WORLD_MUTATION_CALLBACK_FAILED|INIT_FAILED|FIXES_INTEGRATION_INACTIVE') 'Relevant runtime/observer failure'
+        $lineIndex++
+        if($line -cmatch $perfProbeTrace){$lastPerfProbeTrace=$lineIndex}
+        Require ($line -notmatch 'UNIT_MOVE_OBSERVER_FAILED|UNIT_MOVE_NATIVE_OWNER_CHANGED|Simulation tick callback failed:|WORLD_MUTATION_CALLBACK_FAILED|INIT_FAILED|FIXES_INTEGRATION_INACTIVE|MOUNTED_SCANNER\s+ERROR\b|TRAPPED_UNIT_RESCUE\s+(?:UNAVAILABLE|SETTINGS_UNAVAILABLE)\b') 'Relevant runtime/observer failure'
+        $errorHeader=[regex]::Match($line,'\[(?<severity>Error|Fatal)\s*:\s*(?<owner>[^\]]+?)\s*\]')
+        $relevantError=$errorHeader.Success -and ($errorHeader.Groups['owner'].Value.Trim() -in @('APIShared','Trapped Unit Rescue Test','SHCDE-SE','Perf Probe','Fixes','Bugfixes and QoL','RescueMountedScanner','Pathfinding','CastlePlanner') -or
+            $line -match 'TRAPPED_UNIT_RESCUE|MOUNTED_SCANNER|PITCH_MOAT_LINE_DISABLED')
+        if($relevantError -or $line.Contains('PITCH_MOAT_LINE_DISABLED')){
+            $knownEarlyPitch=$line -cmatch $knownPitch -and $null -eq $diagnosticCompositionLine -and
+                $lastPerfProbeTrace -ge 0 -and $lastPerfProbeTrace -lt $lineIndex -and $lineIndex -lt $armyBeginPosition
+            Require $knownEarlyPitch 'Relevant runtime/observer failure'
+            $diagnosticCompositionLine=$line
+        }
         if($line.Contains('RESCUE_TEST unit=')){
             $result=[regex]::Match($line,'RESCUE_TEST unit=(?<id>[1-9][0-9]*)/(?<global>[1-9][0-9]*) result=(?<status>\S+)')
             Require $result.Success 'Malformed rescue result; cannot exclude army mutation'
@@ -306,6 +323,8 @@ function Assert-RescuePerformanceLog {
     Require ((Position $terminal[0]) -gt $cursor) 'Terminal PASS precedes completed performance evidence'
     return [pscustomobject][ordered]@{Schema=1;Run=$Run;Profile='no-extra-unitmove-demand';NativeStateFixture=$nativeStateFixture;GeneralPerformanceClaim=$false;Population=$population;WalkingPopulation=1000;Scenario=$Scenario;ManifestBatches=$batchCount;
         ArmyResultCount=$armyResults;CompletedWindows=8;EndpointCompletions=4;Identity=$identity;Qualified=$true;
+        DiagnosticCompositionLimited=($null -ne $diagnosticCompositionLine);DiagnosticCompositionLine=$diagnosticCompositionLine;
+        DiagnosticCompositionReason=$(if($null -ne $diagnosticCompositionLine){'PerfProbe run-phase Monitor composition disabled PitchMoatLines before army creation; rescue-profile comparison only, no full BQoL/Pitch compatibility claim'}else{$null});
         OutcomeSchema=$outcomeSchema;OutcomeCountersObserved=($outcomeSchema -eq 2);
         CaptureCountTotal=$(if($outcomeSchema -eq 2){[long]$captureTotal}else{$null});
         AttemptCountTotal=$(if($outcomeSchema -eq 2){[long]$attemptTotal}else{$null});

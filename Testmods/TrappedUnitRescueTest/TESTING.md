@@ -4,12 +4,20 @@
 
 Die produktive Hostoption `EnableTrappedUnitRescue` ist standardmäßig AN. Zusammen mit `EnableMod` steuert sie sowohl die allgemeine SP-/Editor-Rettung als auch die entfernbare Fixes-Reiterkorrektur. Der Clientmaster steuert diese Hostfunktionen nicht. OFF führt keine eigene historische Arbeiterbereinigung aus. Im Testmod gibt es keine zusätzliche Produktoption; ohne gültige eigene Automationsanforderung beginnt kein Szenario.
 
+## Aktueller Abschlussstand nach Normalabnahme215 (27.11.2026)
+
+Das integrierte künstliche NoJesters9871-Profil mit konstanter1000er-Walkingkohorte ist tatsächlich abgeschlossen: acht ABAB-Fenster, fünf genaue Welt-/Ready-Handoffs, vier Endpunktprüfungen und alle9871 Originalidentitäten; Wiederherstellung und Desktopabschluss bestätigt. Die [aktuelle181-Checks-Qualifikation](../../.work/a/rescue-game/213/0ad2d176595b/performance-validation-current.json) ist positiv. Nach Generic-Trampolinfix und37 fokussierten/vollständigen SDK-Prüfungen erschien `NOTIFICATION_IDENTITY_READY` im Spiel.
+
+Die [Zusammenfassung213](../../.work/a/rescue-sp/001/n8-perf213-summary.json) enthält die Messwerte: OFF/ON-Wall-Median der Fenstermittel Idle5.011/4.8025ms, Walking5.3465/5.3395ms; keine kausale Verbesserung behaupten. Je ON-Fenster321/916 Erfassungen, aber0 Versuche/Rettungen/Entfernungsaufträge. Drei Werte über50ms ausschließlich im letzten ON-Walkingfenster, Maximum71.220ms,0 über100ms; keine Ursachenzuordnung.
+
+Genau ein früher verifizierter PitchLine-Error durch den PerfProbe-Monitorwrapper begrenzt die positive Qualifikation auf dieses identische OFF/ON-Diagnoseprofil. Keine volle BQoL-/Pitch-Kompatibilitätsfreigabe oder allgemeine FPS-/Normalweltgarantie daraus ableiten. Der frühere Pending-Vermerk der Zusammenfassung ist durch die aktuelle Qualifikation überholt. Das normale Endpaket besteht inzwischen ebenfalls:214/0714d5b63904 (Planner14 Fälle) und215/29cd44bd7f5b (Minimal4 Fälle), jeweils ohne Error-/Fatal-Zeilen, mit Notification-/PitchLine-READY sowie bestätigter Wiederherstellung. Main- und Acceptance-Normalbuild, NoDevGate und Ausschluss der Diagnosehelfertypen sind bestanden. Siehe [Abschlussabnahme](FINAL-ACCEPTANCE.md). Die bisherigen historischen Laufbelege bleiben erhalten.
+
 ## Ausgewählte Pakete bauen und ausführen
 
 Vom Workspace-Root aus ein vollständig geprüftes APIShared-SDK samt passendem Bootstrap und ein aktuelles BQoL-Paket auswählen. Folgendes Beispiel verwendet den datierten lokalen Rescue-SDK-Pfad; ein anderer geprüfter SDK-Quellstand darf entsprechend ausdrücklich gewählt werden. Die beiden Auswahlvariablen verhindern, dass der Consumer-Precheck versehentlich den anderen APIShared-Checkout prüft.
 
 ```powershell
-$sdk = (Resolve-Path '.work/a/rescue-api/001').Path
+$sdk = (Resolve-Path 'APIShared').Path
 $env:SHCDE_BRANCH_API_ROOT = $sdk
 $env:SHCDE_BRANCH_API_COMMIT = (git -C $sdk rev-parse HEAD).Trim()
 $api = Join-Path $sdk 'BepInEx/plugins/APIShared_Serp'
@@ -46,8 +54,9 @@ Lauf175 (`175/d642428c038e`) hat KI-Arbeiter OFF/ON sowie Pending-Save OFF tats�
 - Gruppen: drei echte Soldaten im selben Verband, getrennte Fälle für blockierten tatsächlichen Anführer und Nicht-Anführer; native Einzelziele und wirkliche Ankunft werden geprüft. Die Off-Gegenprobe misst die freien Mitglieder, ohne eine universelle Gruppenblockade vorauszusetzen.
 - KI-Mauerbau: tatsächlicher nativer KI-Baupfad; Off dokumentiert vorhandenes Fixes-Verhalten, On prüft lokale Rettung statt Bergfriedteleport.
 - Graben: echter nativer Grabenpfad als Gegenprobe. Ein fertiger Graben darf nicht pauschal als unzulässiger Standort gelten; ein neuer Bewegungsbefehl kann Vanillas Grabenmodus aktivieren.
-- Grabenarbeiter: natürlich beschäftigter Apfelbauer mit echtem Graben am Standort. Vergleicht Fixes' tatsächlichen Löschmarker mit dem aktivierten Schutz und anschließendem regulärem Verlassen des Grabens zum bisherigen Arbeitsziel.
-- Weitere Szenarien prüfen Arbeiteraufträge/Waren und Gerät/Besatzung. Konkrete `source=`- und Abdeckungsmarker im jeweiligen Log unterscheiden natürliche Abläufe, kontrollierte native Aufrufe und künstliche Zustandsvorrichtungen.
+- Bauern/Arbeiter: echte kausale Änderung, eigene Löschmarkierung und anschließende vollständige native Entfernung, freie alte Ketten sowie Mitarbeiterbindungen und gegebenenfalls natürliche Neubesetzung. Eine vorherige Vanilla-/Fixes-Markierung gewinnt ohne zweite eigene Markierung.
+- CurrentSafe-/Next-only-Gegenproben verlangen an der ersten qualifizierten Recoveryboundary eine lebende ursprüngliche Identität auf sicherem Current und null eigene Markierungen. Wird später die akzeptierte Next-Kachel zum unsicheren Current, kann eine Entfernung legitim werden. Alte Arbeiteraufträge, Cargo oder Waren werden nicht wiederhergestellt oder kompensiert.
+- Weitere Szenarien erhalten Soldaten, Verbände sowie Gerät/Besatzung und prüfen tatsächliche Bewegung. Konkrete `source=`- und Abdeckungsmarker im jeweiligen Log unterscheiden natürliche Abläufe, kontrollierte native Aufrufe und künstliche Zustandsvorrichtungen.
 - No-op und Einschluss auf unverändert gültigem Boden dürfen keine Rettung auslösen. Ein erfolgreicher Teleport allein belegt weder Auftragsfortsetzung noch korrekte Arbeit.
 
 `PASS` gilt ausschließlich für die aufgeführten Szenarioassertionen. Abdeckungsmarker weisen ausgelassene Fälle aus; insbesondere sind aktive Sonderzustände, alte Saves und echter Host/Client-Multiplayer nicht durch einen erfolgreichen lokalen Lauf abgenommen. Unbekannte Native-/Fixes-Verträge sperren die Ersatzfunktion, statt fremde Hooks blind zu beeinflussen.
@@ -56,9 +65,11 @@ Lauf175 (`175/d642428c038e`) hat KI-Arbeiter OFF/ON sowie Pending-Save OFF tats�
 
 Historischer Ausgangsstand der Prüfung war Fixes 1.30.0; der Runtime-Scannerpfad ist inzwischen mit unveränderter Fixes-1.31-DLL in Lauf 149 geprüft. Die Kompatibilitätsprüfung bindet sich an die tatsächlich beeinflussten Methoden samt relevanten Helfern und den vollständig geprüften installierten Worker-Stub. Eine neue Fixes-Version mit unveränderten relevanten Verträgen bleibt zulässig. Ändert sich ein solcher Vertrag, bleibt unsere Ersatzfunktion aus; ein Update wird dadurch nicht pauschal als sicher erklärt.
 
-Die Fixes-Reiterrettung von Bergfrieden und die Bauernrettung an Torhäusern bleiben aktiv. Der Testmod verändert dafür keine fremden Einstellungen und führt keinen weiteren Schalter ein. Den eigenen nativen Hook prüft er vor Veröffentlichung und bei jedem Missions-/Editorstart auf überlappende Fremdpatches.
+Die fremden Einstellungen für Fixes-Reiterrettung und Torhausbauern werden nicht verändert. BQoL besitzt die Scannerkorrektur und die Hook-/Fremdpatchprüfung; der Acceptance-Mod besitzt keinen eigenen Rettungshook oder EarlyProvider. Die eigene Korrektur folgt `EnableMod && EnableTrappedUnitRescue`; OFF lässt den ursprünglichen Fixes-Aufruf bestehen.
 
     .\Run-Tests.ps1 -Layout Fixes -Scenarios rescue-mountedkeep-off,rescue-mountedkeep-on
+
+In diesen beiden Matrixprofilen bedeutet OFF ausschließlich eine testlokale Pause der allgemeinen Rettung; tatsächliche BQoL-Hostoption und Scannerkorrektur sind beide AN. Das ist keine Abnahme der ausgeschalteten Produktoption. Tatsächliche Options-/Master-OFF-Fälle verwenden `rescue-aivbridge-off`, `rescue-aivbridge-hostmaster-off` und die Legacy-Save-/Load-Gegenproben; sie verlangen keine eigene Korrektur oder Bereinigungsaktion.
 
 Die Bergfriedmatrix prüft Ritter, berittene Bogenschützen und beide Kameltypen, drei Bergfriedtypen, vier Lagerfeuerausrichtungen sowie stehende Einheiten und begonnene Bewegungsschritte. Der kleinste Bergfried erzeugt auf zuvor freiem Boden keine erhöhte Dachfläche und ist deshalb eine Gegenprobe gegen einen unzulässigen Fixes-Teleport. Die beiden größeren sind die positiven Fixes-Rettungsfälle. Identität, Gesundheit, Verband, Ziel und Kachelbelegung werden kontrolliert; hinzu kommen ein blockierter Lagerfeuerausgang und die Kontrolle gegen einen zweiten Teleport nach eigener lokaler Rettung. Die tatsächliche Installation der Fixes-Reiterhooks ist Voraussetzung. Die Szenarien verändern den Fixes-Schalter nicht.
 

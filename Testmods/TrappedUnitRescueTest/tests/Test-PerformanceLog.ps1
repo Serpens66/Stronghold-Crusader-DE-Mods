@@ -39,6 +39,46 @@ Reject ($valid+@('RESCUE_TEST unit=1/1001 result=Unsupported')) 'rescue attempt 
 $other=Assert-RescuePerformanceLog -Lines ($valid+@('RESCUE_TEST unit=1001/9001 result=Relocated')) -Run $run
 if(!$other.Qualified){throw 'Unrelated ambient rescue was rejected'};$checks++
 Reject ($valid+@('[Error  : APIShared] callback failed')) 'runtime/observer failure'
+# Migrated production owners remain strict; markers cannot hide behind a renamed logger.
+foreach($failure in @(
+    '[Error  :Bugfixes and QoL] [2026-11-27 16:15:08.110] TRAPPED_UNIT_RESCUE UNAVAILABLE startup failed',
+    '[Error  :Bugfixes and QoL] unknown main feature failure',
+    '[Error  :Pathfinding] movement owner unavailable',
+    '[Error  :CastlePlanner] geometry owner unavailable',
+    '[Fatal  :Bugfixes and QoL] unexpected main failure',
+    '[Error  :Bugfixes and QoL] FIXES_INTEGRATION_INACTIVE contract changed',
+    '[Error  :RescueMountedScanner] MOUNTED_SCANNER ERROR contract changed',
+    '[Fatal  :RescueMountedScanner] unexpected scanner failure',
+    '[Error  :OtherOwner] TRAPPED_UNIT_RESCUE unexpected failure',
+    'TRAPPED_UNIT_RESCUE SETTINGS_UNAVAILABLE settings threw',
+    'MOUNTED_SCANNER ERROR missing native gate',
+    'FIXES_INTEGRATION_INACTIVE disabled')){
+    Reject ($valid+@($failure)) 'runtime/observer failure'
+}
+$compositionTrace='[Info   :  HarmonyX] Running transpiler static System.Collections.Generic.IEnumerable<HarmonyLib.CodeInstruction> PerfProbe.PerfProbeRunTiming::SafeTranspile(System.Collections.Generic.IEnumerable<HarmonyLib.CodeInstruction> instructions, System.Reflection.MethodBase __originalMethod)'
+$compositionPitch='[Error  :Bugfixes and QoL] [2026-11-27 16:15:08.110] PITCH_MOAT_LINE_DISABLED: incompatible locked engine tick after managed patch composition.'
+$compositionInput=@($compositionTrace,$compositionPitch)+$valid
+$limited=Assert-RescuePerformanceLog -Lines $compositionInput -Run $run
+if(!$limited.Qualified -or !$limited.DiagnosticCompositionLimited -or $limited.DiagnosticCompositionLine -cne $compositionPitch -or
+    $limited.DiagnosticCompositionReason -notlike '*no full BQoL/Pitch compatibility claim*' -or $limited.GeneralPerformanceClaim){throw 'Known startup composition limit was concealed or widened'};$checks++
+if($result.DiagnosticCompositionLimited -or $null -ne $result.DiagnosticCompositionLine -or $null -ne $result.DiagnosticCompositionReason){throw 'Clean result invents a diagnostic limitation'};$checks++
+Reject (@($compositionPitch)+$valid) 'runtime/observer failure'
+Reject (@($compositionPitch,$compositionTrace)+$valid) 'runtime/observer failure'
+Reject (@($compositionTrace,$compositionPitch,$compositionPitch)+$valid) 'runtime/observer failure'
+foreach($changed in @(
+    $compositionPitch.Replace('[Error','[Fatal'),
+    $compositionPitch.Replace('Bugfixes and QoL','OtherOwner'),
+    $compositionPitch.Replace('locked engine tick','different engine tick'),
+    ($compositionPitch+' extra'),
+    $compositionPitch.Replace('[Error','[Info'))){
+    Reject (@($compositionTrace,$changed)+$valid) 'runtime/observer failure'
+}
+Reject (@($compositionTrace.Replace('PerfProbe.PerfProbeRunTiming','Other.RunTiming'),$compositionPitch)+$valid) 'runtime/observer failure'
+$armyBeginIndex=[Array]::IndexOf($valid,@($valid|Where-Object {$_ -like '*performance-army-begin *'})[0])
+Reject (@($valid[0..$armyBeginIndex])+@($compositionTrace,$compositionPitch)+@($valid[($armyBeginIndex+1)..($valid.Count-1)])) 'runtime/observer failure'
+Reject ($valid+@($compositionTrace,$compositionPitch)) 'runtime/observer failure'
+$windowIndex=[Array]::IndexOf($valid,@($valid|Where-Object {$_ -like '*performance-window *'})[0])
+Reject (@($valid[0..$windowIndex])+@($compositionTrace,$compositionPitch)+@($valid[($windowIndex+1)..($valid.Count-1)])) 'runtime/observer failure'
 Reject ($valid+@('UNIT_MOVE_OBSERVER_FAILED')) 'runtime/observer failure'
 Reject ($valid+@('RESCUE_TEST unit=broken')) 'Malformed rescue result'
 Reject @($valid|Where-Object {$_ -notmatch 'performance-endpoints .*iteration=2 '}) 'endpoint completion'
@@ -283,6 +323,12 @@ try{
         if(!$actual.Qualified -or $actual.Run -cne $run -or $actual.Population -ne $population -or $actual.WalkingPopulation -ne 1000){throw 'CLI did not write exactly selected qualified evidence'}
         $checks++
     }
+    [IO.File]::WriteAllLines($inputFile,[string[]]$compositionInput)
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../Test-PerformanceLog.ps1') -LogPath $inputFile -ExpectedRun $run -OutputPath $outputFile
+    if($LASTEXITCODE -ne 0){throw 'Fresh-process known startup diagnostic qualification failed'}
+    $actual=[IO.File]::ReadAllText($outputFile)|ConvertFrom-Json
+    if(!$actual.Qualified -or !$actual.DiagnosticCompositionLimited -or $actual.DiagnosticCompositionLine -cne $compositionPitch -or
+        $actual.DiagnosticCompositionReason -notlike '*rescue-profile comparison only*' -or $actual.GeneralPerformanceClaim){throw 'CLI concealed diagnostic-only feature-set limit'};$checks++
     [IO.File]::WriteAllLines($inputFile,[string[]]$ambient)
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../Test-PerformanceLog.ps1') -LogPath $inputFile -ExpectedRun $run -OutputPath $outputFile
     if($LASTEXITCODE -ne 0){throw 'Fresh-process current outcome validator failed'}
