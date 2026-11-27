@@ -102,7 +102,82 @@ namespace TrappedUnitRescueTest.Tests
             var alias = new[] { new RescueTile(2, 2, center), new RescueTile(3, 2, center) };
             Require(!RescueDiscovery.TryCollect(alias, (x, y) => x == 3 && y == 2 ? center : Tile(x, y), head, read, Budget, out units, out reason) &&
                 reason == "aliased-mutation-coordinates", "coordinate alias rejected");
+            SharedGraph();DenseGraph();
             Console.WriteLine("PASS: ordinary Current/Next discovery checks=" + checks + "; production pure discovery, no native calls.");
+        }
+        private static void SharedGraph()
+        {
+            int center=Tile(2,2),adjacent=Tile(1,2),other=Tile(4,4);
+            var changed=new[]{new RescueTile(2,2,center)};
+            var records=new Dictionary<int,RescueDiscoveryUnit>{
+                {1,new RescueDiscoveryUnit(1,11,center,center,3,false)},
+                // Mentioned from adjacent head, but NOT reachable from head(Current=center).
+                {2,new RescueDiscoveryUnit(2,12,center,center,3,false)},
+                {3,new RescueDiscoveryUnit(3,13,adjacent,center,4,true)},
+                {4,new RescueDiscoveryUnit(4,14,other,center,0,true)}};
+            Func<int,int> heads=t=>t==center?1:t==adjacent?2:0;
+            int reads=0,headReads=0;
+            RescueDiscoveryUnitReader read=delegate(int id,out RescueDiscoveryUnit unit){reads++;return records.TryGetValue(id,out unit);};
+            var exact=new RescueDiscoveryBudget(9,8,8,9999,1000);
+            Require(RescueDiscovery.TryCollect(changed,Tile,t=>{headReads++;return heads(t);},read,exact,out var units,out var reason) &&
+                units.Count==2 && units[0].UnitId==1 && units[1].UnitId==3,"shared-tail diamond uses actual own-head ancestor membership");
+            Require(reads==8 && headReads==9,"shared-tail records read twice and every halo head once");
+            reads=0;
+            Require(!RescueDiscovery.TryCollect(changed,Tile,heads,read,new RescueDiscoveryBudget(9,7,8,9999,1000),out units,out reason) &&
+                units.Count==0 && reason=="occupancy-walk-budget" && reads==7,"budget counts actual reads including second validation pass");
+            // A late first-pass record can expose a change to an earlier node even
+            // when no other head ever repeats that earlier node.
+            var original=records[1];reads=0;
+            RescueDiscoveryUnitReader lastChangesFirst=delegate(int id,out RescueDiscoveryUnit unit){
+                reads++;bool found=records.TryGetValue(id,out unit);
+                if(reads==4)records[1]=new RescueDiscoveryUnit(1,999,center,center,3,false);return found;};
+            Require(!RescueDiscovery.TryCollect(changed,Tile,heads,lastChangesFirst,exact,out units,out reason) && units.Count==0 &&
+                reason=="occupant-changed-during-discovery","last first-pass record mutation invalidates earlier unique node");records[1]=original;
+            foreach(var mutated in new[]{
+                new RescueDiscoveryUnit(4,99,other,center,0,true),new RescueDiscoveryUnit(4,14,center,center,0,true),
+                new RescueDiscoveryUnit(4,14,other,adjacent,0,true),new RescueDiscoveryUnit(4,14,other,center,1,true),
+                new RescueDiscoveryUnit(4,14,other,center,0,false)})
+            {
+                int lastReads=0;
+                RescueDiscoveryUnitReader change=delegate(int id,out RescueDiscoveryUnit unit){bool found=records.TryGetValue(id,out unit);if(id==4 && ++lastReads==2)unit=mutated;return found;};
+                Require(!RescueDiscovery.TryCollect(changed,Tile,heads,change,exact,out units,out reason) && units.Count==0 &&
+                    reason=="occupant-changed-during-discovery","all record fields revalidated including last unique node");
+            }
+            records[4]=new RescueDiscoveryUnit(4,14,other,center,3,true);
+            Require(!RescueDiscovery.TryCollect(changed,Tile,heads,read,exact,out units,out reason) && units.Count==0 &&
+                reason=="invalid-or-cyclic-occupancy-chain","shared suffix cycle is not accepted as a known valid tail");
+            records[4]=new RescueDiscoveryUnit(4,14,other,center,0,true);
+            reads=0;headReads=0;
+            Require(RescueDiscovery.TryCollect(changed,Tile,t=>{headReads++;return 0;},read,exact,out units,out _) &&
+                reads==0 && headReads==9 && units.Count==0,"empty heads cause no record reads or second-pass work");
+            Require(!RescueDiscovery.TryCollect(changed,Tile,_=>-1,read,exact,out units,out reason) &&
+                reason=="invalid-or-cyclic-occupancy-chain","negative head rejected before record access");
+            RescueDiscoveryUnitReader throwing=delegate(int id,out RescueDiscoveryUnit unit){unit=default;throw new InvalidOperationException();};
+            Require(!RescueDiscovery.TryCollect(changed,Tile,heads,throwing,exact,out units,out reason) && units.Count==0 &&
+                reason=="discovery-reader-failed","record reader exceptions remain atomic");
+        }
+        private static void DenseGraph()
+        {
+            int center=Tile(2,2),reads=0,headReads=0;
+            var changed=new[]{new RescueTile(2,2,center)};
+            const int maximum=9999;
+            RescueDiscoveryUnitReader read=delegate(int id,out RescueDiscoveryUnit record){
+                reads++;record=new RescueDiscoveryUnit(id,(uint)(10000+id),center,center,id<maximum?id+1:0,false);return true;};
+            var exact=new RescueDiscoveryBudget(9,2*maximum,maximum,maximum,1000);
+            Require(RescueDiscovery.TryCollect(changed,Tile,_=>{headReads++;return 1;},read,exact,out var units,out var reason) &&
+                units.Count==maximum && units[0].UnitId==1 && units[maximum-1].UnitId==maximum,"full native ID domain with nine shared heads remains complete");
+            Require(reads==2*maximum && headReads==9,"9999 density costs exactly19998 record reads rather than89991 repeated mentions");
+            reads=0;
+            Require(!RescueDiscovery.TryCollect(changed,Tile,_=>1,read,new RescueDiscoveryBudget(9,2*maximum-1,maximum,maximum,1000),out units,out reason) &&
+                units.Count==0 && reads==2*maximum-1 && reason=="occupancy-walk-budget","full domain respects exact smaller reader budget");
+            reads=0;
+            Require(!RescueDiscovery.TryCollect(changed,Tile,_=>1,read,new RescueDiscoveryBudget(9,2*maximum,512,maximum,1000),out units,out reason) &&
+                units.Count==0 && reads==2*maximum && reason=="occupant-snapshot-budget","all graph validity closes before bounded selected snapshot admission");
+            // Deep chains must use an explicit traversal stack, never managed recursion.
+            reads=0;
+            RescueDiscoveryUnitReader cycle=delegate(int id,out RescueDiscoveryUnit record){reads++;record=new RescueDiscoveryUnit(id,(uint)id,center,center,id<maximum?id+1:maximum-1,false);return true;};
+            Require(!RescueDiscovery.TryCollect(changed,Tile,_=>1,cycle,exact,out units,out reason) && units.Count==0 && reads==maximum &&
+                reason=="invalid-or-cyclic-occupancy-chain","late deep cycle fails after one read per unique node");
         }
         private static void Require(bool condition, string message) { checks++; if (!condition) throw new InvalidOperationException(message); }
     }

@@ -23,20 +23,23 @@ namespace TrappedUnitRescueTest
         internal readonly uint GlobalId;
         internal readonly RescueGeometryEndpoint Current,Next;
         internal readonly bool HasAcceptedNext;
+        internal readonly RescueLocalField LocalField;
         private readonly RescueCandidate[] candidates;
         internal int CandidateCount=>candidates.Length;
         internal RescueCandidate[] CopyCandidates()=>(RescueCandidate[])candidates.Clone();
         private RescueGeometryWitness(int id,uint global,int type,int owner,RescueGeometryEndpoint current,
-            RescueGeometryEndpoint next,bool hasAcceptedNext,RescueCandidate[] candidates)
-        {UnitId=id;GlobalId=global;Type=type;Owner=owner;Current=current;Next=next;HasAcceptedNext=hasAcceptedNext;this.candidates=candidates;}
+            RescueGeometryEndpoint next,bool hasAcceptedNext,RescueCandidate[] candidates,RescueLocalField localField=null)
+        {UnitId=id;GlobalId=global;Type=type;Owner=owner;Current=current;Next=next;HasAcceptedNext=hasAcceptedNext;this.candidates=candidates;LocalField=localField;}
 
         internal static bool TryCapture(UnitSnapshot original,out RescueGeometryWitness witness)
         {
-            witness=null;if(original==null)return false;
+            witness=null;if(original==null || original.CivilianRemoval)return false;
             bool accepted=original.OrdinaryStep;
             if(accepted && ((original.Flags!=2 && original.Flags!=4) || original.Substep<0 || original.Substep>=8))return false;
             var current=new RescueGeometryEndpoint(original.X,original.Y,original.TileId,original.AffectedCurrent,original.CurrentWasOrdinary,original.GroundFlags);
             var next=new RescueGeometryEndpoint(original.NextX,original.NextY,original.NextTileId,original.AffectedNext,original.NextWasOrdinary,original.NextGroundFlags);
+            if(original.LocalField!=null)
+                return original.Candidates.Count==0 && TryCreateCompact(original.Id,original.GlobalId,original.Type,original.Owner,current,next,accepted,original.LocalField,out witness);
             return TryCreate(original.Id,original.GlobalId,original.Type,original.Owner,current,next,accepted,original.Candidates,out witness);
         }
         // The scalar form supports a geometry-only save record. The caller must
@@ -59,19 +62,53 @@ namespace TrappedUnitRescueTest
             }
             witness=new RescueGeometryWitness(unitId,globalId,type,owner,current,hasAcceptedNext?next:current,hasAcceptedNext,copy);return true;
         }
+        internal static bool TryCreateCompact(int unitId,uint globalId,int type,int owner,RescueGeometryEndpoint current,
+            RescueGeometryEndpoint next,bool hasAcceptedNext,RescueLocalField field,out RescueGeometryWitness witness)
+        {
+            witness=null;
+            if(field==null || !current.Matches(field.OriginX,field.OriginY,field.OriginTile) || current.WasOrdinary!=field.OriginWasOrdinary ||
+                !TryCreate(unitId,globalId,type,owner,current,next,hasAcceptedNext,Array.Empty<RescueCandidate>(),out var valid))return false;
+            witness=new RescueGeometryWitness(unitId,globalId,type,owner,valid.Current,valid.Next,hasAcceptedNext,Array.Empty<RescueCandidate>(),field);return true;
+        }
         internal static bool TryJoin(RescueGeometryWitness witness,UnitSnapshot freshPre,out UnitSnapshot joined)
+            =>TryJoinCore(witness,freshPre,false,out joined);
+        // A fresh idle phase supplies all current semantics. Historical proof only
+        // supplies the old ground/field; it never restores the completed order.
+        internal static bool TryJoinStationary(RescueGeometryWitness witness,UnitSnapshot freshPre,out UnitSnapshot joined)
+            =>TryJoinCore(witness,freshPre,true,out joined);
+        private static readonly int[] IdleEmptyTargets={0x996,0x998,0x99C,0x6F8,0x9F6,0x9F8,0xA00};
+        internal static bool IsIndependentIdleSnapshot(UnitSnapshot u)
+        {
+            if(u==null || u.CivilianRemoval || u.Job!=null || u.HasCapturedVegetation || u.CapturedVegetationGlobal!=0 || u.Unsupported!=null ||
+                u.Flags!=0 || u.Substep!=8 || u.OrdinaryStep || u.NextX!=u.X || u.NextY!=u.Y || u.RequestedX!=u.X || u.RequestedY!=u.Y ||
+                u.Health==0 || !CommandResumePolicy.IsIndependentRescueType((SHCDESE.Interop.eChimps)u.Type) ||
+                (SHCDESE.Interop.eChimps)u.Type==SHCDESE.Interop.eChimps.CHIMP_TYPE_ENGINEER ||
+                !CommandJourneySnapshot.IsIndependentIdlePhase((SHCDESE.Interop.eChimps)u.Type,u.AIState) ||
+                u.Command==null || u.Command.UnitType!=(SHCDESE.Interop.eChimps)u.Type || u.Command.AIState!=u.AIState)return false;
+            if(!u.Command.TryGetValue(0x9F4,out uint command) ||
+                command!=(uint)SHCDESE.Interop.Enums.TribeAICommand.Unknown0 && command!=(uint)SHCDESE.Interop.Enums.TribeAICommand.MoveHerePosition)return false;
+            foreach(int offset in IdleEmptyTargets)
+                if(!u.Command.TryGetValue(offset,out uint value) || value!=0)return false;
+            return true;
+        }
+        private static bool TryJoinCore(RescueGeometryWitness witness,UnitSnapshot freshPre,bool stationary,out UnitSnapshot joined)
         {
             joined=null;
-            if(witness==null || freshPre==null || freshPre.Id!=witness.UnitId || freshPre.GlobalId!=witness.GlobalId ||
+            if(stationary && !IsIndependentIdleSnapshot(freshPre))return false;
+            // Removal has its own causal witness. A P7 geometry join must never
+            // erase that action flag or grant historical command authority to it.
+            if(witness==null || freshPre==null || freshPre.CivilianRemoval || freshPre.CurrentHadExit || freshPre.NextHadExit || freshPre.Id!=witness.UnitId || freshPre.GlobalId!=witness.GlobalId ||
                 freshPre.Type!=witness.Type || freshPre.Owner!=witness.Owner ||
-                (freshPre.Flags!=2 && freshPre.Flags!=4) || freshPre.Substep<0 || freshPre.Substep>8)return false;
+                (!stationary && freshPre.Flags!=2 && freshPre.Flags!=4) || freshPre.Substep<0 || freshPre.Substep>8)return false;
             bool atCurrent=witness.Current.Matches(freshPre.X,freshPre.Y,freshPre.TileId);
             bool atNext=witness.HasAcceptedNext && witness.Next.Matches(freshPre.X,freshPre.Y,freshPre.TileId);
             if(!atCurrent && !atNext)return false;
             RescueGeometryEndpoint current=atCurrent?witness.Current:witness.Next,next;
             if(freshPre.Substep==8)
             {
-                if(freshPre.OrdinaryStep || freshPre.NextX!=freshPre.X || freshPre.NextY!=freshPre.Y || freshPre.NextTileId!=freshPre.TileId)return false;
+                // Live intent admission proves full740==0 for this stationary
+                // pose. Packed Next is inactive and grants no historical edge.
+                if(freshPre.OrdinaryStep || freshPre.NextX!=freshPre.X || freshPre.NextY!=freshPre.Y)return false;
                 next=current;
             }
             else
@@ -90,7 +127,7 @@ namespace TrappedUnitRescueTest
                 Flags=freshPre.Flags,Substep=freshPre.Substep,OrdinaryStep=freshPre.OrdinaryStep,
                 RequestedX=freshPre.RequestedX,RequestedY=freshPre.RequestedY,Job=freshPre.Job,Command=freshPre.Command,
                 HasCapturedVegetation=freshPre.HasCapturedVegetation,CapturedVegetationGlobal=freshPre.CapturedVegetationGlobal,
-                GeometryWitness=witness,
+                GeometryWitness=witness,LocalField=witness.LocalField,
                 CrewCount=freshPre.CrewCount,CrewIdentity=freshPre.CrewIdentity==null?null:(uint[])freshPre.CrewIdentity.Clone(),
                 Connections=freshPre.Connections,Unsupported=freshPre.Unsupported,
                 AffectedCurrent=current.Affected,CurrentWasOrdinary=current.WasOrdinary,GroundFlags=current.GroundFlags,

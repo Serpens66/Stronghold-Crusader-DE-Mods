@@ -47,56 +47,98 @@ namespace TrappedUnitRescueTest
             expectedEnabled = scenario.EndsWith("-on", StringComparison.Ordinal);
         }
 
-        internal static bool Owns(string value) => value == "rescue-auto-pitch3-off" || value == "rescue-auto-pitch3-on" || value == "rescue-auto-wheat10-off" || value == "rescue-auto-wheat10-on" || value == "rescue-auto-hops8-off" || value == "rescue-auto-hops8-on" || value == "rescue-auto-cattle5-off" || value == "rescue-auto-cattle5-on" || value == "rescue-auto-hunter5-off" || value == "rescue-auto-hunter5-on" || value == "rescue-auto-miner1-off" || value == "rescue-auto-miner1-on" || value == "rescue-auto-fletcher-off" || value == "rescue-auto-fletcher-on" || value == "rescue-editor-new-off" || value == "rescue-editor-new-on" ||
-            value == "rescue-editor-load-off" || value == "rescue-editor-load-on" || value == "rescue-loadcache" || value == "rescue-early-provider" || value == "rescue-on" || value == "rescue-off" ||
-            value == "rescue-group-on" || value == "rescue-group-off" ||
-            value == "rescue-aiwall-on" || value == "rescue-aiwall-off" ||
-            value == "rescue-moat-on" || value == "rescue-moat-off" ||
-            value == "rescue-moatworker-on" || value == "rescue-moatworker-off" ||
-            value == "rescue-worker-on" || value == "rescue-worker-off" ||
-            value == "rescue-ox-on" || value == "rescue-ox-off" ||
-            value == "rescue-siege-on" || value == "rescue-siege-off" ||
-            value == "rescue-mountedkeep-on" || value == "rescue-mountedkeep-off" ||
-            value == "rescue-aivbridge-on" || value == "rescue-aivbridge-off" ||
-            value == "rescue-auto-worker-on" || value == "rescue-auto-worker-off" ||
-            value == "rescue-auto-ox-on" || value == "rescue-auto-ox-off" ||
-            value == "rescue-auto-bridge-on" || value == "rescue-auto-bridge-off" ||
-            value == "rescue-auto-aiwall-on" || value == "rescue-auto-aiwall-off" ||
-            value == "rescue-auto-next-on" || value == "rescue-auto-next-off" ||
-            value == "rescue-auto-group-on" || value == "rescue-auto-group-off" ||
-            value == "rescue-auto-oxhome-on" || value == "rescue-auto-oxhome-off" ||
-            value == "rescue-auto-worker-cargo-on" || value == "rescue-auto-worker-cargo-off" ||
-            value == "rescue-auto-applestep-on" || value == "rescue-auto-applestep-off" ||
-            value == "rescue-auto-applestep-cargo-on" || value == "rescue-auto-applestep-cargo-off" ||
-            value == "rescue-auto-miller-on" || value == "rescue-auto-miller-off" ||
-            value == "rescue-auto-baker-on" || value == "rescue-auto-baker-off" ||
-            value == "rescue-auto-brewer-on" || value == "rescue-auto-brewer-off" ||
-            value == "rescue-auto-mason-on" || value == "rescue-auto-mason-off" ||
-            value == "rescue-auto-woodcutter1-on" || value == "rescue-auto-woodcutter1-off" ||
-            value == "rescue-natural-dig-bank-on" || value == "rescue-natural-dig-bank-off" ||
-            value == "rescue-natural-dig-task-on" || value == "rescue-natural-dig-task-off" ||
-            value == "rescue-natural-fill-bank-on" || value == "rescue-natural-fill-bank-off" ||
-            value == "rescue-auto-poleturner-on" || value == "rescue-auto-poleturner-off" ||
-            value == "rescue-auto-smith-on" || value == "rescue-auto-smith-off" ||
-            value == "rescue-auto-armourer-on" || value == "rescue-auto-armourer-off" ||
-            value == "rescue-auto-appletree2-on" || value == "rescue-auto-appletree2-off" ||
-            value == "rescue-auto-appletree8-on" || value == "rescue-auto-appletree8-off" ||
-            value == "rescue-control-appletree2-on" || value == "rescue-control-appletree8-on" ||
-            value == "rescue-negative-appletree2-delete-on" || value == "rescue-negative-appletree8-delete-on" ||
-            value == "rescue-negative-appletree2-reuse-on" || value == "rescue-negative-appletree8-reuse-on" ||
-            value == "rescue-auto-idle-on" || value == "rescue-auto-idle-off" ||
-            value == "rescue-auto-idlearcher-on" || value == "rescue-auto-idlearcher-off" ||
-            value == "rescue-auto-commandmoat-on" || value == "rescue-auto-commandmoat-off" ||
-            value == "rescue-auto-commandmoat-postmidpoint-on" || value == "rescue-auto-commandmoat-postmidpoint-off" ||
-            value == "rescue-auto-commandmoat-nextonly-premidpoint-on" || value == "rescue-auto-commandmoat-nextonly-premidpoint-off" ||
-            value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" || value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
-            value == "rescue-persistence-parked-on" || value == "rescue-worker-native0save-on" ||
+        internal static bool Owns(string value) =>
+            value == "rescue-burst-passive600-on" ||
+            value == "rescue-burst-ground513-spread-off" ||
+            value == "rescue-burst-ground513-off" ||
+            value == "rescue-burst-persistence600-on" ||
+            value == "rescue-burst-single513-on" || value == "rescue-burst-single513-off" ||
+            value == "rescue-burst-single600-on" || value == "rescue-burst-single600-off" ||
+            value == "rescue-burst-multi600-on" || value == "rescue-burst-multi600-off" ||
+            value == "rescue-legacy-civilian-off" ||
+            value == "rescue-removal-miller-off" ||
+            value == "rescue-removal-miller-on" ||
+            value == "rescue-removal-miner1-off" ||
+            value == "rescue-removal-miner1-on" ||
+            value == "rescue-removal-miner2-off" ||
+            value == "rescue-removal-miner2-on" ||
+            value == "rescue-removal-tanner-cow-off" ||
+            value == "rescue-removal-tanner-cow-on" ||
+            value == "rescue-removal-ai-worker-off" || value == "rescue-removal-ai-worker-on" ||
+            value == "rescue-removal-persistence-off" || value == "rescue-removal-persistence-on" ||
+            value == "rescue-removal-death-on" || value == "rescue-removal-worldchange-on" ||
+            value == "rescue-removal-worker-replan-on" ||
+            value == "rescue-removal-worker-off" ||
+            value == "rescue-removal-worker-on" ||
+            value == "rescue-removal-peasant-off" ||
+            value == "rescue-removal-peasant-on" ||
+            value == "rescue-removal-worker-next-off" ||
+            value == "rescue-removal-worker-next-on" ||
+            value == "rescue-removal-peasant-next-off" ||
+            value == "rescue-removal-peasant-next-on" ||
+            value == "rescue-editor-new-off" ||
+            value == "rescue-editor-new-on" ||
+            value == "rescue-editor-load-off" ||
+            value == "rescue-editor-load-on" ||
+            value == "rescue-loadcache" ||
+            value == "rescue-early-provider" ||
+            value == "rescue-on" ||
+            value == "rescue-off" ||
+            value == "rescue-group-on" ||
+            value == "rescue-group-off" ||
+            value == "rescue-aiwall-on" ||
+            value == "rescue-aiwall-off" ||
+            value == "rescue-moat-on" ||
+            value == "rescue-moat-off" ||
+            value == "rescue-ox-on" ||
+            value == "rescue-ox-off" ||
+            value == "rescue-siege-on" ||
+            value == "rescue-siege-off" ||
+            value == "rescue-mountedkeep-on" ||
+            value == "rescue-mountedkeep-off" ||
+            value == "rescue-aivbridge-on" ||
+            value == "rescue-aivbridge-off" ||
+            value == "rescue-auto-ox-on" ||
+            value == "rescue-auto-ox-off" ||
+            value == "rescue-auto-bridge-on" ||
+            value == "rescue-auto-bridge-off" ||
+            value == "rescue-auto-aiwall-on" ||
+            value == "rescue-auto-aiwall-off" ||
+            value == "rescue-auto-next-on" ||
+            value == "rescue-auto-next-off" ||
+            value == "rescue-auto-group-on" ||
+            value == "rescue-auto-group-off" ||
+            value == "rescue-auto-oxhome-on" ||
+            value == "rescue-auto-oxhome-off" ||
+            value == "rescue-natural-dig-bank-on" ||
+            value == "rescue-natural-dig-bank-off" ||
+            value == "rescue-natural-dig-task-on" ||
+            value == "rescue-natural-dig-task-off" ||
+            value == "rescue-natural-fill-bank-on" ||
+            value == "rescue-natural-fill-bank-off" ||
+            value == "rescue-auto-idle-on" ||
+            value == "rescue-auto-idle-off" ||
+            value == "rescue-auto-idlearcher-on" ||
+            value == "rescue-auto-idlearcher-off" ||
+            value == "rescue-auto-commandmoat-on" ||
+            value == "rescue-auto-commandmoat-off" ||
+            value == "rescue-auto-commandmoat-postmidpoint-on" ||
+            value == "rescue-auto-commandmoat-postmidpoint-off" ||
+            value == "rescue-auto-commandmoat-nextonly-premidpoint-on" ||
+            value == "rescue-auto-commandmoat-nextonly-premidpoint-off" ||
+            value == "rescue-auto-commandmoat-nextonly-postmidpoint-on" ||
+            value == "rescue-auto-commandmoat-nextonly-postmidpoint-off" ||
+            value == "rescue-persistence-parked-on" ||
             value == "rescue-diag-health4000-on" ||
-            value == "rescue-diag-nojesters4000-on" || value == "rescue-perf-4000-nojesters-passive-on" ||
+            value == "rescue-diag-nojesters4000-on" ||
+            value == "rescue-perf-4000-nojesters-passive-on" ||
+            value == "rescue-perf-9871-nojesters-passive-on" ||
             value == "rescue-perf-1000-on" ||
             value == "rescue-perf-1000-passive-on" ||
-            value == "rescue-perf-4000-idle1000walk-passive-on" || value == "rescue-perf-9871-idle1000walk-passive-on" ||
-            value == "rescue-persistence-on" || value == "rescue-persistence-off" ||
+            value == "rescue-perf-4000-idle1000walk-passive-on" ||
+            value == "rescue-perf-9871-idle1000walk-passive-on" ||
+            value == "rescue-persistence-on" ||
+            value == "rescue-persistence-off" ||
             RescueScenarioSelection.IsMountedKeepPart(value);
         internal void Stop()
         {
@@ -109,7 +151,7 @@ namespace TrappedUnitRescueTest
         internal IEnumerable<AutomationStep> Steps()
         {
 #if !SERP_DEVDIAG
-            Require(scenario!="rescue-diag-health4000-on" && scenario!="rescue-diag-nojesters4000-on" && scenario!="rescue-perf-4000-nojesters-passive-on",
+            Require(scenario!="rescue-diag-health4000-on" && scenario!="rescue-diag-nojesters4000-on" && scenario!="rescue-perf-4000-nojesters-passive-on" && scenario!="rescue-perf-9871-nojesters-passive-on",
                 "Explicit native-state/health diagnostic profiles require build.bat /devdiag");
 #endif
             if (scenario.StartsWith("rescue-editor-",StringComparison.Ordinal))
@@ -129,9 +171,42 @@ namespace TrappedUnitRescueTest
             }
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
-            if (scenario == "rescue-worker-native0save-on")
+            if(scenario=="rescue-burst-persistence600-on")
             {
-                foreach (var step in Native0WorkerPersistenceSteps()) yield return step;
+                foreach(var step in BurstPersistenceSteps())yield return step;
+                yield break;
+            }
+            if(scenario.StartsWith("rescue-burst-",StringComparison.Ordinal))
+            {
+                foreach(var step in BurstSteps())yield return step;
+                yield break;
+            }
+            if(scenario=="rescue-legacy-civilian-off")
+            {
+                foreach(var step in LegacyCivilianSteps())yield return step;
+                yield break;
+            }
+            if(scenario=="rescue-removal-death-on" || scenario=="rescue-removal-worldchange-on")
+            {
+                foreach(var step in RemovalLifecycleSteps())yield return step;
+                yield break;
+            }
+            if(scenario=="rescue-removal-persistence-on" || scenario=="rescue-removal-persistence-off")
+            {
+                foreach(var step in RemovalPersistenceSteps())yield return step;
+                yield break;
+            }
+            if(scenario.StartsWith("rescue-removal-miller-",StringComparison.Ordinal) ||
+                scenario.StartsWith("rescue-removal-miner1-",StringComparison.Ordinal) ||
+                scenario.StartsWith("rescue-removal-miner2-",StringComparison.Ordinal) ||
+                scenario.StartsWith("rescue-removal-tanner-cow-",StringComparison.Ordinal))
+            {
+                foreach(var step in AuxRemovalSteps())yield return step;
+                yield break;
+            }
+            if(scenario.StartsWith("rescue-removal-",StringComparison.Ordinal))
+            {
+                foreach(var step in CivilianRemovalSteps())yield return step;
                 yield break;
             }
             if (scenario == "rescue-perf-1000-on")
@@ -144,10 +219,10 @@ namespace TrappedUnitRescueTest
                 foreach (var step in PerformanceSteps(observeArmyMoves:false)) yield return step;
                 yield break;
             }
-            if(scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on")
+            if(scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on" || scenario=="rescue-perf-9871-nojesters-passive-on")
             {
 #if SERP_DEVDIAG
-                foreach(var step in PerformanceSteps(population:4000,observeArmyMoves:false,
+                foreach(var step in PerformanceSteps(population:scenario=="rescue-perf-9871-nojesters-passive-on"?9871:4000,observeArmyMoves:false,
                     observeHealthEvents:scenario=="rescue-diag-nojesters4000-on"))yield return step;
 #else
                 throw new InvalidOperationException("Native-state test-world profiles require build.bat /devdiag");
@@ -188,36 +263,6 @@ namespace TrappedUnitRescueTest
                 foreach (var step in AutomaticIdleSteps()) yield return step;
                 yield break;
             }
-            if (scenario.Contains("-auto-miller-"))
-            {
-                foreach (var step in AutomaticMillerSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-baker-"))
-            {
-                foreach (var step in AutomaticBakerSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-brewer-"))
-            {
-                foreach (var step in AutomaticBrewerSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-wheat10-") || scenario.Contains("-auto-hops8-") || scenario.Contains("-auto-cattle5-"))
-            {
-                foreach (var step in AutomaticFarmerOutputSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-woodcutter1-"))
-            {
-                foreach (var step in AutomaticWoodcutterSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-mason-"))
-            {
-                foreach (var step in AutomaticMasonSteps()) yield return step;
-                yield break;
-            }
             if (scenario.Contains("-natural-dig-"))
             {
                 foreach (var step in NaturalMoatWorkSteps()) yield return step;
@@ -226,62 +271,6 @@ namespace TrappedUnitRescueTest
             if (scenario.Contains("-natural-fill-"))
             {
                 foreach (var step in NaturalMoatFillSteps()) yield return step;
-                yield break;
-            }
-            if (scenario == "rescue-auto-smith-on" || scenario == "rescue-auto-smith-off")
-            {
-                foreach (var step in AutomaticSmithSteps()) yield return step;
-                yield break;
-            }
-            if (scenario == "rescue-auto-armourer-on" || scenario == "rescue-auto-armourer-off")
-            {
-                foreach (var step in AutomaticArmourerSteps()) yield return step;
-                yield break;
-            }
-            if (scenario == "rescue-auto-miner1-on" || scenario == "rescue-auto-miner1-off")
-            {
-                foreach(var step in AutomaticMiner1Steps())yield return step;
-                yield break;
-            }
-            if (scenario == "rescue-auto-pitch3-off" || scenario == "rescue-auto-pitch3-on")
-            {
-                foreach(var step in AutomaticPitchSteps())yield return step;
-                yield break;
-            }
-            if (scenario == "rescue-auto-hunter5-off" || scenario == "rescue-auto-hunter5-on")
-            {
-                foreach(var step in AutomaticHunterSteps())yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-fletcher-"))
-            {
-                foreach(var step in AutomaticFletcherSteps())yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-poleturner-"))
-            {
-                foreach (var step in AutomaticPoleturnerSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-applestep-"))
-            {
-                foreach (var step in AutomaticAppleStepSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-appletree2-") || scenario.Contains("-auto-appletree8-"))
-            {
-                foreach (var step in AutomaticAppleTreeSteps()) yield return step;
-                yield break;
-            }
-            if (scenario=="rescue-control-appletree2-on" || scenario=="rescue-control-appletree8-on")
-            {
-                foreach(var step in AppleTreeControlSteps())yield return step;
-                yield break;
-            }
-            if (scenario=="rescue-negative-appletree2-delete-on" || scenario=="rescue-negative-appletree8-delete-on" ||
-                scenario=="rescue-negative-appletree2-reuse-on" || scenario=="rescue-negative-appletree8-reuse-on")
-            {
-                foreach(var step in AppleLifetimeSteps())yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-oxhome-"))
@@ -307,11 +296,6 @@ namespace TrappedUnitRescueTest
             if (scenario.Contains("-auto-aiwall-"))
             {
                 foreach (var step in AutomaticWallSteps()) yield return step;
-                yield break;
-            }
-            if (scenario.Contains("-auto-worker-"))
-            {
-                foreach (var step in AutomaticWorkerSteps()) yield return step;
                 yield break;
             }
             if (scenario.Contains("-auto-ox-"))
@@ -342,16 +326,6 @@ namespace TrappedUnitRescueTest
             if (scenario.Contains("-moat-"))
             {
                 yield return new AutomationStep("native-moat-egress-control", TimeSpan.FromSeconds(150), MoatControl, true);
-                yield break;
-            }
-            if (scenario.Contains("-moatworker-"))
-            {
-                yield return new AutomationStep("native-moat-worker-fixes-guard", TimeSpan.FromSeconds(300), MoatWorker, true);
-                yield break;
-            }
-            if (scenario.Contains("-worker-"))
-            {
-                yield return new AutomationStep("working-apple-farmer", TimeSpan.FromSeconds(300), Worker, true);
                 yield break;
             }
             if (scenario.Contains("-ox-"))

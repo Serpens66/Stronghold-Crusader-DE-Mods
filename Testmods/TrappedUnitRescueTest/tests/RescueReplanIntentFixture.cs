@@ -10,11 +10,12 @@ namespace TrappedUnitRescueTest.Tests
         private static int checks;
         private static void Check(bool value,string message){checks++;if(!value)throw new InvalidOperationException(message);}
         private static int Tile(int x,int y)=>x>=0 && x<800 && y>=0 && y<800?y*800+x:-1;
-        private sealed class Source : IWorkerResumeWorld
+        internal sealed class Source : IWorkerResumeWorld
         {
             internal readonly byte[] Bytes=new byte[0xAEC];
             internal int X=4,Y=5,NextX=4,NextY=5,Flags=2,Substep=8;
             internal uint Health=100,Pending,TreeGlobal=777;
+            internal int? PackedCurrent,PackedNext;
             internal bool Ordinary=true,BindingsAlive=true,CrewAlive=true,PoseReadable=true,ThrowCapture;
             internal int Captures,Mutations;
             internal readonly RescueReplanIntentWorld Boundary;
@@ -34,7 +35,7 @@ namespace TrappedUnitRescueTest.Tests
             private eChimps Type=>(eChimps)Word(0x6E6);
             internal bool ReadPose(int id,out RescueReplanPose pose)
             {
-                pose=new RescueReplanPose(Dword(0x6F0),Health,Ordinary,X,Y,Tile(X,Y),NextX,NextY,Tile(NextX,NextY),Flags,Substep,Pending);
+                pose=new RescueReplanPose(Dword(0x6F0),Health,Ordinary,X,Y,PackedCurrent??Tile(X,Y),NextX,NextY,PackedNext??Tile(NextX,NextY),Flags,Substep,Pending);
                 return id==7 && PoseReadable;
             }
             internal UnitSnapshot Snapshot(int id)
@@ -42,7 +43,7 @@ namespace TrappedUnitRescueTest.Tests
                 if(ThrowCapture)throw new InvalidOperationException("capture unavailable");
                 if(id!=7)return null;
                 var result=new UnitSnapshot{Id=7,GlobalId=Dword(0x6F0),Type=(int)Type,Owner=Word(0x6EE),Tribe=Word(0x930),TribeGlobalId=Dword(0x93C),
-                    AIState=Word(0x918),X=X,Y=Y,TileId=Tile(X,Y),NextX=NextX,NextY=NextY,NextTileId=Tile(NextX,NextY),
+                    AIState=Word(0x918),X=X,Y=Y,TileId=PackedCurrent??Tile(X,Y),NextX=NextX,NextY=NextY,NextTileId=PackedNext??Tile(NextX,NextY),
                     Flags=Flags,Substep=Substep,OrdinaryStep=Substep<8 && (X!=NextX || Y!=NextY),Health=Health,
                     RequestedX=Word(0x744),RequestedY=Word(0x746),CrewIdentity=Array.Empty<uint>(),CrewCount=Word(0xA0C)};
                 if(WorkerTravelPolicy.TryDescribe(Type,result.AIState,out var rule) && rule.CanResumeOrdinary)
@@ -102,9 +103,28 @@ namespace TrappedUnitRescueTest.Tests
         }
         private static RescueReplanIntent Capture(Source source)
         {Check(source.Boundary.TryCapture(7,20,30,0,out var intent),"qualified existing-goal Pre captures unreserved intent");return intent;}
+        private static void InactivePackedNext()
+        {
+            foreach(int flags in new[]{2,4})foreach(int cached in new[]{0,8007,-1,999999})
+            {
+                var source=new Source(eChimps.CHIMP_TYPE_SPEARMAN,101){Flags=flags,PackedNext=cached};
+                var intent=Capture(source);
+                Check(source.Boundary.IsCurrent(intent) && source.Boundary.TryGetSnapshot(intent,out var exact) && exact.NextTileId==cached,
+                    "SS8 ignores inactive packed Next and preserves its actual bytes");
+            }
+            foreach(uint marker in new[]{1u,0x10000u,0x80000000u})
+            {
+                var source=new Source(eChimps.CHIMP_TYPE_SPEARMAN,101){PackedNext=0,Pending=marker};
+                Check(!source.Boundary.TryCapture(7,20,30,0,out _),"SS8 requires the entire pending-step DWORD to be zero");
+            }
+            var wrongCurrent=new Source(eChimps.CHIMP_TYPE_SPEARMAN,101){PackedCurrent=0,PackedNext=0};
+            Check(!wrongCurrent.Boundary.TryCapture(7,20,30,0,out _),"current packed tile remains authoritative");
+            var active=new Source(eChimps.CHIMP_TYPE_SPEARMAN,101){Substep=3,NextX=5,PackedNext=0};
+            Check(!active.Boundary.TryCapture(7,20,30,0,out _),"accepted active Next still requires coherent packed tile");
+        }
         internal static void Run()
         {
-            checks=0;var workers=new HashSet<eChimps>();int commandPhases=0;
+            checks=0;InactivePackedNext();var workers=new HashSet<eChimps>();int commandPhases=0;
             foreach(eChimps type in Enum.GetValues(typeof(eChimps)))for(int state=0;state<=102;state++)
             {
                 bool worker=WorkerTravelPolicy.TryDescribe(type,state,out var rule) && rule.CanResumeOrdinary;
@@ -120,7 +140,7 @@ namespace TrappedUnitRescueTest.Tests
                 Check(!source.Boundary.IsCurrent(intent) && !source.Boundary.TryGetSnapshot(intent,out _),"same goal with later changed purpose never inherits Pre intent");
                 Check(source.Mutations==0,"intent operations never reserve/park/reissue/probe");
             }
-            Check(workers.Count==20 && commandPhases>50,"every admitted worker family and active command phase exercised");
+            Check(workers.Count==1 && workers.Contains(eChimps.CHIMP_TYPE_QUARRY_OX) && commandPhases>50,"every admitted worker family and active command phase exercised");
             var ordinary=new Source(eChimps.CHIMP_TYPE_SPEARMAN,101);
             foreach(int extra in new[]{-1,1,2})Check(!ordinary.Boundary.TryCapture(7,20,30,extra,out _),"reconstruction/special selectors are not ordinary fresh replans");
             Check(!ordinary.Boundary.TryCapture(7,21,30,0,out _) && !ordinary.Boundary.TryCapture(0,20,30,0,out _),"new destination or invalid unit is not this source");
@@ -141,8 +161,11 @@ namespace TrappedUnitRescueTest.Tests
             var ox=new Source(eChimps.CHIMP_TYPE_QUARRY_OX,1);var oxIntent=Capture(ox);ox.Word(0x8E6,3);
             Check(ox.Boundary.TryGetSnapshot(oxIntent,out var timed) && timed.Job.TryGetValue(0x8E6,out uint countdown) && countdown==3 &&
                 oxIntent.CopyBefore().Job.TryGetValue(0x8E6,out countdown) && countdown==0,"audited role timer is refreshed exactly without editing Pre job");
-            var apple=new Source(eChimps.CHIMP_TYPE_FARMER_APPLE,2);var treeIntent=Capture(apple);apple.TreeGlobal=888;
-            Check(!apple.Boundary.IsCurrent(treeIntent) && !apple.Boundary.TryGetSnapshot(treeIntent,out _),"Pre vegetation lifetime must survive to delayed admission");
+            foreach(var type in new[]{eChimps.CHIMP_TYPE_FARMER_APPLE,eChimps.CHIMP_TYPE_WOODCUTTER,eChimps.CHIMP_TYPE_PEASANT})
+            {
+                var human=new Source(type,2);
+                Check(!human.Boundary.TryCapture(7,20,30,0,out _),"human type cannot obtain a fresh continuation intent");
+            }
             foreach(int at in new[]{0x918,0x6EE,0x930,0x744,0x9F4})
             {
                 var changed=new Source(eChimps.CHIMP_TYPE_SPEARMAN,101);var prior=Capture(changed);changed.Word(at,(uint)(changed.Word(at)+1));

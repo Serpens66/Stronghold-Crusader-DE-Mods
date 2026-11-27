@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace TrappedUnitRescueTest
 {
-    internal enum IdleEscapeState { Rejected, InProgress, Completed, Superseded, Expired }
+    internal enum IdleEscapeState { Rejected, InProgress, Completed, Superseded, Expired, AwaitResources }
     internal enum IdleEscapeInspection { Changed, Waiting, Arrived }
     internal enum IdleEscapeMove { Other, NativeRefused, NativeSucceeded }
     internal sealed class IdleEscapeRequest
@@ -56,6 +56,9 @@ namespace TrappedUnitRescueTest
         }
         internal bool Owns(IdleEscapeTicket ticket)=>ticket!=null && receipts.TryGetValue(ticket.UnitId,out var receipt) && ReferenceEquals(receipt.Ticket,ticket);
         internal bool Contains(int unitId)=>receipts.ContainsKey(unitId);
+        // A new proved trap may retire its own existing observation before TryStart.
+        // This query itself never releases it or permits a duplicate instruction.
+        internal bool HasCapacityFor(int unitId)=>!executing && (receipts.Count<capacity || receipts.ContainsKey(unitId));
         internal void Release(int unitId)
         {if(receipts.TryGetValue(unitId,out var receipt)){if(receipt.Node!=null)schedule.Remove(receipt.Node);receipts.Remove(unitId);}}
         internal void Clear(){receipts.Clear();schedule.Clear();hasAdvanced=false;}
@@ -64,7 +67,7 @@ namespace TrappedUnitRescueTest
             LastState=IdleEscapeState.Rejected;reason="idle-escape-rejected";
             if(executing || request?.Before==null)return false;
             if(receipts.ContainsKey(request.Before.Id)){reason="idle-escape-already-owned";return false;}
-            if(receipts.Count>=capacity){reason="idle-escape-capacity";return false;}
+            if(receipts.Count>=capacity){LastState=IdleEscapeState.AwaitResources;reason="idle-escape-capacity";return false;}
             IdleEscapeTicket ticket;
             try {if(!world.TryCapture(request,out ticket,out reason) || ticket==null || !ReferenceEquals(ticket.Request,request))return false;}
             catch {reason="idle-escape-capture-failed";return false;}

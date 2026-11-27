@@ -278,13 +278,13 @@ namespace TrappedUnitRescueTest
                 (granary->r_AliveState==AliveState.IsAlive || granary->r_AliveState==AliveState.NeedsInit),
                 "Natural granary disappeared or slot was reused; lastEvidence="+proof.LastEvidence);
         }
-        private unsafe int SetupNaturalAppleFarm()
+        private unsafe int SetupNaturalAppleFarm(bool expectAiOwner=false)
         {
             var players=GamePlayerManagerAPI.Instance;
             int keepId=players.GetPlayerKeepId(owner);
-            Require(!players.IsAIPlayer(owner),"Worker fixture local owner is AI: "+owner+" lord="+players.GetAILord(owner));
+            Require(players.IsAIPlayer(owner)==expectAiOwner,"Worker fixture ownership differs from its explicit human/AI case: "+owner+" lord="+players.GetAILord(owner));
             Require(BuildingAccess.TryGetById(keepId,out GameBuilding* keep,out _) && keep!=null && keep->r_AliveState==AliveState.IsAlive &&
-                keep->r_PlayerIdOwner==owner,"Worker fixture keep does not belong to the actual human owner");
+                keep->r_PlayerIdOwner==owner,"Worker fixture keep does not belong to the exact requested owner");
             log("apple-owner owner="+owner+" isAI="+players.IsAIPlayer(owner)+" lord="+players.GetAILord(owner)+" keep="+keepId+"/"+keep->r_GlobalId+" keepOwner="+keep->r_PlayerIdOwner);
             FindSite();
             // Real prefab jobs, housing and storage; no population, worker-state or yield writes.

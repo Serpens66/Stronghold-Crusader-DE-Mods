@@ -44,7 +44,6 @@ namespace TrappedUnitRescueTest.Tests
             OccupancyCapture();
             StateClassification();
             CivilianResumePolicy();
-            AppleMoatBoundaryPolicy();
             CrewShape();
             Console.WriteLine("PASS RescuePolicyFixture "+checks+" checks");
         }
@@ -74,57 +73,18 @@ namespace TrappedUnitRescueTest.Tests
         }
         private static GameUnit OrdinaryUnit()=>new GameUnit { r_UnitChimp=eChimps.CHIMP_TYPE_SPEARMAN,
             r_CurrentHealth=100,r_MovementSubstep=8,N000000DB=1,r_AliveState=AliveState.IsAlive };
-        private static unsafe void AppleMoatBoundaryPolicy()
-        {
-            foreach(ushort state in new ushort[]{5,7})foreach(ushort flags in new ushort[]{2,4})
-            {
-                GameUnit unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_FARMER_APPLE;
-                unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;unit.r_TargetTilePositionX2=1;
-                unit.r_GlobalId=123;unit.r_ControllableForPlayerId=1;
-                var before=new UnitSnapshot { Type=(int)unit.r_UnitChimp,AIState=state,Flags=flags,Substep=8,
-                    GlobalId=123,Owner=1,Health=100,RequestedX=1 };
-                Require(RescueRuntime.AppleMoatBoundary(before,&unit),"audited stationary Apple5/7 active original-goal boundary admitted");
-                GameUnit changed=unit;changed.r_AIState=3;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"picker cannot use the causal moat receipt");
-                changed=unit;changed.r_GlobalId++;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"reused slot cannot use receipt");
-                changed=unit;changed.r_TargetTilePositionX2=2;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"changed job destination cannot use receipt");
-                changed=unit;changed.r_NextTilePositionX2=1;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"committed next tile cannot use stationary receipt");
-                changed=unit;changed.r_CurrentHealth--;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"health change invalidates receipt");
-                changed=unit;*(ushort*)((byte*)&changed+0x9C8-0x65C)=1;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"stored moat permission excludes zero-exit proof");
-                changed=unit;*(ushort*)((byte*)&changed+0x6EC-0x65C)=1;
-                Require(!RescueRuntime.AppleMoatBoundary(before,&changed),"special movement class excludes zero-exit proof");
-                uint[] job=RescueRuntime.CaptureAppleJob(&unit);
-                changed=unit;changed.r_CarryGoodAmount++;
-                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects cargo change");
-                changed=unit;changed.r_LinkedProductionBuildingGlobalId++;
-                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects employee workplace identity change");
-                changed=unit;*(ushort*)((byte*)&changed+0x9EC-0x65C)=1;
-                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects picking-cycle change");
-                changed=unit;*(uint*)((byte*)&changed+0x6F8-0x65C)=1;
-                Require(!Equal(job,RescueRuntime.CaptureAppleJob(&changed)),"job receipt detects delivery destination identity change");
-            }
-            Require(RescueRuntime.NewlyTrappedAppleMoat(0x8000,0x40008000,false),"new completed moat with no mode0 physical exit qualifies");
-            Require(!RescueRuntime.NewlyTrappedAppleMoat(0x40008000,0x40008000,false),"preexisting moat has no causal receipt");
-            Require(!RescueRuntime.NewlyTrappedAppleMoat(0x8000,0x8000,false),"ordinary enclosure cannot use moat-specific recovery");
-            Require(!RescueRuntime.NewlyTrappedAppleMoat(0x8000,0x40008000,true),"remaining forward/reverse edge prohibits relocation");
-        }
-        private static bool Equal(uint[] a,uint[] b)
-        {if(a.Length!=b.Length)return false;for(int i=0;i<a.Length;i++)if(a[i]!=b[i])return false;return true;}
         private static void CivilianResumePolicy()
         {
-            foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_FARMER_APPLE,eChimps.CHIMP_TYPE_QUARRY_OX})
+            foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_QUARRY_OX})
                 foreach(int flags in new[]{2,4})
                 {
                     Require(RescueRuntime.NeedsExplicitCivilianResume((int)type,flags,false),
                         "active civilian route without explicit continuation fails before native relocation");
                     Require(!RescueRuntime.NeedsExplicitCivilianResume((int)type,flags,true),
-                        "explicit continuation retains the audited civilian travel experiment");
+                        "explicit continuation retains the separately supported Ox path");
                 }
+            Require(!RescueRuntime.NeedsExplicitCivilianResume((int)eChimps.CHIMP_TYPE_FARMER_APPLE,2,false),
+                "human removal is not an explicit job-resume contract");
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_SPEARMAN,eChimps.CHIMP_TYPE_ARAB_ASSASIN,eChimps.CHIMP_TYPE_CATAPULT})
                 foreach(int flags in new[]{0,2,4})
                     Require(!RescueRuntime.NeedsExplicitCivilianResume((int)type,flags,false),
@@ -224,21 +184,20 @@ namespace TrappedUnitRescueTest.Tests
             }
             unit=OrdinaryUnit();unit.N000000DB=0;
             Require(RescueRuntime.ClassifyState(&unit)=="unclassified-zero-group-order-field","unclassified zero group-order field remains unsupported without a false immobility claim");
-            foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_FARMER_APPLE,eChimps.CHIMP_TYPE_QUARRY_OX})
+            foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_QUARRY_OX})
                 for(ushort state=0;state<108;state++)
                     foreach(ushort flags in new ushort[]{0,2,4})
                     {
                         unit=OrdinaryUnit();unit.r_UnitChimp=type;unit.N000000DB=0;
                         unit.r_AIState=state;unit.r_PathPlanStateBitFlags=flags;
-                        bool audited=flags!=0 && (type==eChimps.CHIMP_TYPE_FARMER_APPLE
-                            ? state==2 || state==5 || state==7 || state==8 : state==1 || state==3);
+                        bool audited=type==eChimps.CHIMP_TYPE_FARMER_APPLE || flags!=0 && (state==1 || state==3);
                         Require((RescueRuntime.ClassifyState(&unit)==null)==audited,
-                            "only the explicitly audited civilian active travel states are authorized");
+                            "human workers use removal admission while Ox retains its separate active-travel contract");
                     }
             unit=OrdinaryUnit();unit.r_UnitChimp=eChimps.CHIMP_TYPE_FARMER_APPLE;unit.r_AIState=3;
             unit.r_TargetVegetationId=227;unit.N000000C5=2;
-            Require(RescueRuntime.ClassifyState(&unit)=="worker-needs-audited-active-travel",
-                "stationary picker cannot retain state3/counter/tree while being moved beyond the picking approach");
+            Require(RescueRuntime.ClassifyState(&unit)==null,
+                "visible stationary picker can be removed on a separately proved trap without continuing its job");
             foreach(eChimps type in new[]{eChimps.CHIMP_TYPE_SPEARMAN,eChimps.CHIMP_TYPE_ARAB_ASSASIN})
                 foreach(ushort state in new ushort[]{2,3,4,5,6,7,8,100,102,103,104,105,106,107})
                     foreach(ushort flags in new ushort[]{0,2,4})

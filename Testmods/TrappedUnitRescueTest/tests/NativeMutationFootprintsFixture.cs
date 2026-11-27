@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using APIShared.WorldMutations;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace TrappedUnitRescueTest.Tests
 {
@@ -146,6 +147,20 @@ namespace TrappedUnitRescueTest.Tests
             foreach (var legacy in new[] { eMappers.MAPPER_KEEP4, eMappers.MAPPER_KEEP5 })
                 Require(!adapter.TryPlan(Mutation(WorldMutationSource.BuildStructure, NativeMutationFootprints.TileManagerRva, 1, 40, 40, (int)legacy, 7, 0, 0),
                     out mapped, out owner, out reason) && mapped.Count == 0 && reason == "unsupported-effective-native-mapper", "legacy SDK-only keep has nativeNull mapping");
+            foreach(var state in new[]{AivBuildStepState.Inactive,AivBuildStepState.Abandoned})
+            {
+                int beforeReads=memory.ReadCount;
+                Require(measured.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_NULL,0,new[]{int.MinValue},out mapped,out var noopMetrics,out reason,state) &&
+                    mapped.Count==0 && memory.ReadCount==beforeReads && noopMetrics.NativeReads==0 && noopMetrics.BuildingSlots==0 && noopMetrics.BrushNodes==0,
+                    "native inactive/abandoned AIV frame returns complete empty envelope before invalid payload/map reads "+state);
+            }
+            foreach(var state in new[]{AivBuildStepState.Pending,AivBuildStepState.Unknown2,AivBuildStepState.Built,AivBuildStepState.RetryPending,(AivBuildStepState)255})
+            {
+                Require(!measured.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_NULL,0,new[]{Memory.Tile(30,30)},out mapped,out _,out reason,state) &&
+                    reason=="unsupported-effective-native-mapper","all other states keep unsupported mapper fail-closed "+state);
+            }
+            Require(measured.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_DRAWBRIDGE,0,new[]{Memory.Tile(30,30)},out mapped,out _,out reason,AivBuildStepState.Built) &&
+                mapped.Count>0,"built AIV step retains possible rebuild footprint, never treated as no-op");
             Console.WriteLine("Footprint cost: bridge reads=" + bridgeMetrics.NativeReads + "; moat reads=" + moatMetrics.NativeReads + "; farm reads=" + farmMetrics.NativeReads +
                 "; keep reads=" + keepMetrics.NativeReads + "; keep buildingSlots=" + keepMetrics.BuildingSlots + "; keep brushSearches=" + keepMetrics.BrushSearches + "; keep cacheHits=" + keepMetrics.BrushCacheHits + "; keep nodes=" + keepMetrics.BrushNodes);
             Console.WriteLine("NativeMutationFootprintsFixture: " + checks + " checks passed.");

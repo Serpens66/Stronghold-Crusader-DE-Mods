@@ -17,17 +17,20 @@ namespace TrappedUnitRescueTest.Tests
         {
             checks=0;
             var world=new World();var owner=new IdleEscapeOwner(world,2,1,8);
-            world.DuringMove=t=>{Require(owner.Owns(t),"reservation already owns native call");Require(!owner.TryStart(Request(2),1,out _),"nested instruction rejected");};
+            world.DuringMove=t=>{Require(owner.Owns(t),"reservation already owns native call");Require(!owner.HasCapacityFor(t.UnitId) && !owner.HasCapacityFor(2),"executing owner cannot grant replacement capacity");Require(!owner.TryStart(Request(2),1,out _),"nested instruction rejected");};
             Require(owner.TryStart(Request(),1,out _) && owner.LastState==IdleEscapeState.InProgress && owner.Count==1,"positive publication remains in progress");
             Require(world.Moves==1 && world.Relocations==0,"publication is not teleported");
-            Require(!owner.TryStart(Request(),1,out _) && world.Moves==1,"duplicate does not move twice");
+            Require(!owner.TryStart(Request(),1,out _) && world.Moves==1 && owner.LastState==IdleEscapeState.Rejected,"duplicate does not become a resource shortage");
             world.DuringMove=null;
             Require(owner.TryStart(Request(2),1,out _),"second independent receipt");
-            Require(!owner.TryStart(Request(3),1,out var reason) && reason=="idle-escape-capacity" && world.Moves==2,"capacity rejects before native");
+            int beforeCaptures=world.Captures;
+            Require(!owner.HasCapacityFor(3) && owner.HasCapacityFor(1),"full owner admits only its own replaceable observation in capacity query");
+            Require(!owner.TryStart(Request(3),1,out var reason) && reason=="idle-escape-capacity" && world.Moves==2 && world.Captures==beforeCaptures &&
+                owner.LastState==IdleEscapeState.AwaitResources,"capacity is explicit resource wait before capture or native movement");
             Require(owner.Advance(2)==1 && owner.Count==2,"fixed inspection budget");
             world.States[2]=IdleEscapeInspection.Arrived;
             Require(owner.Advance(2)==0 && owner.Count==2,"duplicate tick cannot spend inspection budget twice");
-            Require(owner.Advance(3)==1 && owner.Count==1 && owner.LastState==IdleEscapeState.Completed && owner.CompletedCount==1,"fair rotation observes actual second arrival");
+            Require(owner.Advance(3)==1 && owner.Count==1 && owner.LastState==IdleEscapeState.Completed && owner.CompletedCount==1 && owner.HasCapacityFor(3),"fair rotation observes actual second arrival and releases a resource slot");
             world.States[1]=IdleEscapeInspection.Changed;
             Require(owner.Advance(4)==1 && owner.Count==0 && owner.LastState==IdleEscapeState.Superseded && owner.CompletedCount==1,"foreign intent releases without restoring or counting success");
             owner.Clear();Require(owner.CompletedCount==1,"completion metric survives Clear");
@@ -202,12 +205,12 @@ namespace TrappedUnitRescueTest.Tests
         {
             internal IdleEscapeMove Actual=IdleEscapeMove.NativeSucceeded;
             internal bool Accept=true,Published=true,Fallback=true,Relocated=true,ArrivalAfterRelocate=true,ThrowMove,ThrowCapture;
-            internal int Moves,Relocations,Inspections;
+            internal int Moves,Relocations,Inspections,Captures;
             internal long Session=1,Order=1;
             internal Action<IdleEscapeTicket> DuringMove,DuringFallback,DuringInspect;
             internal readonly Dictionary<int,IdleEscapeInspection> States=new Dictionary<int,IdleEscapeInspection>();
             public bool TryCapture(IdleEscapeRequest r,out IdleEscapeTicket t,out string reason)
-            {if(ThrowCapture)throw new Exception();t=Accept?new IdleEscapeTicket(r,new uint[]{7}):null;reason=null;return Accept;}
+            {Captures++;if(ThrowCapture)throw new Exception();t=Accept?new IdleEscapeTicket(r,new uint[]{7}):null;reason=null;return Accept;}
             public IdleEscapeMove Move(IdleEscapeTicket t,Func<bool> current)
             {Moves++;if(ThrowMove)throw new Exception();DuringMove?.Invoke(t);return current()?Actual:IdleEscapeMove.Other;}
             public bool HasPublishedRoute(IdleEscapeTicket t)=>Published;

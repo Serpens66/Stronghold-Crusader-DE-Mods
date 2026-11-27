@@ -73,7 +73,7 @@ namespace TrappedUnitRescueTest
         internal static bool IsArcherIdleAnimation(eChimps type,int state)=>
             type==eChimps.CHIMP_TYPE_ARCHER && (state==7 || state==8 || state==11);
         internal static bool IsIndependentIdlePhase(eChimps type,int state)=>
-            state==0 || type==eChimps.CHIMP_TYPE_SPEARMAN && state==2 || IsArcherIdleAnimation(type,state);
+            state==0 || type==eChimps.CHIMP_TYPE_SPEARMAN && (state==1 || state==2) || IsArcherIdleAnimation(type,state);
         internal static int RequiredCrewCount(eChimps type)
         {
             switch(type)
@@ -84,6 +84,9 @@ namespace TrappedUnitRescueTest
                 default:return 0;
             }
         }
+        // Wire readers use the same closed schema, never a fabricated native capture.
+        internal static WorkerJourneyField[] GetSchema(eChimps type,int state)
+            =>IsSupportedPhase(type,state) || IsSupportedStationaryPhase(type,state)?(WorkerJourneyField[])Fields(type,state).Clone():null;
         internal int FieldCount=>Fields(UnitType,AIState).Length;
         internal WorkerJourneyField Field(int index)=>Fields(UnitType,AIState)[index];
         internal uint[] CopyValues()=>(uint[])values.Clone();

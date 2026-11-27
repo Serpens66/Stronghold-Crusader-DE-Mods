@@ -49,6 +49,8 @@ namespace TrappedUnitRescueTest
             if (Marshal.SizeOf(typeof(GameUnit)) != 0x490 || GameUnitManager.UnitRecordByteSize != 0x490)
                 throw new InvalidOperationException("Unsupported unit record size.");
             Offset(nameof(GameUnit.r_GlobalId), 0x94); Offset(nameof(GameUnit.r_CurrentTilePositionX), 0xC0);
+            Offset(nameof(GameUnit.r_AliveState),0x88);Offset(nameof(GameUnit.r_UnitChimp),0x8A);
+            Offset(nameof(GameUnit.r_ControllableForPlayerId),0x92);Offset(nameof(GameUnit.r_IsKilledByProjectile),0x29C);
             Offset(nameof(GameUnit.r_CurrentPositionTileId), 0xD0); Offset(nameof(GameUnit.r_PathPlanStateBitFlags), 0xF2);
             Offset(nameof(GameUnit.r_NextTilePositionX2),0xDC);Offset(nameof(GameUnit.r_NextTilePositionY2),0xDE);
             Offset(nameof(GameUnit.r_NextPositionTileId2),0xE0);

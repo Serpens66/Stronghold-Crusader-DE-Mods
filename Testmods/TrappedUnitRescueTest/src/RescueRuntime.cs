@@ -1,17 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 
 namespace TrappedUnitRescueTest
 {
-    internal enum RescueStatus { Inactive, NotTrapped, Unsupported, NoCandidate, RelocationFailed, IdentityFailed, Rescued, ResumeFailed, EscapeInProgress }
+    internal enum RescueStatus { Inactive, NotTrapped, Unsupported, NoCandidate, RelocationFailed, IdentityFailed, Rescued, ResumeFailed, EscapeInProgress, RemovalRequested, RemovalDeferred, AwaitResources }
     internal sealed class UnitSnapshot
     {
         internal int Id, Type, Owner, Tribe, X, Y, TileId, AIState, Flags, Substep, RequestedX, RequestedY,CrewCount;
         internal int NextX, NextY, NextTileId;
         internal bool OrdinaryStep, AffectedCurrent, AffectedNext, CurrentWasOrdinary, NextWasOrdinary;
+        internal bool CivilianRemoval, CurrentHadExit, NextHadExit;
         internal uint GroundFlags, NextGroundFlags;
         internal uint GlobalId, Health, TribeGlobalId;
         internal bool HasCapturedVegetation;
@@ -19,6 +19,7 @@ namespace TrappedUnitRescueTest
         internal WorkerJourneySnapshot Job;
         internal CommandJourneySnapshot Command;
         internal RescueGeometryWitness GeometryWitness;
+        internal RescueLocalField LocalField;
         internal byte Connections;
         internal string Unsupported;
         internal uint[] CrewIdentity;
@@ -49,6 +50,7 @@ namespace TrappedUnitRescueTest
         internal Func<long> WorkerTick { get; set; }
         internal Func<bool> WorkerReady { get; set; }
         internal IdleEscapeOwner IdleEscapes { get; set; }
+        internal Func<bool> CanRemoveCivilian { get; set; }
         internal Func<UnitSnapshot,RescueCandidate,IdleEscapeRequest> CreateIdleEscapeRequest { get; set; }
         private static readonly int[] Dx = { 0,1,1,1,0,-1,-1,-1 }, Dy = { -1,-1,0,1,1,1,0,-1 };
         internal RescueRuntime(NativeRelocation native, Func<bool> isEnabled, Action<string> report)
@@ -64,12 +66,13 @@ namespace TrappedUnitRescueTest
                 RequestedX=unit->r_TargetTilePositionX2, RequestedY=unit->r_TargetTilePositionY2, CrewIdentity=CaptureCrew(unit),
                 CrewCount=IsSiege((int)unit->r_UnitChimp)?native.Word(unit,0xA0C):0 };
             value.OrdinaryStep = HasOrdinaryStep(unit);
-            value.Unsupported = ClassifyState(unit, includeOrdinaryStep);
+            value.CivilianRemoval=CivilianRemovalPolicy.IsRemovableType(unit->r_UnitChimp);
+            value.Unsupported = value.CivilianRemoval ? CivilianRemovalPolicy.GetExclusion(unit,includeOrdinaryStep) : ClassifyState(unit, includeOrdinaryStep);
             // 11D370 writes unit930/93C together;118660 validates that stored stamp
             // against the current tribe record. Never adopt a recycled group slot.
             if(value.Tribe!=0 && (!native.TryTribeGlobal(value.Tribe,out value.TribeGlobalId) || native.JobDword(unit,0x93C)!=value.TribeGlobalId))
                 value.Unsupported="tribe-identity-unavailable";
-            if(value.Unsupported==null && WorkerTravelPolicy.TryDescribe(unit->r_UnitChimp,unit->r_AIState,out var rule))
+            if(!value.CivilianRemoval && value.Unsupported==null && WorkerTravelPolicy.TryDescribe(unit->r_UnitChimp,unit->r_AIState,out var rule))
             {
                 IntPtr pointer=(IntPtr)unit;
                 if(!WorkerJourneySnapshot.TryCapture(rule,offset=>native.JobWord((GameUnit*)pointer,offset),
@@ -83,7 +86,7 @@ namespace TrappedUnitRescueTest
                     else value.HasCapturedVegetation=true;
                 }
             }
-            else if(value.Unsupported==null)
+            else if(!value.CivilianRemoval && value.Unsupported==null)
             {
                 IntPtr pointer=(IntPtr)unit;
                 bool captured=value.Flags==0?
@@ -102,7 +105,12 @@ namespace TrappedUnitRescueTest
             value.AffectedCurrent=true; // Explicit fixture snapshots observe their current tile.
             if((uint)value.NextTileId<NativeRelocation.TileCapacity)
             { value.NextGroundFlags=native.Flags(value.NextTileId);value.NextWasOrdinary=native.OrdinaryGround(value.NextTileId); }
-            if (collectCandidates && value.Unsupported == null && native.OrdinaryGround(value.TileId))
+            if(value.CivilianRemoval && value.Unsupported==null)
+            {
+                value.CurrentHadExit=value.CurrentWasOrdinary && HasOrdinaryExit(value.X,value.Y,value.TileId);
+                value.NextHadExit=value.OrdinaryStep && value.NextWasOrdinary && HasOrdinaryExit(value.NextX,value.NextY,value.NextTileId);
+            }
+            if (!value.CivilianRemoval && collectCandidates && value.Unsupported == null && native.OrdinaryGround(value.TileId))
                 CaptureCandidatesForOwner(value,sourceOwner,candidateCapture);
             return value;
         }
@@ -110,7 +118,7 @@ namespace TrappedUnitRescueTest
         // snapshot/identity/chain validation still runs even for discarded owners.
         internal static void CaptureCandidatesForOwner(UnitSnapshot value,int sourceOwner,Action<UnitSnapshot> capture)
         {if(sourceOwner==0 || value.Owner==sourceOwner)capture(value);}
-        internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason,int sourceOwner=0)
+        internal bool TryCaptureMutation(IList<RescueTile> changed,out List<UnitSnapshot> before,out string reason,int sourceOwner=0,bool compactGeometry=false)
         {
             before=new List<UnitSnapshot>();
             List<RescueDiscoveryUnit> occupants;
@@ -121,7 +129,11 @@ namespace TrappedUnitRescueTest
             {
 #endif
             if(!RescueDiscovery.TryCollect(changed,native.Tile,native.Head,ReadDiscoveryUnit,
-                new RescueDiscoveryBudget(4096,16384,512,NativeRelocation.MaximumUnitId,NativeRelocation.TileCapacity),
+                // The halo contains at most9 cells per planned write. Each native
+                // unit record is read once and revalidated once by discovery.
+                compactGeometry?new RescueDiscoveryBudget(9*2048,2*NativeRelocation.MaximumUnitId,NativeRelocation.MaximumUnitId,
+                    NativeRelocation.MaximumUnitId,NativeRelocation.TileCapacity):
+                    new RescueDiscoveryBudget(4096,16384,512,NativeRelocation.MaximumUnitId,NativeRelocation.TileCapacity),
                 out occupants,out reason))return false;
 #if SERP_DEVDIAG
             }
@@ -137,9 +149,11 @@ namespace TrappedUnitRescueTest
             {
 #endif
             var affected=new HashSet<int>();foreach(var tile in changed)affected.Add(tile.TileId);
+            // Per invocation only: later child originals may already have changed geometry.
+            var fields=compactGeometry?new Dictionary<int,RescueLocalField>():null;
             foreach(var occupant in occupants)
             {
-                var snapshot=SnapshotUnit(occupant.UnitId,true,sourceOwner:sourceOwner);
+                var snapshot=SnapshotUnit(occupant.UnitId,true,collectCandidates:!compactGeometry,sourceOwner:sourceOwner);
 #if SERP_DEVDIAG
                 if(snapshot!=null)RescueCaptureDiagnostics.Snapshot(snapshot.Owner,snapshot.Unsupported!=null);
 #endif
@@ -148,9 +162,21 @@ namespace TrappedUnitRescueTest
                 {before.Clear();reason="occupant-changed-before-snapshot";return false;}
                 snapshot.AffectedCurrent=affected.Contains(snapshot.TileId);
                 snapshot.AffectedNext=snapshot.OrdinaryStep && affected.Contains(snapshot.NextTileId);
+                if(compactGeometry && !snapshot.CivilianRemoval && snapshot.Unsupported==null && snapshot.CurrentWasOrdinary &&
+                    (sourceOwner==0 || snapshot.Owner==sourceOwner))
+                {
+                    if(!fields.TryGetValue(snapshot.TileId,out var field))
+                    {
+                        if(!RescueLocalField.TryCapture(snapshot.X,snapshot.Y,snapshot.TileId,native.Tile,native.OrdinaryGround,
+                            native.Connections,out field,out reason))
+                        {before.Clear();return false;}
+                        fields.Add(snapshot.TileId,field);
+                    }
+                    snapshot.LocalField=field;
+                }
                 // Cancelling a newly unsafe Next step may keep its still-legal Current tile.
                 // This candidate was reachable before the mutation; never manufacture it later.
-                if(snapshot.OrdinaryStep && native.OrdinaryGround(snapshot.TileId))
+                if(!compactGeometry && !snapshot.CivilianRemoval && snapshot.OrdinaryStep && native.OrdinaryGround(snapshot.TileId))
                     snapshot.Candidates.Insert(0,new RescueCandidate {X=snapshot.X,Y=snapshot.Y,Tile=snapshot.TileId,Distance=0});
                 before.Add(snapshot);
             }
@@ -242,6 +268,8 @@ namespace TrappedUnitRescueTest
         private static string ClassifyState(GameUnit* unit,bool includeOrdinaryStep,bool allowCompletedCapturedStep,bool allowCapturedMoatMidpoint=false)
         {
             if(unit==null)return "missing-unit";
+            if(CivilianRemovalPolicy.IsRemovableType(unit->r_UnitChimp))
+                return CivilianRemovalPolicy.GetExclusion(unit,includeOrdinaryStep,allowCapturedMoatMidpoint);
             // DCE60 receives native+6EC as its movement-class argument. Mode1 bypasses ordinary
             // connection checks (tunnel movement); other nonzero modes also need their own proof.
             if(ReadStateWord(unit,0x6EC)!=0)return "nonordinary-movement-class";
@@ -327,9 +355,13 @@ namespace TrappedUnitRescueTest
             int target=native.Tile(x+Dx[direction],y+Dy[direction]);
             return target>=0 && ((native.Connections(source)&(1<<direction))!=0 || (native.Connections(target)&(1<<(direction^4)))!=0);
         }
-        private bool HasExit(UnitSnapshot value)
+        private bool HasOrdinaryExit(int x,int y,int tile)
         {
-            for(int d=0;d<8;d++) if(Edge(value.TileId,value.X,value.Y,d)) return true;
+            for(int d=0;d<8;d++)
+            {
+                int target=native.Tile(x+Dx[d],y+Dy[d]);
+                if(target>=0 && native.OrdinaryGround(target) && Edge(tile,x,y,d))return true;
+            }
             return false;
         }
         private void CaptureCandidates(UnitSnapshot value)
@@ -368,85 +400,33 @@ namespace TrappedUnitRescueTest
         internal static RescueCandidate? ChooseCandidate(List<RescueCandidate> oldReachable,Func<RescueCandidate,bool> freeNow)
         { foreach(var candidate in oldReachable)if(freeNow(candidate))return candidate;return null; }
         // PURE_LOCAL_SEARCH_END
+        // Materialization is transient. Retained/save snapshots keep only immutable
+        // before-geometry, never a second large candidate list.
+        internal static bool TryMaterializeCandidates(UnitSnapshot before,Func<int,int,int> tileAt,out UnitSnapshot materialized,out string reason)
+        {
+            materialized=before;reason=null;if(before==null){reason="missing-snapshot";return false;}
+            var field=before.LocalField;if(field==null)return true;
+            var origin=before.GeometryWitness;
+            int x=origin==null?before.X:origin.Current.X,y=origin==null?before.Y:origin.Current.Y,tile=origin==null?before.TileId:origin.Current.Tile;
+            if(before.CivilianRemoval || before.Candidates.Count!=0 || field.OriginX!=x || field.OriginY!=y || field.OriginTile!=tile)
+            {reason="local-field-origin-conflict";return false;}
+            if(!field.TryFindCandidates(tileAt,out var candidates,out reason))return false;
+            var copy=RescueReplanIntent.CopySnapshot(before);copy.LocalField=null;
+            bool includeOrigin=(origin==null?before.OrdinaryStep:origin.HasAcceptedNext) && (origin==null?before.CurrentWasOrdinary:origin.Current.WasOrdinary);
+            if(includeOrigin)copy.Candidates.Add(new RescueCandidate{X=x,Y=y,Tile=tile,Distance=0});
+            copy.Candidates.AddRange(candidates);materialized=copy;return true;
+        }
         internal MutationScope BeginMutation(string label,int centerX,int centerY,int radius) => new MutationScope(this,label,centerX,centerY,radius);
-        // Dedicated fixture transaction: generic completed-moat admission remains unsupported.
-        // Capture BEFORE the real writer; only this single-use receipt can nominate its old banks.
-        internal AppleMoatReceipt CaptureAppleMoatMutation(int id)
-        {
-            var before=SnapshotUnit(id);
-            if(before==null || !native.TryUnit(id,out GameUnit* unit) || !AppleMoatBoundary(before,unit) ||
-                !native.OrdinaryGround(before.TileId) || before.Candidates.Count==0)return null;
-            return new AppleMoatReceipt(this,before,CaptureAppleJob(unit));
-        }
-        internal static bool AppleMoatBoundary(UnitSnapshot before,GameUnit* unit)
-        {
-            return before!=null && unit!=null && before.Unsupported==null &&
-                before.Type==(int)eChimps.CHIMP_TYPE_FARMER_APPLE && (before.AIState==5 || before.AIState==7) &&
-                (before.Flags==2 || before.Flags==4) && before.Substep==8 && ClassifyState(unit)==null &&
-                unit->r_GlobalId==before.GlobalId && (int)unit->r_UnitChimp==before.Type &&
-                unit->r_AIState==before.AIState && unit->r_PathPlanStateBitFlags==before.Flags &&
-                unit->r_CurrentHealth==before.Health && unit->r_TribeId==before.Tribe && unit->r_ControllableForPlayerId==before.Owner &&
-                unit->r_CurrentPositionTileId==(uint)before.TileId && unit->r_CurrentTilePositionX==before.X && unit->r_CurrentTilePositionY==before.Y &&
-                unit->r_NextTilePositionX2==before.X && unit->r_NextTilePositionY2==before.Y &&
-                unit->r_TargetTilePositionX2==before.RequestedX && unit->r_TargetTilePositionY2==before.RequestedY &&
-                (before.X!=before.RequestedX || before.Y!=before.RequestedY);
-        }
-        // These are 135E30's employee/home/store identities, cargo and job counters. Neither
-        //19BA40 nor failed196280 is authorized to change them in this synchronous transaction.
-        internal static uint[] CaptureAppleJob(GameUnit* unit)
-        {
-            return new uint[] { unit->r_LinkedProductionBuildingId,unit->r_LinkedProductionBuildingGlobalId,
-                unit->r_LinkedProductionBuildingTileEndX,unit->r_LinkedProductionBuildingTileEndY,
-                unit->r_CarryGoodAmount,ReadStateWord(unit,0x98E),*(uint*)((byte*)unit+0x6F8-0x65C),
-                ReadStateWord(unit,0x9A0),ReadStateWord(unit,0x9CA),ReadStateWord(unit,0x9CC),
-                ReadStateWord(unit,0x9D0),ReadStateWord(unit,0x9EC),ReadStateWord(unit,0x9EE) };
-        }
-        internal static bool NewlyTrappedAppleMoat(uint oldFlags,uint newFlags,bool ordinaryExit) =>
-            (oldFlags&(uint)TilePropertyFlag.IsMoat)==0 && (newFlags&(uint)TilePropertyFlag.IsMoat)!=0 && !ordinaryExit;
-
-        // Synchronous fixture-only receipt: capture, brush, actual rejected native publication
-        // and consumption are one Fixture.Execute action under the simulation monitor, without
-        // yielding, ticks or mission transitions. This is not a general delayed recovery API.
-        internal sealed class AppleMoatReceipt
-        {
-            private readonly RescueRuntime owner;
-            private readonly UnitSnapshot before;
-            private readonly uint[] job;
-            private readonly uint oldFlags;
-            private int consumed;
-            internal AppleMoatReceipt(RescueRuntime owner,UnitSnapshot before,uint[] job)
-            { this.owner=owner;this.before=before;this.job=job;oldFlags=owner.native.Flags(before.TileId); }
-            internal bool TryRecoverRejectedPublication(bool publicationAccepted,out RescueResult result)
-            {
-                result=new RescueResult { UnitId=before.Id,GlobalId=before.GlobalId,BeforeX=before.X,BeforeY=before.Y,
-                    AfterX=before.X,AfterY=before.Y,Detail="causal-apple-new-moat-after-rejected-original-goal" };
-                if(Interlocked.Exchange(ref consumed,1)!=0)return owner.Finish(result,RescueStatus.Unsupported,"receipt-already-consumed");
-                if(!owner.enabled()){result.Status=RescueStatus.Inactive;return false;}
-                if(publicationAccepted)return owner.Finish(result,RescueStatus.NotTrapped,"original-goal-publication-succeeded");
-                var native=owner.native;
-                if(!native.TryUnit(before.Id,out GameUnit* unit) || !AppleMoatBoundary(before,unit) || !Same(job,CaptureAppleJob(unit)))
-                    return owner.Finish(result,RescueStatus.Unsupported,"employee-job-identity-or-mode-changed");
-                // Apple/class0 with marker0 has no Assassin/tunnel/moat fallback in DCE60.
-                if(!NewlyTrappedAppleMoat(oldFlags,native.Flags(before.TileId),owner.HasExit(before)))
-                    return owner.Finish(result,RescueStatus.NotTrapped,"not-a-new-zero-exit-mode0-moat");
-                if(native.Building(before.TileId)!=0 || !native.HasOccupancyExactlyOnce(before.TileId,before.Id))
-                    return owner.Finish(result,RescueStatus.Unsupported,"source-building-or-occupancy-changed");
-                result.IdentityPreserved=true;
-                bool recovered=owner.RelocateAndResume(before,true,result);
-                if(!native.TryUnit(before.Id,out unit) || !Same(job,CaptureAppleJob(unit)) ||
-                    unit->r_AIState!=before.AIState || unit->r_GlobalId!=before.GlobalId || unit->r_CurrentHealth!=before.Health ||
-                    unit->r_ControllableForPlayerId!=before.Owner || unit->r_TribeId!=before.Tribe ||
-                    unit->r_TargetTilePositionX2!=before.RequestedX || unit->r_TargetTilePositionY2!=before.RequestedY)
-                {result.IdentityPreserved=false;return owner.Finish(result,RescueStatus.IdentityFailed,"employee-or-original-job-goal-not-preserved");}
-                if(recovered)owner.report?.Invoke(result.ToString());
-                return recovered;
-            }
-        }
         internal bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
         {
             result=new RescueResult { UnitId=before?.Id??0, GlobalId=before?.GlobalId??0, BeforeX=before?.X??0,BeforeY=before?.Y??0,AfterX=before?.X??0,AfterY=before?.Y??0,Detail=cause };
             if(!enabled()) { result.Status=RescueStatus.Inactive; return false; }
             if(before==null || !native.TryUnit(before.Id,out GameUnit* unit) || unit->r_GlobalId!=before.GlobalId) return Finish(result,RescueStatus.Unsupported,"identity-disappeared");
+            if(before.CivilianRemoval)return TryRemoveCivilian(before,unit,result);
+            if(CivilianRemovalPolicy.IsRemovableType(unit->r_UnitChimp))
+                return Finish(result,RescueStatus.Unsupported,"legacy-worker-continuation-has-no-removal-proof");
+            if(!APIShared.Units.UnitMoveEvents.IsAvailable)
+                return Finish(result,RescueStatus.Unsupported,"movement-capability-unavailable");
             before=before.WithCurrentHealth(unit->r_CurrentHealth);
             result.IdentityPreserved=true;
             // After the native midpoint, Current already equals the captured Next
@@ -478,7 +458,7 @@ namespace TrappedUnitRescueTest
             if(!TryLocateChangedTrap(before,(int)unit->r_CurrentPositionTileId,unit->r_CurrentTilePositionX,unit->r_CurrentTilePositionY,
                 (int)unit->r_NextPositionTileId2,HasOrdinaryStep(unit),native.OrdinaryGround,out RescueCandidate trapped))
                 return Finish(result,RescueStatus.NotTrapped,"no-new-complete-ground-exit-loss");
-            if(before.Candidates.Count==0)return Finish(result,RescueStatus.NoCandidate,"no-old-reachable-local-ground");
+            if(before.LocalField==null && before.Candidates.Count==0)return Finish(result,RescueStatus.NoCandidate,"no-old-reachable-local-ground");
             for(int d=0;d<8;d++)
             {
                 int neighborTile=native.Tile(trapped.X+Dx[d],trapped.Y+Dy[d]);
@@ -504,17 +484,63 @@ namespace TrappedUnitRescueTest
                     if(((native.Flags(trapped.Tile)|flags)&0x100)!=0 && ((flags&0x4A5014B1)==0 || (flags&0x1000)!=0))
                         return Finish(result,RescueStatus.Unsupported,"possible-native-assassin-climb-exit");
                 }
-            IdleEscapes?.Release(before.Id); // A new proved mutation supersedes observation of an earlier escape.
-            // A blocked accepted Next is not the planner's physical source yet.
-            // Keep its still-legal Current via the already captured Distance0
-            // candidate, normalize there under reservation, then reissue normally.
             bool probeCurrent=RequiresCurrentMoatProbe(completedMoat,native.Flags(sourceTile));
+            // Scarce owners are checked before allocating a bank list or making
+            // any native change. Duplication/unknown ownership is not scarcity.
+            if(resume && WorkerReady!=null && WorkerReady())
+            {
+                if(probeCurrent && before.Job==null && before.Flags==0 && IdleEscapes!=null && !IdleEscapes.HasCapacityFor(before.Id))
+                    return Finish(result,RescueStatus.AwaitResources,"idle-escape-capacity");
+                if((before.Job!=null || before.Command!=null && (before.Flags==2 || before.Flags==4)) && Workers!=null && !Workers.CanReserveSlot)
+                    return Finish(result,RescueStatus.AwaitResources,"worker-receipt-capacity");
+            }
+            if(!TryMaterializeCandidates(before,native.Tile,out before,out string fieldReason))
+                return Finish(result,RescueStatus.Unsupported,fieldReason);
+            if(before.Candidates.Count==0)return Finish(result,RescueStatus.NoCandidate,"no-old-reachable-local-ground");
+            IdleEscapes?.Release(before.Id); // A new proved mutation supersedes observation of an earlier escape.
+            // Keep an already captured legal Current through the Distance0 candidate.
+
             bool recovered=RelocateAndResume(before,resume,result,sourceTile,probeCurrent);
             if(recovered)report?.Invoke(result.ToString());
             return recovered;
         }
         internal static bool RequiresCurrentMoatProbe(bool trappedIsMoat,uint actualCurrentFlags)=>
             trappedIsMoat && (actualCurrentFlags&(uint)TilePropertyFlag.IsMoat)!=0;
+        private bool TryRemoveCivilian(UnitSnapshot before,GameUnit* unit,RescueResult result)
+        {
+            if(CanRemoveCivilian==null || !CanRemoveCivilian())return Finish(result,RescueStatus.Unsupported,"removal-outside-admitted-simulation-tick");
+            if(before.Unsupported!=null || before.Job!=null || before.Command!=null || before.CrewIdentity==null || before.CrewIdentity.Length!=0 ||
+                unit->r_UnitChimp!=(eChimps)before.Type || unit->r_ControllableForPlayerId!=before.Owner)
+                return Finish(result,RescueStatus.Unsupported,"removal-identity-or-capture-changed");
+            int tile=(int)unit->r_CurrentPositionTileId,x=unit->r_CurrentTilePositionX,y=unit->r_CurrentTilePositionY;
+            bool oldCurrent=tile==before.TileId && x==before.X && y==before.Y;
+            bool acceptedNext=before.OrdinaryStep && tile==before.NextTileId && x==before.NextX && y==before.NextY;
+            if(!oldCurrent && !acceptedNext)return Finish(result,RescueStatus.NotTrapped,"removal-left-captured-step");
+            bool midpoint=acceptedNext && before.AffectedNext && before.NextWasOrdinary && before.NextHadExit &&
+                unit->r_NextTilePositionX2==x && unit->r_NextTilePositionY2==y && (int)unit->r_NextPositionTileId2==tile &&
+                (unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4) && unit->r_MovementSubstep<8 &&
+                native.JobDword(unit,0x740)==0;
+            string exclusion=CivilianRemovalPolicy.GetExclusion(unit,before.OrdinaryStep,midpoint);
+            if(exclusion!=null)return Finish(result,RescueStatus.Unsupported,exclusion);
+            if(!TryLocateChangedTrap(before,tile,x,y,(int)unit->r_NextPositionTileId2,HasOrdinaryStep(unit),native.OrdinaryGround,out var trapped))
+                return Finish(result,RescueStatus.NotTrapped,"removal-no-new-unsafe-surface");
+            // An accepted but newly blocked Next is not an unsafe physical Current yet.
+            // Let normal execution/replanning win; retain only this bounded causal case.
+            if(native.OrdinaryGround(tile))return Finish(result,RescueStatus.RemovalDeferred,"removal-current-still-ordinary");
+            bool sourceHadExit=oldCurrent && before.AffectedCurrent && before.CurrentWasOrdinary && before.CurrentHadExit ||
+                acceptedNext && before.AffectedNext && before.NextWasOrdinary && before.NextHadExit;
+            if(!sourceHadExit || native.Tile(x,y)!=tile || !native.HasOccupancyExactlyOnce(tile,before.Id))
+                return Finish(result,RescueStatus.Unsupported,"removal-lacks-original-exit-or-current-occupancy");
+            for(int d=0;d<8;d++)if(Edge(trapped.Tile,trapped.X,trapped.Y,d))
+                return Finish(result,RescueStatus.NotTrapped,"removal-physical-exit-remains");
+            // DeleteSafe invokes no foreign callback: it only marks this checked live life.
+            // The next ordinary unit pass owns cleanup, employee maintenance and recount.
+            if(!SHCDESE.API.GameUnitManagerAPI.Instance.DeleteUnitSafe(before.Id) || unit->r_GlobalId!=before.GlobalId ||
+                unit->r_AliveState!=AliveState.MarkedForDeletion)
+                return Finish(result,RescueStatus.IdentityFailed,"removal-mark-not-confirmed");
+            result.IdentityPreserved=false; // No completed-cleanup or replacement claim.
+            return Finish(result,RescueStatus.RemovalRequested,"native-removal-requested-await-normal-cleanup");
+        }
         // Accept at most the one ordinary step captured before this mutation. A different
         // subsequent location cannot inherit old local reachability or an old command.
         internal bool HasChangedTrapCandidate(UnitSnapshot before)
@@ -554,7 +580,7 @@ namespace TrappedUnitRescueTest
                 var request=CreateIdleEscapeRequest(before,target);
                 bool accepted=IdleEscapes.TryStart(request,unchecked((uint)WorkerTick()),out string detail);
                 result.ResumeAttempted=true;result.ResumeSucceeded=accepted;
-                if(!accepted)return Finish(result,RescueStatus.Unsupported,detail);
+                if(!accepted)return Finish(result,IdleEscapes.LastState==IdleEscapeState.AwaitResources?RescueStatus.AwaitResources:RescueStatus.Unsupported,detail);
                 if(IdleEscapes.LastState==IdleEscapeState.InProgress)
                     return Finish(result,RescueStatus.EscapeInProgress,detail);
                 result.AfterX=target.X;result.AfterY=target.Y;
@@ -571,7 +597,7 @@ namespace TrappedUnitRescueTest
                     Workers.TryRecover(before,relocate,WorkerTick(),out outcome,out reason);
                 result.ResumeAttempted=accepted || outcome!=WorkerRecoveryOutcome.Rejected;
                 result.ResumeSucceeded=accepted && outcome==WorkerRecoveryOutcome.Resumed;
-                if(!accepted)return Finish(result,outcome==WorkerRecoveryOutcome.OwnershipUncertain?RescueStatus.IdentityFailed:RescueStatus.Unsupported,reason);
+                if(!accepted)return Finish(result,outcome==WorkerRecoveryOutcome.AwaitResources?RescueStatus.AwaitResources:outcome==WorkerRecoveryOutcome.OwnershipUncertain?RescueStatus.IdentityFailed:RescueStatus.Unsupported,reason);
                 if(!result.ResumeSucceeded)return Finish(result,RescueStatus.ResumeFailed,reason);
                 // A captured step may already have committed its original Next.
                 // A successful functional probe need not enter RelocateChecked,
@@ -603,7 +629,7 @@ namespace TrappedUnitRescueTest
         }
         private static bool Same(uint[] a,uint[] b) { if(a.Length!=b.Length)return false;for(int i=0;i<a.Length;i++)if(a[i]!=b[i])return false;return true; }
         private bool Finish(RescueResult result,RescueStatus status,string detail)
-        { result.Status=status;result.Detail+="; "+detail;report?.Invoke(result.ToString());return status==RescueStatus.Rescued; }
+        { result.Status=status;result.Detail+="; "+detail;report?.Invoke(result.ToString());return status==RescueStatus.Rescued || status==RescueStatus.RemovalRequested; }
         internal sealed class MutationScope : IDisposable
         {
             private readonly RescueRuntime owner; private readonly string label; private bool completed;

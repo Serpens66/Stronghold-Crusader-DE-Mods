@@ -928,3 +928,118 @@ has no proven nonzero6B8 producer (the earlier auxiliary-coverage limit
 still applies). Evidence: complete CURRENT function187110, its canonical
 machine bytes and the existing186AF0/186AD0/180230 contracts. No unknown
 auxiliary-chain gameplay acceptance is inferred.
+
+## 27.11.2026 — inactive packed Next before the first accepted route step [Vanilla facts]
+
+Canonical installed SHA-256 was rechecked as
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+This refines the existing inactive73C contract above; it is not limited to
+19BA40 relocation. Complete current-hash196280 publishes requested744/746,
+route endpoint720/722/730 and successful flags2, but does not initialize73C.
+Its19B1B0 normalization derives Current/NextXY from Current72C and likewise
+does not write73C. A published route before its first accepted physical step
+therefore need not have a coherent packed Next cache, including while flags2.
+
+Complete1855A0 first checks a prospective ordinary step through DCE60/DCD60.
+On rejection it restores substep750 to8 and may call196280 using endpoint
+720/722 and extra0; Native0 sets retry delayA4C=40. This branch precedes the
+accepted-step writes of NextXY738/73A and packed73C. Those accepted-step writes
+precede subsequent midpoint/occupancy processing and199E10. Complete180230
+uses73C only when the full DWORD740 is nonzero; otherwise it registers
+Current72C. The ordinary199E10 reader of73C is reached after the accepted-step
+publication, not from the rejected-step retry. Thus coherent Current72C,
+substep8, equal Current/NextXY and full740=0 do not require73C equality or a
+current tile interpretation. Active accepted steps retain the full Next
+coherence requirement. Evidence: full current semantic function records
+196280,19B1B0,1855A0,180230 and199E10; the relevant193B80/1855A0 flags5 branches
+were also checked against canonical machine bytes. Flags5 returns before
+retry;193B80 writes5 plus savedAI91E. No claim identifies a caller merely
+from equal move coordinates or a Native0 result.
+
+## 27.11.2026 — ordinary route-end and a later independent idle phase [Vanilla facts]
+
+Canonical installed SHA-256 rechecked:
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The complete relevant1855A0,196280,188340,143400,182B00,1802A0 and181890
+bodies were read in the matching semantic records. This closes the ordinary
+Spearman route/arrival chain; it does not identify a particular runtime caller.
+
+1855A0 increments route cursor752 for a prospective step when A4C is zero,
+before DCE60/DCD60 admits that physical step. A rejected step restores SS8;
+its failed196280 retry can leave the old positive length754 and flags2/4,
+while setting A4C=40.196280 clears the route-byte buffer before the failed
+builder result and does not generally clear every old cursor/length/flag.
+Failure state alone does not prove that the separate route-end arm will run:
+each failed retry sets A4C=40, so repeated Native0 retries are not themselves
+proof that its A4C=0 predicate will subsequently hold. Where that arm is
+reached, it does not prove arrival at the originally requested distant goal.
+The branch requires signed cursor752 >= signed length754 and A4C=0,
+clears92A and writes DWORD74E=0x80000 (flags0,SS8). If8EC is nonzero it returns
+there; otherwise it writes requested744/746 from Current71C/71E. No comparison
+with the original distant goal is required by this branch.
+
+188340 returns true for flags0 and either8EC=0 or requestedXY=CurrentXY.
+Spearman143400 AI101 uses that predicate and writes AI0 on its arrival arm;
+context/role follow-up branches may then select another state, so AI0 is not
+an unconditional terminal guarantee for every caller.182B00 dispatches the
+type handler before the physical1855A0 call; flags0 published by movement
+can consequently coexist temporarily with AI101 until a later type dispatch.
+The movement-cadence gate occurs after that dispatch. Do not assume completion
+in exactly one global simulation tick or admit AI101 as independent idle.
+
+Complete1802A0 crowd registration changes occupancy links/rank912 and crowd
+delay74C; it does not directly publish AI0, a requested goal or movement flags.
+A co-located group therefore does not itself prove a direct group-completion
+writer. Complete181890 has an autonomous idle positional-recovery path:
+F03C0/F0710 may select coordinates, then196280(...,selectedX,selectedY,0)
+is attempted; only a positive result publishes AI101. Its other surface arm
+may relocate through19BA40. These are distinct native paths, not permission
+to restore an old job or goal after the current functional phase changed.
+
+## 27.11.2026 — military selection word is not an idle movement exclusion [Vanilla facts]
+
+CURRENT native SHA-256 remains
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+This refines the existing FIRE_EFFECTS selection-field evidence rather than
+introducing a different field meaning. Native8FC is typed GameUnit2A0,
+`r_SelectionAllowed`. Complete19A240 initializes it to0. Complete Spearman
+143400 writes1 before any AI-state switch: canonical machine instructions
+143438 `mov esi,1` and14344D `mov word ptr [rcx+r15+8FC],si`, with r15 equal
+to unit manager1867E8400 and rcx equal to unitId*490. Thus ordinary military
+idle and AI101 updates are not characterized by8FC=0. Archer13F540 instead
+initializes a zero8FC from the native tick word; a nonzero value is likewise
+not a portal or movement-class flag.
+
+Complete19BA40 changes movement flags, midpoint740,750, Current/NextXY,
+fine position, height and packed Current72C, then invokes the previously
+closed unlink186AD0/186AF0, occupancy180230/1802A0 and render18BE50 closure.
+Neither it nor that closure writes8FC. This selection word therefore is not
+an additional zero-valued movement/portal prerequisite. This does not
+reclassify the other unit-state fields or establish movement safety by itself;
+not every use of selection state in combat is identified here.
+Evidence: full CURRENT19A240,143400,13F540 and19BA40 semantic bodies, canonical
+143438/14344D instruction decoding, and FIRE_EFFECTS.md selection-field facts.
+
+## 27.11.2026 — SpearmanAI1 stationary animation [Vanilla facts]
+
+Canonical SHA-256 was rechecked as
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The actual enum Spearman24 maps through dispatcher slot321D70 to143400.
+Canonical machine switch14349E reads144FB0[AI]; AI1 selects1, whose144F5C
+entry resolves to144B6E. The full144B6E..144C57 branch was decoded and checked
+against the complete143400 semantic body, plus118660 and181890.
+
+AI0 can select1 when its signed unit counter8FE>=401 and the signed per-owner
+value379D044+owner*583C is<1. AI1 writes presentation/animation69C=5,688=0,
+904=10,A54=1; it selects among32EDE0/32EE28/32EE68/32EEA0 by unitId%4 using
+animation timer908, then updates frame6A0/65C. Completion clears908, writes
+AI918=0 and calls181890. Command9F4 equal6 or7 forces that completion earlier.
+The branch consumes no attack target, applies no damage and produces no goods
+or worker-job arrival.181890 may still publish a new positional recovery
+through196280/AI101 or take its separate19BA40 surface branch; these later
+native changes are authoritative, not an AI1 restoration guarantee.
+
+This is a type-specific state meaning. It does not establish any other type's
+AI1 as idle (ArcherAI1 has no corresponding handler case), nor prove absence
+of pending target/order context from the AI number alone. Existing unchanged
+lifetime, pose, command and target evidence remains relevant independently.

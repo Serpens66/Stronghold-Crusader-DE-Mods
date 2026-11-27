@@ -29,6 +29,7 @@
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
+    <Compile Include="src\TrappedUnitRescue\*.cs" />
     <Compile Include="src\Multiplayer\SaveLoading\*.cs" />
     <Compile Include="src\AI\Market\MarketPendingDemandFix.cs" />
     <Compile Include="src\AI\Market\MarketDemandPersistence.cs" />

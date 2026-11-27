@@ -132,7 +132,7 @@ try{
     $priorManagerLaunch=[Environment]::GetEnvironmentVariable('SCDEModManagerLaunchId','Process')
     $managerLaunch=if([string]::IsNullOrEmpty($priorManagerLaunch)){'TrappedUnitRescueTest-'+[Guid]::NewGuid().ToString('N')}else{$priorManagerLaunch}
     if(!$SkipBuild){
-        if(@($Scenarios|Where-Object {$_ -cin @('rescue-diag-health4000-on','rescue-diag-nojesters4000-on','rescue-perf-4000-nojesters-passive-on')}).Count){
+        if(@($Scenarios|Where-Object {$_ -cin @('rescue-diag-health4000-on','rescue-diag-nojesters4000-on','rescue-perf-4000-nojesters-passive-on','rescue-perf-9871-nojesters-passive-on')}).Count){
             & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api -DriverArguments @('/devdiag')
         }else{& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api}
     }
@@ -192,7 +192,7 @@ TextureInventory = false
         & (Join-Path $workspace 'Shared/Tools/Automation/Invoke-InGameTest.ps1') -GameDir $game -ModGuid TrappedUnitRescueTest_Serp `
             -ModPackage (Join-Path $PSScriptRoot 'BepInEx/plugins/TrappedUnitRescueTest_Serp') -ApiPluginPackage $api -ApiPatcherPackage $patcher `
             -PluginLayout $layoutPath -Scenario $requestScenario -OutputDirectory $evidence -TimeoutSeconds $TimeoutSeconds -HiddenDesktop
-        if(@($Scenarios|Where-Object {$_ -cmatch '^rescue-perf-(1000|4000-idle1000walk|9871-idle1000walk|4000-nojesters)-passive-on$'}).Count){
+        if(@($Scenarios|Where-Object {$_ -cmatch '^rescue-perf-(1000|4000-idle1000walk|9871-idle1000walk|4000-nojesters|9871-nojesters)-passive-on$'}).Count){
             # The generic runner has closed the process, flushed/copied the log
             # and restored its transaction. Qualify this separate passive profile
             # before reporting success; outer config restore still runs on failure.
@@ -237,7 +237,11 @@ TextureInventory = false
 }finally{
     try{
         if($managerEnvironmentChanged){
-            [Environment]::SetEnvironmentVariable('SCDEModManagerLaunchId',$priorManagerLaunch,'Process')
+            # PowerShell7/.NET10 converts ordinary $null string arguments to an
+            # empty environment value. NullString preserves actual absence.
+            if($null -eq $priorManagerLaunch){
+                [Environment]::SetEnvironmentVariable('SCDEModManagerLaunchId',[System.Management.Automation.Language.NullString]::Value,'Process')
+            }else{[Environment]::SetEnvironmentVariable('SCDEModManagerLaunchId',$priorManagerLaunch,'Process')}
             if([Environment]::GetEnvironmentVariable('SCDEModManagerLaunchId','Process') -cne $priorManagerLaunch){throw 'Process manager launch environment was not restored.'}
         }
     }finally{if($seriesLocked){$seriesMutex.ReleaseMutex()};$seriesMutex.Dispose()}

@@ -17,7 +17,7 @@ namespace TrappedUnitRescueTest
         internal int UnitId=>Receipt.UnitId;
         internal uint GlobalId=>Receipt.UnitGlobalId;
         internal RescueReplanIntent(UnitSnapshot snapshot,WorkerResumeTicket receipt)
-        {before=CopySnapshot(snapshot);before.Candidates.Clear();before.GeometryWitness=null;Receipt=receipt;}
+        {before=CopySnapshot(snapshot);before.Candidates.Clear();before.GeometryWitness=null;before.LocalField=null;Receipt=receipt;}
         internal UnitSnapshot CopyBefore()=>CopySnapshot(before);
         internal static UnitSnapshot CopySnapshot(UnitSnapshot source)
         {
@@ -27,10 +27,11 @@ namespace TrappedUnitRescueTest
                 RequestedX=source.RequestedX,RequestedY=source.RequestedY,CrewCount=source.CrewCount,
                 NextX=source.NextX,NextY=source.NextY,NextTileId=source.NextTileId,OrdinaryStep=source.OrdinaryStep,
                 AffectedCurrent=source.AffectedCurrent,AffectedNext=source.AffectedNext,CurrentWasOrdinary=source.CurrentWasOrdinary,
-                NextWasOrdinary=source.NextWasOrdinary,GroundFlags=source.GroundFlags,NextGroundFlags=source.NextGroundFlags,
+                NextWasOrdinary=source.NextWasOrdinary,CivilianRemoval=source.CivilianRemoval,
+                CurrentHadExit=source.CurrentHadExit,NextHadExit=source.NextHadExit,GroundFlags=source.GroundFlags,NextGroundFlags=source.NextGroundFlags,
                 GlobalId=source.GlobalId,Health=source.Health,TribeGlobalId=source.TribeGlobalId,
                 HasCapturedVegetation=source.HasCapturedVegetation,CapturedVegetationGlobal=source.CapturedVegetationGlobal,
-                Job=source.Job,Command=source.Command,Connections=source.Connections,Unsupported=source.Unsupported,GeometryWitness=source.GeometryWitness,
+                Job=source.Job,Command=source.Command,Connections=source.Connections,Unsupported=source.Unsupported,GeometryWitness=source.GeometryWitness,LocalField=source.LocalField,
                 CrewIdentity=source.CrewIdentity==null?null:(uint[])source.CrewIdentity.Clone()};
             copy.Candidates.AddRange(source.Candidates);return copy;
         }
@@ -65,7 +66,7 @@ namespace TrappedUnitRescueTest
             try
             {
                 var before=capture(unitId);
-                if(before==null || before.Id!=unitId || before.Unsupported!=null || before.RequestedX!=x || before.RequestedY!=y ||
+                if(before==null || before.CivilianRemoval || CivilianRemovalPolicy.IsRemovableType((SHCDESE.Interop.eChimps)before.Type) || before.Id!=unitId || before.Unsupported!=null || before.RequestedX!=x || before.RequestedY!=y ||
                     tileAt(x,y)<0 || (before.Flags!=2 && before.Flags!=4) || !readPose(unitId,out var pose) ||
                     !SameSnapshotPose(before,pose) || !CoherentPose(pose) ||
                     before.OrdinaryStep!=(pose.Substep<8) || !world.TryCapture(before,out var receipt,out _) ||
@@ -97,7 +98,7 @@ namespace TrappedUnitRescueTest
         {
             before=null;pose=default;if(intent==null || intent.Receipt==null || !intent.Receipt.IsValid)return false;
             before=intent.CopyBefore();
-            if(before.Unsupported!=null || before.Flags!=2 && before.Flags!=4 || !MatchesSnapshot(intent.Receipt,before) ||
+            if(before.CivilianRemoval || CivilianRemovalPolicy.IsRemovableType((SHCDESE.Interop.eChimps)before.Type) || before.Unsupported!=null || before.Flags!=2 && before.Flags!=4 || !MatchesSnapshot(intent.Receipt,before) ||
                 !readPose(intent.UnitId,out pose) || !CoherentPose(pose) || pose.Global!=intent.GlobalId ||
                 !NativeWorkerResumeWorld.AdmissibleCapturePosition(before,pose.Tile,pose.X,pose.Y,pose.Flags,pose.Substep,
                     pose.NextTile,pose.NextX,pose.NextY) || pose.Substep<8 && pose.Substep<before.Substep)return false;
@@ -108,9 +109,12 @@ namespace TrappedUnitRescueTest
         {
             if(!pose.OrdinaryMode || pose.Health==0 || pose.Substep<0 || pose.Substep>8 ||
                 pose.Flags!=0 && pose.Flags!=2 && pose.Flags!=4 || tileAt(pose.X,pose.Y)<0 ||
-                tileAt(pose.X,pose.Y)!=pose.Tile || tileAt(pose.NextX,pose.NextY)<0 || tileAt(pose.NextX,pose.NextY)!=pose.NextTile)return false;
-            if(pose.Substep==8)return pose.PendingStep==0 && pose.X==pose.NextX && pose.Y==pose.NextY && pose.Tile==pose.NextTile;
-            return (pose.Flags==2 || pose.Flags==4) && (pose.X!=pose.NextX || pose.Y!=pose.NextY) &&
+                tileAt(pose.X,pose.Y)!=pose.Tile)return false;
+            // 196280 does not publish packed Next73C. With no accepted step,
+            // Vanilla consumes Current72C; preserve the unused raw cache unchanged.
+            if(pose.Substep==8)return pose.PendingStep==0 && pose.X==pose.NextX && pose.Y==pose.NextY;
+            return tileAt(pose.NextX,pose.NextY)>=0 && tileAt(pose.NextX,pose.NextY)==pose.NextTile &&
+                (pose.Flags==2 || pose.Flags==4) && (pose.X!=pose.NextX || pose.Y!=pose.NextY) &&
                 Math.Abs(pose.X-pose.NextX)<=1 && Math.Abs(pose.Y-pose.NextY)<=1;
         }
         private static bool SameSnapshotPose(UnitSnapshot before,RescueReplanPose pose)=>before.GlobalId==pose.Global && before.Health==pose.Health &&
@@ -123,7 +127,7 @@ namespace TrappedUnitRescueTest
                 snapshot.Tribe!=ticket.TribeId || snapshot.TribeGlobalId!=ticket.TribeGlobalId ||
                 snapshot.RequestedX!=ticket.RequestedX || snapshot.RequestedY!=ticket.RequestedY)return false;
             if(ticket.Kind==ResumeReceiptKind.Command)return snapshot.Job==null && snapshot.Command!=null;
-            if(ticket.Kind!=ResumeReceiptKind.Worker || snapshot.Job==null || snapshot.Command!=null)return false;
+            if(ticket.Kind!=ResumeReceiptKind.Worker || !WorkerTravelPolicy.IsLiveWorkerType(ticket.UnitType) || snapshot.Job==null || snapshot.Command!=null)return false;
             bool vegetation=(ticket.Bindings.Required&WorkerExternalBindings.Vegetation)!=0;
             return vegetation?snapshot.HasCapturedVegetation && snapshot.CapturedVegetationGlobal==ticket.Bindings.VegetationGlobal:
                 !snapshot.HasCapturedVegetation;

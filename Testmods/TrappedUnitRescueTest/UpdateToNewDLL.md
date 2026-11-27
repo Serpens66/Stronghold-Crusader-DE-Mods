@@ -3,6 +3,14 @@
 Reference: canonical installed CrusaderDE.dll SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 These prototype contracts were inspected on 2026-11-15. Resolve future baselines through CURRENT.json. Unknown native images disable this test runtime; no semantic fallback is claimed for unit/grid layouts.
 
+## Civilian removal instead of job continuation (27.11.2026)
+
+The same canonical hash binds the existing grid/occupancy and unit-word readers used by CivilianRemovalPolicy. Life native6E4/public88, type6E6/public8A, owner6EE/public92 and death8F8/public29C are additionally layout-checked before runtime publication. Ordinary movement/hidden/portal/moat words retain the offsets documented below. The explicit24-type list is Peasant plus23 human economic roles derived from B6340/2E4E20; Ox is not an employed Peasant, and paid Monk/Engineer/BedouinHealer are excluded. Current conservative admission excludes AI>=108, nonliving, death-marked and hidden/special-mode units; completed worker922 need not be zero.
+
+The only new write path calls the public Extender DeleteUnitSafe after final original-life, causal surface/old-exit, live physical-exit and occupancy checks. It is enabled solely inside the shared SimulationTickEvents recovery scope after outer mutation completion. It sets Life3;182B00 later invokes1869C0 and normal cleanup, without job/cargo/refund/recruitment replay. This introduces no new native call target or hook. An unchanged ordinary Current with newly unsafe acceptedNext is bounded observation, not immediate deletion; queue Observe preserves TTL/visit budgets without consuming a native-attempt allowance. Count RemovalRequested separately from completed native removal, which the actual game fixture must observe.
+
+Evidence: current Baseline RECRUIT_TRANSFORMATION.md and vanilla/units.md; shared SE/APIShared tick and DeleteSafe bodies. Pending schema5 carries an explicit removal action plus original Current/Next-exit evidence without Job/Command/vegetation/bank fields; schema4 remains historical and is never reinterpreted as removal authority. Worker removal does not enter the old Command-P7 geometry join. These changes do not yet retire all old mixed worker/command runtime or establish gameplay acceptance.
+
 ## Native relocation and observations
 
 - Live callable `0x19BA40`: Winapi void(unit manager, one-based ID, uint tile X, uint tile Y, ushort ground height). Canonical entry bytes, typed layouts and complete image hash are checked. Original routine unlinks/relinks tile occupancy and normalizes Current/Next XY and fine position; inactive packed Next73C is not rewritten (full midpoint DWORD740 is cleared, substep750 becomes8). It does not guarantee job continuation or normalize special AI states.
@@ -212,3 +220,23 @@ All addresses must lie in the selected actual CrusaderDE module, whose file SHA 
 A missing/changed image, code anchor, section record, scope/path/run, native world, timing, monitor, mode, initial word or pair invariant fails before setup write. Later unexpected word/Lady/pair/HP/lifetime changes reject the test; never continuously reapply0. Fresh restoration requires the same still-qualified world and unchanged owned0 state. A loaded world is never changed back to a fresh world's original1; unload/replacement invalidates old ownership. Own controlled saves are removed by the existing transactional runner, and a subsequent ordinary fresh game uses Vanilla's own initializer.
 
 Update procedure: reclose the full producer/read/write/reset/save/load/peace/victory and managed callback ordering, not just the two anchors. Unknown hash remains unsupported. New addresses or widths require a new reviewed audit; the exact original two-byte and eight-pair contracts must not be guessed from layout similarity.
+
+
+## Natural civilian removal fixture: migration preconditions (27.11.2026)
+
+Only `Fixture.CivilianRemoval.cs` reads the public `GamePlayerResources` view through `GamePlayerManagerAPI.TryGetPlayerResourcesById` (players1..8, array index playerId-1). No player writes, new callable RVAs or hooks. The already checked canonical hash above remains mandatory; actual installed SE public-field visibility and runtime layout guards are separate prerequisites.
+
+SE resources start at player-manager+1343FC, stride583C. D2C40's manager+13446C is view+70; its preceding cumulative DWORD is view+6C. Historical public names are misleading: `r_PeasantSpawnProgressRequired` at6C is cumulative progress, `r_PeasantSpawnProgress` at70 is the signed increment. Read both; Hovel creation alone does not prove a spawned Peasant. Recheck complete D2C40 and its D1AD0 scheduling and CDB20 recount before changing the setup wait contract.
+
+Resource offsets (no unit65C/building5C bias): UInt32 popularity60, cumulative6C, housing74, readyPeasants88, existingPeasants8C, KeepID94, KeepDoorID1D4, doorX1D8, doorY1DC, population2180, paused2210, WinLoss2244; Int32 increment70. Runtime setup checks the actual583C struct size and every consumed offset. Missing/changed fields, player bounds, Keep/door ownership, housing, positive progress or initialized simulation reject setup rather than inventing raw Peasants or changing gameplay admission.
+
+The fixture waits for actual population progress, then takes one bounded setup census and follows captured lifetimes only. Farm replacement checks original buildingID/global and a genuinely new employee global after native cleanup/hiring. Those checks do not promise unconditional instantaneous replacement in the rescue feature.
+
+
+## Auxiliary cleanup acceptance readers (27.11.2026)
+
+Owner: `Fixture.AuxRemoval.cs`, controlled tests only, canonical native hash above. No new native callable target or hook. GameBuilding pointers use native-header bias5C. Employment IDs at1FA+2*slot and Globals at204+4*slot are separate from per-pass heartbeat214+2*slot; setup validates the matching actual typed offsets through Marshal. Miller slots0..2, Mine slots0/1 and Cow-farm slots1..3 are explicit audited domains. C60F0 clears214/216/218/21A after the building handler; the following unit pass may republish them. The first post-marker building pass may still consume the previous heartbeat. Do not require immediate synchronous zero or forbid that last natural production update.
+
+Miner1 active214 exists only hiddenAI1, which this removal policy excludes: visibleR2 acceptance proves employment cleanup only. Visible Miner2 is restricted toAI1 before any native setup normalization; its193F10 physical-building check protects against remote extraction. Miller uses genuineAI3/8 movement and actual wheat input, without remote normalization; hidden21C is not claimed. Tanner uses genuineAI3 movement and reciprocal Cow4/5 reservation, without remote normalization or reissue. Read-only unit fields:9EE/9F0/9F6 are WORD,9F8 is DWORD, Cow timer920 is WORD, with the existing GameUnit bias65C. Cow5 may use its1001-update timeout before6/110/Life3; stale reference bytes alone are not an active reservation. Actual original HP and death8F8 remain checked. Full closed contracts: Baseline RECRUIT_TRANSFORMATION auxiliary-worker-bindings-and-ordinary-ai-hiring section and curated units/economy topics.
+
+Public capacity reads for the natural Miller input run only in the existing shared simulation callback; the UI automation monitor alone does not establish SimulationMutationScope. Saved v5-removal acceptance uses the actual public MapArchive plus signature-checked selected SDK decoder read-only. This introduces no JSON serializer or new native save entry.

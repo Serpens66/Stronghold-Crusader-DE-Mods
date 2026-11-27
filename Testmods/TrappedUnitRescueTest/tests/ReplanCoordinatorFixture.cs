@@ -14,25 +14,66 @@ namespace TrappedUnitRescueTest.Tests
     {
         private static int checks;
         private static void Check(bool value,string why){checks++;if(!value)throw new Exception("Replan coordinator: "+why);}
-        private sealed class Engine : IRescueMutationFootprintWorld
+        private class Engine : IRescueMutationFootprintWorld, IRescueMutationEnvelopeWorld
         {
             internal long Session=9,Generation=3;
-            internal int Now=100,RescueCalls,WorldReads,TickReads;
+            internal int Now=100,RescueCalls,WorldReads,TickReads,CaptureCalls,EnvelopeCalls;
             internal bool RescueSuccess=true;
+            internal RescueStatus RescueFailureStatus=RescueStatus.NoCandidate;
             internal IReadOnlyList<RescueTile> PlannedWrites=Array.Empty<RescueTile>();
-            internal bool CaptureSupported=true;
+            internal bool CaptureSupported=true,EnvelopeSupported=true,ThrowEnvelope;
             internal Action<UnitSnapshot> DuringRescue;
             internal readonly List<UnitSnapshot> Captured=new List<UnitSnapshot>();
             internal readonly List<UnitSnapshot> Rescued=new List<UnitSnapshot>();
             public bool TryCapture(WorldMutationContext c,out List<UnitSnapshot> before,out string reason)
-            {before=new List<UnitSnapshot>(Captured);reason=CaptureSupported?null:"fixture capture failure";return CaptureSupported;}
+            {CaptureCalls++;before=new List<UnitSnapshot>(Captured);reason=CaptureSupported?null:"fixture capture failure";return CaptureSupported;}
             public bool TryCapture(WorldMutationContext c,out List<UnitSnapshot> before,out IReadOnlyList<RescueTile> plannedWrites,out string reason)
             {plannedWrites=PlannedWrites;return TryCapture(c,out before,out reason);}
+            public bool TryPlan(WorldMutationContext c,out IReadOnlyList<RescueTile> plannedWrites,out string reason)
+            {EnvelopeCalls++;if(ThrowEnvelope)throw new Exception("fixture envelope failure");plannedWrites=PlannedWrites;reason=null;return EnvelopeSupported;}
             public bool HasChangedTrapCandidate(UnitSnapshot before)=>true;
-            public bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
-            {RescueCalls++;Rescued.Add(before);DuringRescue?.Invoke(before);result=new RescueResult{Status=RescueSuccess?RescueStatus.Rescued:RescueStatus.NoCandidate};return RescueSuccess;}
+            public virtual bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
+            {RescueCalls++;Rescued.Add(before);DuringRescue?.Invoke(before);result=new RescueResult{Status=RescueSuccess?RescueStatus.Rescued:RescueFailureStatus};return RescueSuccess;}
             public bool TryGetWorld(out long session,out long generation){WorldReads++;session=Session;generation=Generation;return true;}
             public bool TryGetTick(out int tick){TickReads++;tick=Now;return true;}
+        }
+        private sealed class IdleEngine : Engine,IRescuePassiveIdleWorld
+        {
+            internal readonly Dictionary<int,UnitSnapshot> Idle=new Dictionary<int,UnitSnapshot>();
+            internal int IdleCaptures,IdleChecks;
+            internal readonly HashSet<int> ReadIds=new HashSet<int>();
+            internal bool IdleAvailable=true,CurrentIdle=true,ThrowIdle,Dead,Projectile;
+            internal readonly HashSet<int> Settling=new HashSet<int>();
+            public bool IsKnownIdleTransition(RescueGeometryWitness witness)=>witness!=null && Settling.Contains(witness.UnitId);
+            internal Action DuringIdleCapture;
+            public bool TryCaptureIdle(int id,out UnitSnapshot idle)
+            {
+                IdleCaptures++;ReadIds.Add(id);idle=null;if(ThrowIdle)throw new InvalidOperationException("idle fixture failure");
+                DuringIdleCapture?.Invoke();
+                return IdleAvailable && !Dead && !Projectile && Idle.TryGetValue(id,out idle) &&
+                    RescueGeometryWitness.IsIndependentIdleSnapshot(idle) && IsCurrentIdle(idle);
+            }
+            public unsafe bool IsCurrentIdle(UnitSnapshot idle)
+            {
+                IdleChecks++;if(idle!=null)ReadIds.Add(idle.Id);
+                if(idle==null || !Idle.TryGetValue(idle.Id,out var live))return false;
+                GameUnit record=default;record.r_AliveState=Dead?AliveState.MarkedForDeletion:AliveState.IsAlive;
+                record.r_IsKilledByProjectile=(ushort)(Projectile?1:0);record.r_CurrentHealth=live.Health;record.r_GlobalId=live.GlobalId;
+                record.r_UnitChimp=(eChimps)live.Type;record.r_ControllableForPlayerId=(ushort)live.Owner;record.r_AIState=(ushort)live.AIState;
+                return CurrentIdle && NativeRescueMutationWorld.IsLivingIdleIdentity(idle,&record) &&
+                    RescueGeometryWitness.IsIndependentIdleSnapshot(live) && idle.Tribe==live.Tribe && idle.TribeGlobalId==live.TribeGlobalId &&
+                    idle.X==live.X && idle.Y==live.Y && idle.TileId==live.TileId && idle.AIState==live.AIState &&
+                    idle.Command.Matches((eChimps)live.Type,live.AIState,
+                        at=>(ushort)(live.Command.TryGetValue(at,out uint wordValue)?wordValue:0),
+                        at=>live.Command.TryGetValue(at,out uint dwordValue)?dwordValue:0);
+            }
+            public override bool TryRescue(UnitSnapshot before,string cause,bool resume,out RescueResult result)
+            {
+                // Exercise the existing production transaction-health clone at
+                // the fake engine boundary; no simulated health write occurs.
+                if(Idle.TryGetValue(before.Id,out var live))before=before.WithCurrentHealth(live.Health);
+                return base.TryRescue(before,cause,resume,out result);
+            }
         }
         private sealed class IntentBoundary : IRescueReplanIntentWorld
         {
@@ -59,12 +100,12 @@ namespace TrappedUnitRescueTest.Tests
         }
         private sealed class Harness
         {
-            internal readonly Engine Engine=new Engine();
+            internal readonly Engine Engine;
             internal readonly IntentBoundary Intents=new IntentBoundary();
             internal readonly GeneralRescueObserver Observer;
             private long batch,move;
-            internal Harness(bool active=true)
-            {Observer=new GeneralRescueObserver(Engine,null,null){ReplanIntents=Intents,ReplanOwnerGuid="ours",OwnReplanScope=()=>false};if(active)Observer.SetSession(Engine.Session);}
+            internal Harness(bool active=true,Engine engine=null)
+            {Engine=engine??new Engine();Observer=new GeneralRescueObserver(Engine,null,null){ReplanIntents=Intents,ReplanOwnerGuid="ours",OwnReplanScope=()=>false};if(active)Observer.SetSession(Engine.Session);}
             internal void Enqueue(params UnitSnapshot[] units)
             {
                 Engine.Captured.Clear();Engine.Captured.AddRange(units);
@@ -82,7 +123,7 @@ namespace TrappedUnitRescueTest.Tests
             }
             internal void Fail(UnitSnapshot fresh,int extra=0)
             {var receipt=Begin(fresh,out var context,extra);Check(receipt!=null,"retained causal geometry interests actual original");receipt.Complete(MoveEnd(context));}
-            internal void Tick(int tick){Engine.Now=tick;Observer.Tick(tick);}
+            internal void Tick(int tick){Engine.Now=tick;if(Engine is IdleEngine idle)idle.ReadIds.Clear();Observer.Tick(tick);}
         }
         private static UnitSnapshot Old(int id=1,bool step=false)
         {
@@ -105,12 +146,12 @@ namespace TrappedUnitRescueTest.Tests
             u.AIState=101;u.AffectedCurrent=false;u.AffectedNext=false;u.CurrentWasOrdinary=false;u.NextWasOrdinary=false;
             u.GroundFlags=0x40000000u;u.NextGroundFlags=u.GroundFlags;u.Command=Command(u,purpose);return u;
         }
-        private static CommandJourneySnapshot Command(UnitSnapshot u,ushort purpose)
+        private static CommandJourneySnapshot Command(UnitSnapshot u,ushort purpose,int target=0)
         {
-            Func<int,ushort> word=offset=>offset==0x6E4?(ushort)AliveState.IsAlive:offset==0x6E6?(ushort)u.Type:
+            Func<int,ushort> word=offset=>offset==target?(ushort)1:offset==0x6E4?(ushort)AliveState.IsAlive:offset==0x6E6?(ushort)u.Type:
                 offset==0x6EE?(ushort)u.Owner:offset==0x918?(ushort)u.AIState:offset==0x930?(ushort)u.Tribe:
                 offset==0x958?purpose:offset==0xA9E?(ushort)1:(ushort)0;
-            Func<int,uint> dword=offset=>offset==0x6F0?u.GlobalId:offset==0x93C?u.TribeGlobalId:0u;
+            Func<int,uint> dword=offset=>offset==target?1u:offset==0x6F0?u.GlobalId:offset==0x93C?u.TribeGlobalId:0u;
             CommandJourneySnapshot command;
             bool valid=u.Flags==0?CommandJourneySnapshot.TryCaptureStationary((eChimps)u.Type,u.AIState,word,dword,out command):
                 CommandJourneySnapshot.TryCapture((eChimps)u.Type,u.AIState,word,dword,out command);
@@ -137,10 +178,241 @@ namespace TrappedUnitRescueTest.Tests
             var c=(UnitMoveCompletion)Activator.CreateInstance(typeof(UnitMoveCompletion),BindingFlags.Instance|BindingFlags.NonPublic,null,new object[]{context},null);
             typeof(UnitMoveCompletion).GetMethod("Set",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(c,new object[]{invoked,returned,actual,failure,current});return c;
         }
+        private static void SpearmanOneIndependentIdle()
+        {
+            Check(CommandJourneySnapshot.IsIndependentIdlePhase(eChimps.CHIMP_TYPE_SPEARMAN,1),"exact SpearmanAI1 is an independently audited idle animation");
+            foreach(var type in new[]{eChimps.CHIMP_TYPE_ARCHER,eChimps.CHIMP_TYPE_XBOWMAN,eChimps.CHIMP_TYPE_PIKEMAN,eChimps.CHIMP_TYPE_ENGINEER})
+                Check(!CommandJourneySnapshot.IsIndependentIdlePhase(type,1),"SpearmanAI1 does not grant any other type'sAI1 independent authority");
+            var e=new IdleEngine();var h=new Harness(engine:e);var old=Fresh(Old(44));old.CurrentWasOrdinary=true;old.AffectedCurrent=true;
+            old.Candidates.Add(new RescueCandidate{X=old.X+1,Y=old.Y,Tile=old.TileId+1,Distance=1});h.Enqueue(old);
+            var phase1=Idle(old);phase1.AIState=1;phase1.Command=Command(phase1,0);e.Idle[phase1.Id]=phase1;h.Tick(100);
+            Check(h.Observer.TryCapturePending(out var pending) && e.RescueCalls==0 && pending.Length==1 &&
+                pending[0].Snapshot.AIState==1 && pending[0].Snapshot.RequestedX==phase1.X && pending[0].Attempts==0 && pending[0].ActiveAge==0,
+                "fresh Spearman1 joins original geometry without replaying the old101 goal");
+            var saved=new RescuePendingCandidate<UnitSnapshot>(pending[0].Source,pending[0].Snapshot,200,2,0,RescueQueueLifetimeMode.ActiveWindow,7,false);
+            Check(RescuePendingCodec.TryEncode(saved,out var bytes),"Spearman1 encodes using the existing production codec");
+            Check(RescuePendingCodec.TryDecode(bytes,out var decoded) && decoded.Snapshot.AIState==1 && decoded.Age==200 && decoded.ActiveAge==7 && decoded.Attempts==2 &&
+                RescueGeometryCodec.CanonicalJoin(decoded.Snapshot),"existing production codec preserves Spearman1 authority and old source/window/attempts without a schema change");
+            var loadedEngine=new IdleEngine();var loaded=new Harness(engine:loadedEngine);loadedEngine.Idle[phase1.Id]=phase1;loaded.Observer.StagePending(new[]{decoded});
+            loaded.Tick(500);
+            Check(loadedEngine.RescueCalls==1 && loadedEngine.Rescued[0].AIState==1 && loadedEngine.Rescued[0].RequestedX==phase1.X &&
+                old.AIState==101 && old.RequestedX!=phase1.X && loaded.Observer.PendingCount==0,
+                "loaded current Spearman1 performs only fresh stationary rescue, preserving its current AI and goal");
+            foreach(int target in new[]{0x996,0x99C,0xA00})
+            {
+                var blocked=new IdleEngine();var b=new Harness(engine:blocked);b.Observer.StagePending(new[]{decoded});
+                var aimed=RescueReplanIntent.CopySnapshot(phase1);aimed.Command=Command(aimed,0,target);blocked.Idle[aimed.Id]=aimed;
+                b.Tick(500);b.Tick(501);Check(blocked.RescueCalls==0,"Spearman1 with a concrete target never acquires independent idle authority");
+            }
+        }
+        private static void PassiveIdleHealthAndAnimation()
+        {
+            foreach(uint health in new uint[]{60,120})
+            {
+                var e=new IdleEngine();var h=new Harness(engine:e);var old=Fresh(Old(41));old.CurrentWasOrdinary=true;old.AffectedCurrent=true;
+                old.Candidates.Add(new RescueCandidate{X=old.X+1,Y=old.Y,Tile=old.TileId+1,Distance=1});h.Enqueue(old);
+                var idle=Idle(old);e.Idle[idle.Id]=idle;h.Tick(100);
+                Check(h.Observer.TryCapturePending(out var saved) && saved.Length==1,"queued fresh idle health fixture captured");
+                e.Idle[idle.Id]=idle.WithCurrentHealth(health);
+                Check(h.Observer.TryCapturePending(out var changedHealth) && changedHealth.Length==1 &&
+                    changedHealth[0].Age==saved[0].Age && changedHealth[0].ActiveAge==saved[0].ActiveAge && changedHealth[0].Attempts==saved[0].Attempts,
+                    "positive health change neither invalidates save authority nor renews proof time");
+                h.Tick(101);
+                Check(e.RescueCalls==1 && e.Rescued[0].Health==health && saved[0].Snapshot.Health==100 &&
+                    ReferenceEquals(e.Rescued[0].GeometryWitness,saved[0].Snapshot.GeometryWitness),
+                    "real current-health clone at the engine boundary preserves damage/heal and old spatial witness");
+            }
+            foreach(int invalid in new[]{0,1,2,3,4})
+            {
+                var e=new IdleEngine();var h=new Harness(engine:e);var old=Fresh(Old(42));old.CurrentWasOrdinary=true;old.AffectedCurrent=true;
+                old.Candidates.Add(new RescueCandidate{X=old.X+1,Y=old.Y,Tile=old.TileId+1,Distance=1});h.Enqueue(old);var idle=Idle(old);e.Idle[idle.Id]=idle;h.Tick(100);
+                if(invalid==0)e.Idle[idle.Id]=idle.WithCurrentHealth(0);
+                if(invalid==1)e.Projectile=true;
+                if(invalid==2)e.Dead=true;
+                if(invalid==3){var reused=RescueReplanIntent.CopySnapshot(idle);reused.GlobalId++;e.Idle[idle.Id]=reused;}
+                if(invalid==4)h.Observer.ObserveOrder(idle.Id);
+                h.Tick(101);h.Tick(102);
+                Check(e.RescueCalls==0,"zero/projectile/dead/reuse/new order cannot inherit idle health permission");
+            }
+            var animation=new IdleEngine();var moving=new Harness(engine:animation);var source=Fresh(Old(43));source.Type=(int)eChimps.CHIMP_TYPE_ARCHER;
+            source.Command=Command(source,0);source.CurrentWasOrdinary=true;source.AffectedCurrent=true;
+            source.Candidates.Add(new RescueCandidate{X=source.X+1,Y=source.Y,Tile=source.TileId+1,Distance=1});moving.Enqueue(source);
+            var facing=Idle(source);facing.AIState=7;facing.Command=Command(facing,0);animation.Idle[facing.Id]=facing;moving.Tick(100);
+            Check(moving.Observer.TryCapturePending(out var oldAnimation) && oldAnimation.Length==1,"fresh Archer7 authority captured");
+            var now=RescueReplanIntent.CopySnapshot(facing);now.AIState=0;now.Command=Command(now,0);animation.Idle[now.Id]=now;
+            moving.Tick(101);
+            Check(animation.RescueCalls==1 && animation.Rescued[0].AIState==0 && ReferenceEquals(animation.Rescued[0].Command,now.Command) &&
+                animation.Rescued[0].RequestedX==now.X && oldAnimation[0].Snapshot.AIState==7,
+                "Archer7-to0 uses wholly fresh command semantics, not tolerant matching or old AI replay");
+
+            foreach(int variant in new[]{0,1,2,3})
+            {
+                var e=new IdleEngine();var h=new Harness(engine:e);var oldSaved=oldAnimation[0];
+                var aged=new RescuePendingCandidate<UnitSnapshot>(oldSaved.Source,oldSaved.Snapshot,200,2,0,RescueQueueLifetimeMode.ActiveWindow,7,false);
+                h.Observer.StagePending(new[]{aged});var current=RescueReplanIntent.CopySnapshot(now);
+                if(variant==1)current.AIState=1;
+                if(variant==2)current.Command=Command(current,0,0xA00);
+                if(variant==3){current.Flags=2;current.AIState=101;current.Command=Command(current,0);}
+                e.Idle[current.Id]=current;h.Tick(500);
+                if(variant==0)
+                {
+                    Check(e.RescueCalls==0 && h.Observer.TryCapturePending(out var refreshed) && refreshed.Length==1 &&
+                        refreshed[0].Snapshot.AIState==0 && refreshed[0].Snapshot.RequestedX==now.X && refreshed[0].Age==200 &&
+                        refreshed[0].ActiveAge==7 && refreshed[0].Attempts==2,"stale queued flags0 is freshly rebound without renewing source/window/attempts");
+                    h.Tick(501);Check(e.RescueCalls==1 && e.Rescued[0].AIState==0,"new current idle phase reaches the actual coordinator action");
+                }
+                else {h.Tick(501);Check(e.RescueCalls==0,"combat/targeted/active state never gains fresh stationary authority");}
+            }
+            var manyEngine=new IdleEngine();var many=new Harness(engine:manyEngine);var records=new List<RescuePendingCandidate<UnitSnapshot>>();
+            for(int id=100;id<700;id++)
+            {
+                var old=Fresh(Old(id));old.Type=(int)eChimps.CHIMP_TYPE_ARCHER;old.Command=Command(old,0);old.CurrentWasOrdinary=true;old.AffectedCurrent=true;
+                old.Candidates.Add(new RescueCandidate{X=old.X+1,Y=old.Y,Tile=old.TileId+1,Distance=1});
+                Check(RescueGeometryWitness.TryCapture(old,out var w),"animation wave has old causal geometry");
+                var phase7=Idle(old);phase7.AIState=7;phase7.Command=Command(phase7,0);
+                Check(RescueGeometryWitness.TryJoinStationary(w,phase7,out var joined),"animation wave stores a canonical fresh idle receipt");
+                records.Add(new RescuePendingCandidate<UnitSnapshot>("replan/BuildStructure",joined,200,0,0,RescueQueueLifetimeMode.ActiveWindow,-1,false));
+                var phase0=RescueReplanIntent.CopySnapshot(phase7);phase0.AIState=0;phase0.Command=Command(phase0,0);manyEngine.Idle[id]=phase0;
+            }
+            many.Observer.StagePending(records.ToArray());int previous=0;
+            for(int tick=100;tick<240;tick++)
+            {many.Tick(tick);Check(manyEngine.ReadIds.Count<=32 && manyEngine.RescueCalls-previous<=8,
+                "600 changed animation receipts retain32 known-ID visits and8 actions with constant bounded revalidation");previous=manyEngine.RescueCalls;}
+            Check(manyEngine.RescueCalls==600 && many.Observer.PendingCount==0,"animation wave fully drains without old phase replay or deadline refresh");
+        }
+        private static UnitSnapshot Idle(UnitSnapshot old,bool atNext=false)
+        {
+            var u=Fresh(old,atNext);u.Flags=0;u.AIState=0;u.RequestedX=u.X;u.RequestedY=u.Y;u.NextTileId=0;
+            u.Command=Command(u,0);return u;
+        }
+        private static void PassiveIdleAfterCompletedIntent()
+        {
+            var engine=new IdleEngine();var h=new Harness(engine:engine);var old=Fresh(Old());old.CurrentWasOrdinary=true;old.AffectedCurrent=true;
+            old.GroundFlags=0;old.Candidates.Add(new RescueCandidate{X=old.X+2,Y=old.Y,Tile=old.TileId+2,Distance=2});
+            h.Enqueue(old);var idle=Idle(old);engine.Idle[idle.Id]=idle;
+            h.Tick(100);
+            Check(engine.RescueCalls==0 && engine.IdleCaptures==1 && h.Observer.PendingCount==1 && h.Observer.AttemptCount==0,
+                "completed old command never reaches native recovery before fresh idle admission");
+            Check(h.Observer.TryCapturePending(out var pending) && pending.Length==1 && pending[0].Snapshot.Flags==0 &&
+                pending[0].Snapshot.AIState==0 && pending[0].Snapshot.RequestedX==idle.X && pending[0].Attempts==0 &&
+                pending[0].ActiveAge==0 && pending[0].Age==0 && RescueGeometryCodec.CanonicalJoin(pending[0].Snapshot),
+                "save exports exactly one fresh stationary authority with original source/window");
+            Check(h.Observer.TryCaptureGeometry(out var geometry) && geometry.Length==0,"paired save excludes fresh idle geometry duplicate");
+            Check(RescuePendingCodec.TryEncode(pending[0],out var bytes) && RescuePendingCodec.TryDecode(bytes,out var restored) &&
+                restored.Snapshot.Flags==0 && restored.Snapshot.RequestedX==idle.X && restored.ActiveAge==0 && restored.Age==0,
+                "production codec roundtrips joined fresh idle authority");
+            h.Tick(101);
+            Check(engine.RescueCalls==1 && engine.Rescued[0].AIState==0 && engine.Rescued[0].RequestedX==idle.X &&
+                engine.Rescued[0].GeometryWitness!=null && ReferenceEquals(engine.Rescued[0].Command,idle.Command) &&
+                h.Observer.PendingCount==0,"fresh idle uses same action queue without old goal or AI replay");
+            for(int tick=102;tick<120;tick++)h.Tick(tick);
+            Check(engine.IdleCaptures==1 && engine.RescueCalls==1,"no background idle polling after one transition");
+
+            var clock=new IdleEngine();var aged=new Harness(engine:clock);var agedOld=Fresh(Old(2));agedOld.CurrentWasOrdinary=true;agedOld.AffectedCurrent=true;
+            agedOld.Candidates.Add(new RescueCandidate{X=agedOld.X+1,Y=agedOld.Y,Tile=agedOld.TileId+1,Distance=1});
+            aged.Observer.StagePending(new[]{new RescuePendingCandidate<UnitSnapshot>("BuildStructure",agedOld,200,2,0,
+                RescueQueueLifetimeMode.ActiveWindow,7,false)});clock.Idle[agedOld.Id]=Idle(agedOld);aged.Tick(300);
+            Check(aged.Observer.TryCapturePending(out var kept) && kept.Length==1 && kept[0].Age==200 && kept[0].ActiveAge==7 && kept[0].Attempts==2,
+                "passive phase change never renews old source age, active window or attempts");
+
+            foreach(int negative in new[]{0,1,2,3,4})
+            {
+                var e=new IdleEngine();var n=new Harness(engine:e);var original=Fresh(Old(10+negative));original.CurrentWasOrdinary=true;original.AffectedCurrent=true;
+                if(negative==0){original.Type=(int)eChimps.CHIMP_TYPE_ARCHER;original.Command=Command(original,0);}
+                original.Candidates.Add(new RescueCandidate{X=original.X+1,Y=original.Y,Tile=original.TileId+1,Distance=1});n.Enqueue(original);
+                var current=Idle(original);
+                if(negative==0)current.AIState=1;
+                if(negative==1)current.GlobalId++;
+                if(negative==2)current.Owner++;
+                if(negative==3)current.RequestedX++;
+                if(negative==4){current.X++;current.NextX++;current.RequestedX++;current.TileId++;}
+                e.Idle[current.Id]=current;e.RescueSuccess=false;e.RescueFailureStatus=RescueStatus.Unsupported;n.Tick(100);
+                Check(n.Observer.PendingCount==0,"combat/new life/owner/goal/unproved position cannot become fresh idle");
+            }
+            var changedEngine=new IdleEngine();var changed=new Harness(engine:changedEngine);var b=Fresh(Old(20));b.CurrentWasOrdinary=true;b.AffectedCurrent=true;
+            b.Candidates.Add(new RescueCandidate{X=b.X+1,Y=b.Y,Tile=b.TileId+1,Distance=1});changed.Enqueue(b);changedEngine.Idle[b.Id]=Idle(b);changed.Tick(100);
+            changedEngine.CurrentIdle=false;changed.Tick(101);
+            Check(changedEngine.RescueCalls==0 && changed.Observer.PendingCount==0,"changed idle authority retires before action");
+
+            var reentryEngine=new IdleEngine();var reentry=new Harness(engine:reentryEngine);var reentryOld=Fresh(Old(21));reentryOld.CurrentWasOrdinary=true;reentryOld.AffectedCurrent=true;
+            reentryOld.Candidates.Add(new RescueCandidate{X=reentryOld.X+1,Y=reentryOld.Y,Tile=reentryOld.TileId+1,Distance=1});reentry.Enqueue(reentryOld);
+            reentryEngine.Idle[reentryOld.Id]=Idle(reentryOld);reentryEngine.DuringIdleCapture=()=>reentryEngine.Generation++;
+            reentry.Tick(100);reentry.Tick(101);
+            Check(reentryEngine.RescueCalls==0 && reentry.Observer.PendingCount==0,"world loss inside readonly idle boundary cannot publish old geometry");
+
+            var waitEngine=new IdleEngine();var wait=new Harness(engine:waitEngine);var waiting=Fresh(Old(23));waiting.CurrentWasOrdinary=true;waiting.AffectedCurrent=true;
+            waiting.Candidates.Add(new RescueCandidate{X=waiting.X+1,Y=waiting.Y,Tile=waiting.TileId+1,Distance=1});wait.Enqueue(waiting);
+            waitEngine.Settling.Add(waiting.Id);wait.Tick(100);
+            Check(waitEngine.RescueCalls==0 && wait.Observer.PendingCount==1,"known AI101 stationary caller tail retains geometry without action");
+            for(int tick=101;tick<=105;tick++)wait.Tick(tick);
+            Check(waitEngine.RescueCalls==0 && wait.Observer.PendingCount==1,"delayed native type-handler transition remains bounded and never replays AI101");
+            waitEngine.Settling.Clear();waitEngine.Idle[waiting.Id]=Idle(waiting);wait.Tick(106);
+            Check(waitEngine.RescueCalls==1 && waitEngine.Rescued[0].AIState==0 && waitEngine.Rescued[0].RequestedX==waiting.X,
+                "later genuine idle state grants only its new stationary semantics");
+            var expiryEngine=new IdleEngine();var expiry=new Harness(engine:expiryEngine);var expiring=Fresh(Old(24));expiring.CurrentWasOrdinary=true;expiring.AffectedCurrent=true;
+            expiring.Candidates.Add(new RescueCandidate{X=expiring.X+1,Y=expiring.Y,Tile=expiring.TileId+1,Distance=1});expiry.Enqueue(expiring);
+            expiryEngine.Settling.Add(expiring.Id);for(int tick=100;tick<=181;tick++)expiry.Tick(tick);
+            Check(expiry.Observer.PendingCount==0 && expiryEngine.RescueCalls==0 && expiryEngine.IdleCaptures<=80,
+                "known transition cannot renew its active deadline or poll forever");
+
+            var budgetEngine=new IdleEngine();var budget=new Harness(engine:budgetEngine);var many=new List<UnitSnapshot>();
+            for(int id=100;id<900;id++)
+            {var u=Fresh(Old(id));u.CurrentWasOrdinary=true;u.AffectedCurrent=true;u.Candidates.Add(new RescueCandidate{X=u.X+1,Y=u.Y,Tile=u.TileId+1,Distance=1});
+                many.Add(u);if(id<700)budgetEngine.Idle[id]=Idle(u);}
+            budget.Enqueue(many.ToArray());int previousCaptures=0,previousActions=0,previousIdleChecks=0;
+            for(int tick=100;tick<260;tick++)
+            {budget.Tick(tick);Check(budgetEngine.ReadIds.Count<=32 && budgetEngine.IdleCaptures-previousCaptures+budgetEngine.IdleChecks-previousIdleChecks<=96 &&
+                budgetEngine.RescueCalls-previousActions<=8,
+                "passive burst bounds32 known-ID visits,96 capture/validation calls and8 actual actions");previousCaptures=budgetEngine.IdleCaptures;previousActions=budgetEngine.RescueCalls;previousIdleChecks=budgetEngine.IdleChecks;}
+            Check(budget.Observer.PendingCount==0 && budgetEngine.RescueCalls==800,"600 passive and200 active originals drain without starvation or duplicate action");
+
+            var waveEngine=new IdleEngine();var wave=new Harness(engine:waveEngine);var ready=Fresh(Old(1));ready.CurrentWasOrdinary=true;ready.AffectedCurrent=true;
+            ready.Candidates.Add(new RescueCandidate{X=ready.X+1,Y=ready.Y,Tile=ready.TileId+1,Distance=1});wave.Enqueue(ready);waveEngine.Idle[ready.Id]=Idle(ready);wave.Tick(100);
+            var waveRecords=new List<RescuePendingGeometry>();
+            for(int id=100;id<800;id++)
+            {var u=Old(id);Check(RescueGeometryWitness.TryCapture(u,out var w),"geometry-wave original causal witness");
+                waveRecords.Add(new RescuePendingGeometry("BuildStructure",w,200,0,0,RescueQueueLifetimeMode.ActiveWindow,-1,false));waveEngine.Idle[id]=Idle(u);}
+            wave.Observer.StageGeometry(waveRecords.ToArray());wave.Tick(101);
+            Check(waveEngine.Rescued.Count>0 && waveEngine.Rescued[0].Id==ready.Id,"older already-active idle authority precedes a large newer geometry wave");
+            Check(wave.Observer.TryCaptureGeometry(out var unvisitedGeometry) && unvisitedGeometry.Length>512,
+                "large geometry wave remains bounded rather than synchronously drained");
+            foreach(var row in unvisitedGeometry)Check(row.ActiveAge==-1 && row.Age==200,"metadata alone neither starts the active clock nor renews original source age");
+            int waveCaptures=waveEngine.IdleCaptures,waveChecks=waveEngine.IdleChecks,waveActions=waveEngine.RescueCalls;
+            for(int tick=102;tick<220;tick++)
+            {wave.Tick(tick);Check(waveEngine.ReadIds.Count<=32 && waveEngine.IdleCaptures-waveCaptures+waveEngine.IdleChecks-waveChecks<=96 &&
+                waveEngine.RescueCalls-waveActions<=8,
+                "mixed wave bounds32 known-ID visits,96 capture/validation calls and8 actual actions");waveCaptures=waveEngine.IdleCaptures;waveChecks=waveEngine.IdleChecks;waveActions=waveEngine.RescueCalls;}
+            Check(wave.Observer.PendingCount==0 && waveEngine.RescueCalls==701,"large new geometry wave cannot starve an existing ready receipt or itself");
+
+            var loadEngine=new IdleEngine();var loaded=new Harness(engine:loadEngine);var history=Old(31);
+            Check(RescueGeometryWitness.TryCapture(history,out var savedWitness),"restored geometry has original causal source");
+            loaded.Observer.StageGeometry(new[]{new RescuePendingGeometry("BuildStructure",savedWitness,200,1,0,
+                RescueQueueLifetimeMode.ActiveWindow,5,false)});loadEngine.Idle[history.Id]=Idle(history);loaded.Tick(500);
+            Check(loadEngine.IdleCaptures==1 && loadEngine.RescueCalls==1 && loadEngine.Rescued[0].AIState==0 &&
+                loadEngine.Rescued[0].RequestedX==history.X,"new-world geometry restore grants only a freshly observed independent idle action");
+            var failedEngine=new IdleEngine();var failed=new Harness(engine:failedEngine);var oldFailure=Old(30);failed.Enqueue(oldFailure);
+            failed.Intents.CaptureAllowed=false;var currentIdle=Idle(oldFailure);failedEngine.Idle[oldFailure.Id]=currentIdle;failed.Fail(currentIdle);
+            Check(failedEngine.IdleCaptures==0,"failed original never captures idle within caller tail");failed.Tick(100);
+            Check(failedEngine.IdleCaptures==1 && failedEngine.RescueCalls==1 && failedEngine.Rescued[0].Flags==0,
+                "failed original schedules one bounded post-tail fresh idle admission");
+        }
+        private static void InactivePackedNextNativeRefusal()
+        {
+            var source=new RescueReplanIntentFixture.Source(eChimps.CHIMP_TYPE_SPEARMAN,101){PackedNext=0};
+            var original=source.Snapshot(7);original.AffectedCurrent=true;original.CurrentWasOrdinary=true;
+            original.Candidates.Add(new RescueCandidate{X=3,Y=5,Tile=4003,Distance=1});
+            var h=new Harness();h.Observer.ReplanIntents=source.Boundary;h.Enqueue(original);
+            var call=h.Begin(source.Snapshot(7),out var context);
+            Check(call!=null,"actual intent boundary admits stationary stale Next cache before original");
+            call.Complete(MoveEnd(context,0));h.Tick(100);
+            Check(h.Engine.RescueCalls==1 && h.Engine.Rescued[0].NextTileId==0 && h.Engine.Rescued[0].GeometryWitness!=null &&
+                h.Engine.Rescued[0].RequestedX==20 && h.Engine.Rescued[0].RequestedY==30,
+                "actual Native0 plus production intent boundary joins retained geometry and reaches recovery with raw cache0");
+        }
         internal static void Run()
         {
-            checks=0;EnvelopeOverlapRetirement();FreshIntentAndSaveBoundary();OriginalAcceptedNextRoundTrip();NestedPublication();FirstBoundaryAndNewOrder();RejectedCallsAndInvalidation();
-            OriginalLifetimeAndAttempts();CapacityAndBudgets();GeometryOnlyLoadAndDisable();
+            checks=0;SpearmanOneIndependentIdle();PassiveIdleHealthAndAnimation();PassiveIdleAfterCompletedIntent();InactivePackedNextNativeRefusal();RecoveryReentryRetirement();EnvelopeOverlapRetirement();FreshIntentAndSaveBoundary();OriginalAcceptedNextRoundTrip();NestedPublication();FirstBoundaryAndNewOrder();RejectedCallsAndInvalidation();
+            OriginalLifetimeAndAttempts();CapacityAndBudgets();GeometryOnlyLoadAndDisable();DormantBurstAndAtomicSave();
             Console.WriteLine("ReplanCoordinatorFixture: "+checks+" checks passed; actual General coordinator/queue/join/codecs, no native calls");
         }
         private static void FreshIntentAndSaveBoundary()
@@ -162,6 +434,70 @@ namespace TrappedUnitRescueTest.Tests
             Check(joined.GeometryWitness!=null && joined.Candidates.Count==old.Candidates.Count && joined.Candidates[2].Tile==old.Candidates[2].Tile,"old reachable bank remains original evidence");
             h.Tick(100);Check(h.Engine.RescueCalls==1,"duplicate simulation callback cannot rescue twice");
             Check(h.Observer.TryCapturePending(out var pending) && pending.Length==0 && h.Observer.TryCaptureGeometry(out var geometry) && geometry.Length==0,"settled successful Tick restores atomic-save admission");
+        }
+        private static void RecoveryReentryRetirement()
+        {
+            // Actual production Drain callback A reenters the real WorldMutation
+            // observer before a foreign wall original; B's endpoints are untouched.
+            for(int mode=0;mode<9;mode++)
+            {
+                var h=new Harness();var a=Old();var b=Old(2);Shift(b,40,40);h.Enqueue(a,b);
+                int captures=h.Engine.CaptureCalls;
+                h.Engine.DuringRescue=current=>
+                {
+                    if(current.Id!=a.Id)return;
+                    Check(h.Observer.IsRecovering,"foreign wall runs within actual rescue callback");
+                    Check(!h.Observer.TryCapturePending(out _),"reentry cannot authorize a partial save");
+                    h.Engine.PlannedWrites=mode==2?Array.Empty<RescueTile>():mode==3?null:
+                        new[]{new RescueTile(mode==1?300:mode==7?a.X+3:b.X+3,mode==1?300:mode==7?a.Y:b.Y,20000)};
+                    h.Engine.ThrowEnvelope=mode==4;h.Engine.EnvelopeSupported=mode!=5;
+                    var c=Mutation(2000+mode,mode==6?8:9,mode==8?4:3);
+                    Check(h.Observer.TryBegin(c)==null,"reentry publishes no capture receipt");
+                    h.Observer.OnBatchCompleted(BatchEnd(2000+mode,mode==6?8:9,mode==8?4:3));
+                    Check(h.Engine.CaptureCalls==captures,"reentry performs no unit capture or candidate BFS");
+                    // The first operation is already running. Overlap can retire its
+                    // ownership, but must neither undo it nor re-add its queue node.
+                    if(mode==7)Check(!h.Observer.IsInterestedInOrder(a.Id),"active A ownership retired before wall original");
+                };
+                h.Tick(100);h.Tick(101);
+                bool bRuns=mode==1 || mode==2 || mode==6 || mode==7 || mode==8;
+                Check(h.Engine.RescueCalls==(bRuns?2:1),"overlap/unknown drops B, unrelated/empty/wrong-world preserves B mode="+mode);
+                Check(h.Engine.EnvelopeCalls==(mode==6 || mode==8?0:1),"world guard precedes planning mode="+mode);
+                Check(h.Observer.PendingCount==0 && !h.Observer.IsRecovering,"reentrant invalidation leaves no retry/readded active node mode="+mode);
+            }
+            for(int kind=0;kind<6;kind++)
+            {
+                var h=new Harness();var a=Old();var b=Old(2,true);Shift(b,40,40);h.Enqueue(a);
+                if(kind<=1 || kind==5)
+                {
+                    h.Enqueue(b);
+                    if(kind==1)h.Observer.ObserveOrder(b.Id);
+                    if(kind==5)h.Fail(Fresh(b,true));
+                }
+                else if(kind==2)h.Observer.StagePending(new[]{new RescuePendingCandidate<UnitSnapshot>("BuildStructure",b,0,0,0)});
+                else
+                {
+                    Check(RescueGeometryWitness.TryCapture(b,out var witness),"reentry retained storage witness");
+                    if(kind==3)
+                    {
+                        Check(RescueGeometryWitness.TryJoin(witness,Fresh(b,true),out var joined),"reentry joined saved witness");
+                        h.Observer.StagePending(new[]{new RescuePendingCandidate<UnitSnapshot>("replan/BuildStructure",joined,0,0,0)});
+                    }
+                    else h.Observer.StageGeometry(new[]{new RescuePendingGeometry("BuildStructure",witness,0,0,0)});
+                }
+                int captures=h.Engine.CaptureCalls;
+                h.Engine.DuringRescue=current=>
+                {
+                    if(current.Id!=a.Id)return;
+                    // Original left boundary is distance9 from joined acceptedNext.
+                    h.Engine.PlannedWrites=new[]{new RescueTile(b.X-8,b.Y,20000)};
+                    Check(h.Observer.TryBegin(Mutation(2100+kind,9,3))==null,"reentry storage creates no new capture");
+                    Check(!h.Observer.IsInterestedInOrder(b.Id),"reentry retires overlapping historical form kind="+kind);
+                };
+                h.Tick(100);
+                Check(h.Engine.RescueCalls==1 && h.Engine.CaptureCalls==captures && h.Observer.PendingCount==0,
+                    "all six historical forms retire during recovery without new BFS kind="+kind);
+            }
         }
         private static void EnvelopeOverlapRetirement()
         {
@@ -249,7 +585,7 @@ namespace TrappedUnitRescueTest.Tests
             Check(u.X==old.NextX && u.NextX==u.X && !u.OrdinaryStep && u.GeometryWitness.HasAcceptedNext,"fresh Current rebases onto original accepted Next without invented successor");
             Check(Math.Abs(u.Candidates[2].X-u.X)==9 && u.Candidates[0].Distance==0 && u.Candidates[0].X==old.X && u.Candidates[0].Tile==old.TileId,"old radius and zero-distance anchor do not shift/truncate");
             RescuePendingCandidate<UnitSnapshot> loaded=default;
-            Check(RescuePendingCodec.TryEncode(saved,out var bytes) && RescuePendingCodec.TryDecode(bytes,out loaded),"version4 joined pending proof round trips");
+            Check(RescuePendingCodec.TryEncode(saved,out var bytes) && RescuePendingCodec.TryDecode(bytes,out loaded),"current joined pending proof round trips");
             Check(loaded.Snapshot.GeometryWitness.Current.X==old.X && loaded.Snapshot.Candidates[2].X==old.Candidates[2].X &&
                 loaded.Snapshot.Candidates[0].Distance==0 && RescueGeometryCodec.CanonicalJoin(loaded.Snapshot),"loaded joined proof validates in original coordinate frame");
             var corrupt=RescueReplanIntent.CopySnapshot(loaded.Snapshot);corrupt.Candidates[0]=new RescueCandidate{X=u.X,Y=u.Y,Tile=u.TileId,Distance=0};
@@ -330,9 +666,9 @@ namespace TrappedUnitRescueTest.Tests
             var fifth=h.Begin(Fresh(old),out _);Check(fifth==null,"fifth order cannot invent fresh geometry after exhausted proof");
             h=new Harness();old=Old();h.Enqueue(old);h.Intents.CaptureAllowed=false;
             foreach(int tick in new[]{100,140,179})
-            {h.Engine.Now=tick;h.Fail(Fresh(old));h.Tick(tick);Check(h.Observer.TryCaptureGeometry(out var records) && records.Length==1 && records[0].Age==tick-100,"failed replan retention preserves original TTL");}
+            {h.Engine.Now=tick;h.Fail(Fresh(old));h.Tick(tick);Check(h.Observer.TryCaptureGeometry(out var records) && records.Length==1 && records[0].Age==tick-100,"unavailable fresh intent retains original source age without starting work window");}
             h.Engine.Now=180;h.Intents.CaptureAllowed=true;h.Fail(Fresh(old));h.Tick(180);
-            Check(h.Engine.RescueCalls==0 && h.Observer.PendingCount==0,"original80-tick expiry cannot be renewed by another failed order");
+            Check(h.Engine.RescueCalls==1 && h.Observer.PendingCount==0,"first qualified work after80 source ticks receives its original unstarted active window");
             var delayed=new Harness();old=Old();Check(RescueGeometryWitness.TryCapture(old,out var witness),"loaded retry geometry fixture");
             delayed.Engine.Now=400;delayed.Observer.StageGeometry(new[]{new RescuePendingGeometry("BuildStructure",witness,17,2,1)});
             delayed.Fail(Fresh(old,purpose:31));delayed.Fail(Fresh(old,purpose:32));delayed.Tick(400);
@@ -343,22 +679,81 @@ namespace TrappedUnitRescueTest.Tests
         }
         private static void CapacityAndBudgets()
         {
-            var h=new Harness();var units=new UnitSnapshot[512];for(int i=0;i<units.Length;i++)units[i]=Old(i+1);h.Enqueue(units);
-            Check(h.Observer.PendingCount==512,"normal queue reaches bounded512 capacity");h.Observer.ObserveOrder(1);
+            var h=new Harness();var units=new UnitSnapshot[GeneralRescueObserver.MaximumPending];for(int i=0;i<units.Length;i++)units[i]=Old(i+1);
+            for(int offset=0;offset<units.Length;offset+=500){int count=Math.Min(500,units.Length-offset);var chunk=new UnitSnapshot[count];Array.Copy(units,offset,chunk,0,count);h.Enqueue(chunk);}
+            Check(h.Observer.PendingCount==GeneralRescueObserver.MaximumPending,"normal queue reaches native-ID bounded capacity");h.Observer.ObserveOrder(1);
             RescuePendingGeometry[] geometry=null;RescuePendingCandidate<UnitSnapshot>[] pending=null;
-            Check(h.Observer.PendingCount==512 && h.Observer.TryCaptureGeometry(out geometry) && geometry.Length==1 &&
-                h.Observer.TryCapturePending(out pending) && pending.Length==511,"geometry transfer shares capacity instead of allocating a parallel allowance");
-            h.Enqueue(Old(513));Check(h.Observer.PendingCount==512 && !h.Observer.IsInterestedInOrder(513),"new normal source cannot exceed shared512 budget");
+            Check(h.Observer.PendingCount==GeneralRescueObserver.MaximumPending && h.Observer.TryCaptureGeometry(out geometry) && geometry.Length==1 &&
+                h.Observer.TryCapturePending(out pending) && pending.Length==GeneralRescueObserver.MaximumPending-1,"geometry transfer shares capacity instead of allocating a parallel allowance");
             var loaded=new Harness();loaded.Observer.StagePending(pending);loaded.Observer.StageGeometry(geometry);
-            Check(loaded.Observer.PendingCount==512,"mixed staged pending/geometry shares same capacity");
+            Check(loaded.Observer.PendingCount==GeneralRescueObserver.MaximumPending,"mixed staged pending/geometry shares native-ID capacity");
             h=new Harness();units=new UnitSnapshot[47];for(int i=0;i<40;i++)units[i]=Old(i+1);
             for(int i=40;i<47;i++)units[i]=Old(101+i-40);h.Enqueue(units);
             for(int i=0;i<40;i++)h.Fail(Fresh(units[i]));h.Tick(100);
             Check(h.Intents.Refreshes==32 && h.Engine.RescueCalls==8,"first Tick bounds expensive joins32 and shared recovery attempts8");
             int normal=0,replans=0;foreach(var rescued in h.Engine.Rescued)if(rescued.GeometryWitness==null)normal++;else replans++;
             Check(normal==7 && replans==1,"normal and replan candidates consume one shared8-attempt allowance");
-            Check(!h.Observer.HasUnsettledReplans,"unvisited first-boundary triggers are discarded, not moved to arbitrary later tails");
+            Check(!h.Observer.HasUnsettledReplans,"first safe boundary settles caller tails while unvisited fresh intents remain owned");
             h.Tick(100);Check(h.Intents.Refreshes==32 && h.Engine.RescueCalls==8,"duplicate Tick cannot spend join/attempt budgets twice");
+            h.Tick(101);Check(h.Intents.Refreshes==40 && h.Engine.RescueCalls==16,"unvisited fresh intents survive and transfer on the next bounded tick");
+        }
+        private static void DormantBurstAndAtomicSave()
+        {
+            var dormant=new Harness();var old=Old();dormant.Enqueue(old);dormant.Observer.ObserveOrder(old.Id);
+            int refreshes=dormant.Intents.Refreshes;
+            for(int tick=101;tick<=300;tick++)dormant.Tick(tick);
+            Check(dormant.Intents.Refreshes==refreshes && dormant.Observer.PendingCount==1,
+                "dormant geometry without fresh intent has no per-tick intent scan or source-age expiry");
+            Check(dormant.Observer.TryCaptureGeometry(out var dormantSave) && dormantSave.Length==1 && dormantSave[0].Age==200 &&
+                dormantSave[0].ActiveAge==-1 && dormantSave[0].LifetimeMode==RescueQueueLifetimeMode.ActiveWindow,"dormant save preserves long original source age");
+
+            var h=new Harness();int total=GeneralRescueObserver.MaximumPending;
+            var sources=new UnitSnapshot[total];
+            for(int offset=0;offset<total;offset+=500)
+            {
+                int count=Math.Min(500,total-offset);var chunk=new UnitSnapshot[count];
+                for(int i=0;i<count;i++){chunk[i]=Old(offset+i+1);sources[offset+i]=chunk[i];}
+                h.Enqueue(chunk);
+            }
+            for(int id=1;id<=total;id++)h.Fail(Fresh(sources[id-1]));
+            h.Tick(100);
+            Check(h.Intents.Refreshes==32 && h.Engine.RescueCalls==8 && !h.Observer.HasUnsettledReplans,"native-size burst first safe boundary transfers32 and attempts8");
+            // Pending export must include every validated unprocessed Fresh. Its paired
+            // geometry export excludes exactly those IDs, not a duplicate copy of them.
+            Check(h.Observer.TryCapturePending(out var pending),"burst has a pending save boundary");
+            Check(h.Observer.TryCaptureGeometry(out var geometry),"burst has a paired geometry save boundary");
+            Check(pending.Length==total-8 && geometry.Length==0,"paired save retains every fresh intent exactly once across queue and retained bank");
+            var ids=new HashSet<int>();foreach(var record in pending)
+                Check(ids.Add(record.Snapshot.Id) && record.Age==0 && record.ActiveAge==-1 && record.Attempts==0,
+                    "save never starts or refreshes unprocessed fresh work");
+            Check(h.Observer.TryCaptureGeometry(out var standalone) && standalone.Length==total-32,"standalone geometry export does not reuse prior pending exclusion cache");
+            int saveRefreshes=h.Intents.Refreshes;
+            h.Tick(101);Check(h.Intents.Refreshes-saveRefreshes==32 && h.Engine.RescueCalls==16,"post-save runtime remains bounded and retains next32 fresh intents");
+            // Prove the tail survives beyond the old80-tick absolute expiry, using
+            // production queue processing rather than merely counting retained data.
+            for(int tick=102;tick<430;tick++)h.Tick(tick);
+            Check(h.Intents.Refreshes-saveRefreshes==total-32 && h.Engine.RescueCalls>640,
+                "all9999 fresh intents eventually reach bounded validation beyond80 source ticks");
+
+            // Settle a safe boundary without visiting this fresh record by placing
+            //32 other fresh records first in the actual coordinator schedule.
+            var delayed=new Harness();for(int id=1;id<=33;id++)delayed.Enqueue(Old(id));
+            for(int id=1;id<=33;id++)delayed.Fail(Fresh(Old(id)));delayed.Tick(100);
+            delayed.Intents.Rejected.Add(33);
+            Check(delayed.Observer.TryCapturePending(out pending) && delayed.Observer.TryCaptureGeometry(out geometry) &&
+                geometry.Length==1 && geometry[0].Witness.UnitId==33,"invalid unvisited fresh intent saves geometry only, never stale command");
+            delayed.Observer.ObserveOrder(33);
+            Check(delayed.Observer.TryCaptureGeometry(out geometry) && geometry.Length==1,"invalid fresh retains geometry independently of later order");
+            var changed=new Harness();for(int id=1;id<=33;id++)changed.Enqueue(Old(id));
+            for(int id=1;id<=33;id++)changed.Fail(Fresh(Old(id)));changed.Tick(100);
+            changed.Engine.Now=250;
+            Check(changed.Observer.TryCapturePending(out pending),"long-waiting unprocessed fresh intent can be saved");
+            bool originalAge=false;foreach(var record in pending)if(record.Snapshot.Id==33)
+                originalAge=record.Age==150 && record.ActiveAge==-1 && record.Attempts==0;
+            Check(originalAge,"save preserves original source age beyond80 without starting a fresh work window");
+            changed.Observer.ObserveOrder(33);
+            Check(changed.Observer.TryCaptureGeometry(out geometry) && geometry.Length==1 && geometry[0].Witness.UnitId==33,
+                "new order invalidates previously prepared fresh-pending exclusion before paired geometry export");
         }
         private static void GeometryOnlyLoadAndDisable()
         {

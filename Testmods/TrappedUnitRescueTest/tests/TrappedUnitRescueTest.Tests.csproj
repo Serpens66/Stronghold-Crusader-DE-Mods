@@ -146,6 +146,8 @@
     <Compile Include="../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" />
     <Compile Include="../src/NativeRelocation.cs" />
     <Compile Include="../src/RescueRuntime.cs" />
+    <Compile Include="../src/RescueLocalField.cs" />
+    <Compile Include="../src/CivilianRemovalPolicy.cs" />
     <Compile Include="../src/IdleEscapeOwner.cs" />
     <Compile Include="../src/NativeIdleEscapeWorld.cs" />
     <Compile Include="../src/Fixture.Series.cs" />
@@ -158,6 +160,7 @@
     <Compile Include="../src/RescueCandidateQueue.cs" />
     <Compile Include="../src/RescueCleanupProjection.cs" />
     <Compile Include="../src/RescuePendingCodec.cs" />
+    <Compile Include="../src/RescueCompactArchiveCodec.cs" />
     <Compile Include="../src/RescueDiscovery.cs" />
     <Compile Include="../src/WorkerTravelPolicy.cs" />
     <Compile Include="../src/CommandResumePolicy.cs" />

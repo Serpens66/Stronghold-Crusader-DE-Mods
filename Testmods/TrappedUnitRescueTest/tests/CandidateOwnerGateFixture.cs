@@ -74,8 +74,8 @@ namespace TrappedUnitRescueTest.Tests
             RescueDiscoveryUnitReader chain=(int id,out RescueDiscoveryUnit value)=>{
                 reads++;value=new RescueDiscoveryUnit(id,(uint)(100+id),center,center,id<3?id+1:0,false);return true;};
             reads=0;
-            Check(RescueDiscovery.TryCollect(changed,Tile,head,chain,budget,out units,out reason) && units.Count==3 && reads==3,
-                "nonempty chain still visits every record exactly once");
+            Check(RescueDiscovery.TryCollect(changed,Tile,head,chain,budget,out units,out reason) && units.Count==3 && reads==6,
+                "nonempty chain captures and revalidates every record once per pass");
             reads=0;var twoLinks=new RescueDiscoveryBudget(4096,2,512,9999,1000);
             Check(!RescueDiscovery.TryCollect(changed,Tile,head,chain,twoLinks,out units,out reason) &&
                 reason=="occupancy-walk-budget" && units.Count==0 && reads==2,"third link still trips budget before read, never partial success");
@@ -93,7 +93,7 @@ namespace TrappedUnitRescueTest.Tests
                 RescueDiscoveryUnitReader many=(int id,out RescueDiscoveryUnit value)=>{
                     reads++;value=new RescueDiscoveryUnit(id,(uint)(100+id),center,center,id<count?id+1:0,false);return true;};
                 bool accepted=RescueDiscovery.TryCollect(changed,Tile,head,many,budget,out units,out reason);
-                Check(reads==count && (count==512?accepted && units.Count==512:
+                Check(reads==2*count && (count==512?accepted && units.Count==512:
                     !accepted && units.Count==0 && reason=="occupant-snapshot-budget"),"512 selected-unit limit is applied before any owner gate");
             }
         }

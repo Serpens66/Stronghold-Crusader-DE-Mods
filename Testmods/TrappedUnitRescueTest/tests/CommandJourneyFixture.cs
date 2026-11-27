@@ -243,7 +243,7 @@ namespace TrappedUnitRescueTest.Tests
                     "all admitted worker travel segments hand off their live new goal");
                 memory.Word(0x9E0,1);Check(!Prepare(memory,ticket,0,out _),"changed worker job/cargo cannot inherit failed external order");
             }
-            Check(types.Count==20,"production handoff fixture covers all twenty economic roles");
+            Check(types.Count==1 && types.Contains(eChimps.CHIMP_TYPE_QUARRY_OX),"production worker handoff is restricted to Ox");
             Check(!NativeWorkerResumeWorld.TryPrepareFailedOrderHandoff(original,0,_=>throw new InvalidOperationException(),invalid.Dword,Tile,33,out _),
                 "failed reader never admits a partial handoff");
         }

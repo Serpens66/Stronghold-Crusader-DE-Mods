@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace TrappedUnitRescueTest
 {
-    internal enum WorkerRecoveryOutcome { Rejected, Resumed, Parked, OwnershipUncertain, Superseded }
+    internal enum WorkerRecoveryOutcome { Rejected, Resumed, Parked, OwnershipUncertain, Superseded, AwaitResources }
     internal enum WorkerReceiptState { MatchingActive, MatchingParked, MatchingStopped, ReplacedOrGone, Unknown }
     internal enum WorkerOrderObservation { Keep, Release, Rebind }
     internal enum WorkerProbePreparation { Rejected, Ready, OwnershipUncertain }
@@ -41,6 +41,43 @@ namespace TrappedUnitRescueTest
         internal bool IsExecutingNativeCall=>executingNativeCall;
         internal bool HasPendingExternalOrders=>foreignOrders.Count!=0 || deferredOrders.Count!=0 || lostSources.Count!=0;
         internal readonly WorkerResumeLedger Ledger=new WorkerResumeLedger();
+        internal bool CanReserveSlot=>Ledger.CanReserveSlot;
+        private IWorkerLegacyRetirementWorld legacyPublication;
+        private readonly HashSet<WorkerResumeTicket> publishedLegacyOrders=new HashSet<WorkerResumeTicket>();
+        internal bool EnableLegacyCivilianRetirement {get;private set;}
+        internal void EnableLegacyRetirement(IWorkerLegacyRetirementWorld retirement)
+        {legacyPublication=retirement??throw new ArgumentNullException(nameof(retirement));EnableLegacyCivilianRetirement=true;}
+        internal int RetireLegacyCivilianParks(int visits,int attempts,IWorkerLegacyRetirementWorld retirement,Func<bool> currentWorld,
+            Action<WorkerResumeTicket,WorkerLegacyRetirement,string> report=null)
+        {
+            if(!EnableLegacyCivilianRetirement || retirement==null || currentWorld==null || executingNativeCall || coordinationDepth!=0 || !currentWorld())return 0;
+            return Ledger.DrainLegacyCivilian(visits,attempts,ticket=>
+            {
+                // An in-flight foreign command owns the boundary. Completed or
+                // aborted commands are re-read below; their active route wins.
+                if(foreignOrders.Contains(ticket.UnitId))
+                {
+                    if(!deferredOrders.ContainsKey(ticket.UnitId) && !abortedOrders.Contains(ticket.UnitId))
+                    {ReportLegacy(report,ticket,WorkerLegacyRetirement.Deferred,"foreign-order-in-flight");return WorkerLegacyRetirement.Deferred;}
+                    deferredOrders.Remove(ticket.UnitId);abortedOrders.Remove(ticket.UnitId);foreignOrders.Remove(ticket.UnitId);
+                }
+                if(publishedLegacyOrders.Remove(ticket))return WorkerLegacyRetirement.Released;
+                bool Current()=>currentWorld() && AuthorityCurrent(ticket);
+                if(!Current()){ReportLegacy(report,ticket,WorkerLegacyRetirement.Deferred,"authority-unavailable");return WorkerLegacyRetirement.Deferred;}
+                executingNativeCall=true;
+                try
+                {
+                    var result=retirement.Retire(ticket,Current);ReportLegacy(report,ticket,result,null);return result;
+                }
+                catch(Exception error)
+                {ReportLegacy(report,ticket,WorkerLegacyRetirement.Deferred,"exception-"+error.GetType().Name);return WorkerLegacyRetirement.Deferred;}
+                finally{executingNativeCall=false;}
+            });
+        }
+
+        private static void ReportLegacy(Action<WorkerResumeTicket,WorkerLegacyRetirement,string> report,
+            WorkerResumeTicket ticket,WorkerLegacyRetirement state,string reason)
+        {try{report?.Invoke(ticket,state,reason);}catch{}}
         internal WorkerResumeSupervisor(IWorkerResumeWorld world)
         {
             this.world=world??throw new ArgumentNullException(nameof(world));
@@ -92,6 +129,12 @@ namespace TrappedUnitRescueTest
         {
             outcome=WorkerRecoveryOutcome.Rejected;reason=null;ownedUnit=0;
             if(tick<0 || synchronousNativeMutation==null || !world.TryCapture(before,out var ticket,out reason))return false;
+            if(ticket==null || !ticket.IsValid){reason="worker-capture-ticket-invalid";return false;}
+            if(EnableLegacyCivilianRetirement && WorkerResumeLedger.IsLegacyCivilian(ticket))
+            {reason="civilian-resume-policy-retired";return false;}
+            // Existing ownership is not a resource shortage, even when full.
+            if(Ledger.TryGetOwnedByUnit(ticket.UnitId,out _)){reason="worker-receipt-duplicate";return false;}
+            if(!CanReserveSlot){outcome=WorkerRecoveryOutcome.AwaitResources;reason="worker-receipt-capacity";return false;}
             if(!Ledger.TryReserve(ticket,out var token)){reason="worker-receipt-capacity-or-duplicate";return false;}
             ownedUnit=ticket.UnitId;
             if(probeFirst)
@@ -165,7 +208,7 @@ namespace TrappedUnitRescueTest
             => TryRecover(before,()=>true,tick,out outcome,out reason);
         private WorkerResumeDecision Continue(WorkerResumeTicket ticket)
         {
-            if(!AuthorityCurrent(ticket))return WorkerResumeDecision.WaitForGeometry;
+            if(!AuthorityCurrent(ticket) || EnableLegacyCivilianRetirement && WorkerResumeLedger.IsLegacyCivilian(ticket))return WorkerResumeDecision.WaitForGeometry;
             var state=world.Inspect(ticket,true);
             if(state==WorkerReceiptState.ReplacedOrGone)return WorkerResumeDecision.Invalidated;
             // Flags2/4 without a witnessed positive final-original publication can be
@@ -201,6 +244,13 @@ namespace TrappedUnitRescueTest
         internal bool ObserveOrderPost(int unitId,long tick,long nativeResult)
         {
             if(tick<0 || !Ledger.TryGetOwnedByUnit(unitId,out var ticket))return false;
+            if(EnableLegacyCivilianRetirement && WorkerResumeLedger.IsLegacyCivilian(ticket))
+            {
+                // Called by the actual final-original receipt, before legacy Post.
+                // Persist success until a non-reentrant ledger boundary; a later
+                // foreign flags5 must not be mistaken for our historical barrier.
+                try{if(legacyPublication.IsPublishedOrder(ticket,nativeResult))publishedLegacyOrders.Add(ticket);}catch{}
+            }
             abortedOrders.Remove(unitId);foreignOrders.Add(unitId);deferredOrders[unitId]=nativeResult;deferredTick=Math.Max(deferredTick,tick);
             // The public order observer excludes our own origin AND scope. Foreign
             // nested orders must survive the native call and ledger-drain boundaries.
@@ -209,6 +259,13 @@ namespace TrappedUnitRescueTest
         private bool ReconcileOrder(int unitId,long tick,long nativeResult)
         {
             if(!Ledger.TryGetOwnedByUnit(unitId,out var ticket)){foreignOrders.Remove(unitId);return true;}
+            // Migration, not job replay, resolves historical civilian barriers.
+            if(EnableLegacyCivilianRetirement && WorkerResumeLedger.IsLegacyCivilian(ticket))
+            {
+                if(publishedLegacyOrders.Contains(ticket))
+                {if(!Ledger.ReleaseOwned(ticket))return false;publishedLegacyOrders.Remove(ticket);}
+                foreignOrders.Remove(unitId);return true;
+            }
             var observation=world.ObserveOrderPost(ticket,nativeResult,out var replacement);
             bool reconciled=observation==WorkerOrderObservation.Release?Ledger.ReleaseOwned(ticket):
                 observation==WorkerOrderObservation.Rebind && Ledger.HandoffOwned(ticket,replacement,tick);
@@ -228,6 +285,7 @@ namespace TrappedUnitRescueTest
             {
                 foreignOrders.Remove(id);
                 if(!Ledger.TryGetOwnedByUnit(id,out var ticket) || Ledger.TryGetParkedByUnit(id,out _))continue;
+                if(EnableLegacyCivilianRetirement && WorkerResumeLedger.IsLegacyCivilian(ticket))continue;
                 var state=world.Inspect(ticket,true);
                 bool barrier=state==WorkerReceiptState.MatchingParked ||
                     world is IWorkerResumeBarrierView view && view.HasOwnedArrivalBarrier(ticket);
@@ -237,6 +295,6 @@ namespace TrappedUnitRescueTest
             }
         }
         internal void MarkWorldMutation()=>Ledger.MarkWorldMutation();
-        internal void Reset(){Ledger.Reset();deferredOrders.Clear();foreignOrders.Clear();abortedOrders.Clear();lostSources.Clear();deferredTick=0;}
+        internal void Reset(){Ledger.Reset();deferredOrders.Clear();foreignOrders.Clear();abortedOrders.Clear();lostSources.Clear();publishedLegacyOrders.Clear();deferredTick=0;}
     }
 }

@@ -48,7 +48,7 @@ namespace TrappedUnitRescueTest
             {
                 if(UnitId<=0 || UnitId>NativeRelocation.MaximumUnitId || TribeId<0 || TribeId>ushort.MaxValue || Bindings==null)return false;
                 if(Kind==ResumeReceiptKind.Worker)
-                {if(Job==null || Command!=null || Job.Rule.UnitType!=UnitType || Job.Rule.AIState!=AIState || !Job.Rule.CanResumeOrdinary || !Bindings.MatchesSchema(Job))return false;}
+                {if(Job==null || Command!=null || Job.Rule.UnitType!=UnitType || Job.Rule.AIState!=AIState || !Job.Rule.HasOrdinarySchema || !Bindings.MatchesSchema(Job))return false;}
                 else if(Kind==ResumeReceiptKind.Command)
                 {if(Command==null || Job!=null || Command.UnitType!=UnitType || Command.AIState!=AIState || !Bindings.IsEmpty ||
                     !CommandJourneySnapshot.IsSupportedPhase(UnitType,AIState) ||
@@ -80,9 +80,34 @@ namespace TrappedUnitRescueTest
         private readonly Entry[] entries=new Entry[Capacity];
         private readonly Dictionary<int,int> slotByUnit=new Dictionary<int,int>();
         private long generation=1, serial;
-        private int count, active, cursor, dirtyRemaining;
+        private int count, active, cursor, dirtyRemaining,legacyCursor,legacyCount;
         private bool draining;
         internal int Count=>count;
+        internal bool CanReserveSlot=>!draining && count<Capacity;
+        internal int LegacyCivilianCount=>legacyCount;
+        internal static bool IsLegacyCivilian(WorkerResumeTicket ticket)=>ticket!=null && ticket.Kind==ResumeReceiptKind.Worker &&
+            CivilianRemovalPolicy.IsRemovableType(ticket.UnitType);
+        // Includes Waiting entries: unlike retry Drain, migration must not depend
+        // on a later construction event to wake an historical arrival barrier.
+        internal int DrainLegacyCivilian(int visitBudget,int attemptBudget,Func<WorkerResumeTicket,WorkerLegacyRetirement> retire)
+        {
+            if(draining || visitBudget<=0 || attemptBudget<=0 || legacyCount==0 || retire==null)return 0;
+            int attempted=0;draining=true;
+            try
+            {
+                for(int visited=0;visited<Math.Min(visitBudget,Capacity) && attempted<attemptBudget;visited++)
+                {
+                    int slot=legacyCursor;legacyCursor=(legacyCursor+1)%Capacity;var entry=entries[slot];
+                    if(entry==null || !entry.Parked || !IsLegacyCivilian(entry.Ticket))continue;
+                    attempted++;WorkerLegacyRetirement result;
+                    try{result=retire(entry.Ticket);}catch{result=WorkerLegacyRetirement.Deferred;}
+                    if(result==WorkerLegacyRetirement.Marked || result==WorkerLegacyRetirement.Released)Remove(slot);
+                }
+            }
+            finally{draining=false;}
+            return attempted;
+        }
+
         // Lifecycle inspection only; tickets and their snapshots are immutable.
         internal WorkerResumeTicket[] CopyTickets()
         {
@@ -109,7 +134,7 @@ namespace TrappedUnitRescueTest
                 !slotByUnit.TryGetValue(expected.UnitId,out int slot) || !ReferenceEquals(entries[slot].Ticket,expected))return false;
             var entry=entries[slot];
             if(!entry.Parked || entry.Waiting)active++;
-            entry.Parked=true;entry.Waiting=false;entry.Retries=0;entry.Due=tick;entry.Ticket=replacement;return true;
+            entry.Parked=true;entry.Waiting=false;entry.Retries=0;entry.Due=tick;legacyCount+=(IsLegacyCivilian(replacement)?1:0)-(IsLegacyCivilian(entry.Ticket)?1:0);entry.Ticket=replacement;return true;
         }
         internal bool ReleaseOwned(WorkerResumeTicket expected)
         {
@@ -126,7 +151,7 @@ namespace TrappedUnitRescueTest
                 if(entry.Parked && ReferenceEquals(entry.Ticket,expected))
                 {
                     if(entry.Waiting)active++;
-                    entry.Ticket=replacement;entry.Retries=0;entry.Waiting=false;entry.Due=tick;return true;
+                    legacyCount+=(IsLegacyCivilian(replacement)?1:0)-(IsLegacyCivilian(entry.Ticket)?1:0);entry.Ticket=replacement;entry.Retries=0;entry.Waiting=false;entry.Due=tick;return true;
                 }
             }
             return false;
@@ -149,7 +174,7 @@ namespace TrappedUnitRescueTest
                 if(entries[i]==null){if(free<0)free=i;}
             }
             var entry=new Entry{Ticket=ticket,Serial=++serial};entries[free]=entry;count++;
-            slotByUnit.Add(ticket.UnitId,free);
+            slotByUnit.Add(ticket.UnitId,free);if(IsLegacyCivilian(ticket))legacyCount++;
             token=new WorkerResumeToken(generation,entry.Serial,free);return true;
         }
         private Entry Find(WorkerResumeToken token)=>token.Generation==generation && token.Slot>=0 && token.Slot<Capacity &&
@@ -165,12 +190,12 @@ namespace TrappedUnitRescueTest
             Remove(token.Slot);return true;
         }
         private void Remove(int slot)
-        {var entry=entries[slot];if(entry.Parked && !entry.Waiting)active--;slotByUnit.Remove(entry.Ticket.UnitId);entries[slot]=null;count--;}
+        {var entry=entries[slot];if(entry.Parked && !entry.Waiting)active--;slotByUnit.Remove(entry.Ticket.UnitId);entries[slot]=null;count--;if(IsLegacyCivilian(entry.Ticket))legacyCount--;}
         internal void MarkWorldMutation(){if(count!=0)dirtyRemaining=Capacity;}
         internal void Reset()
         {
             if(draining)throw new InvalidOperationException("Cannot reset during a resume callback.");
-            Array.Clear(entries,0,entries.Length);slotByUnit.Clear();count=active=cursor=dirtyRemaining=0;generation++;
+            Array.Clear(entries,0,entries.Length);slotByUnit.Clear();count=active=cursor=dirtyRemaining=legacyCursor=legacyCount=0;generation++;
         }
         internal int Drain(long tick,int visitBudget,int nativeAttempts,Func<WorkerResumeTicket,WorkerResumeDecision> callback)
         {
@@ -271,7 +296,7 @@ namespace TrappedUnitRescueTest
                 }
             }
             catch(IOException){return false;} catch(ArgumentException){return false;} catch(OverflowException){return false;}
-            Reset();Array.Copy(restored.entries,entries,Capacity);count=restored.count;active=restored.active;serial=restored.serial;
+            Reset();Array.Copy(restored.entries,entries,Capacity);count=restored.count;active=restored.active;legacyCount=restored.legacyCount;serial=restored.serial;
             foreach(var pair in restored.slotByUnit)slotByUnit.Add(pair.Key,pair.Value);
             // Dormant receipts survive saves; only a later real mutation arms them.
             return true;

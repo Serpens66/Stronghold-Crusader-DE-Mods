@@ -15,7 +15,8 @@ namespace TrappedUnitRescueTest
         internal WorkerJourneyRule(WorkerRoleContract contract, int state, WorkerJourneyKind kind)
         { this.contract = contract; AIState = state; Kind = kind; }
         internal bool IsKnown => contract != null;
-        internal bool CanResumeOrdinary => contract != null && Kind == WorkerJourneyKind.OrdinaryTravel;
+        internal bool HasOrdinarySchema => contract != null && Kind == WorkerJourneyKind.OrdinaryTravel;
+        internal bool CanResumeOrdinary => HasOrdinarySchema && WorkerTravelPolicy.IsLiveWorkerType(UnitType);
         internal eChimps UnitType => contract == null ? eChimps.CHIMP_TYPE_NULL : contract.Type;
         internal int HandlerRva => contract == null ? 0 : contract.HandlerRva;
         internal WorkerExternalBindings RequiredExternalBindings => contract == null ? WorkerExternalBindings.None :
@@ -28,8 +29,7 @@ namespace TrappedUnitRescueTest
         internal bool MayAdvanceWhileWaiting(int index)
         {
             int offset=Field(index).NativeOffset;
-            return UnitType==eChimps.CHIMP_TYPE_QUARRY_OX && offset==0x8E6 ||
-                (UnitType==eChimps.CHIMP_TYPE_FARMER_WHEAT || UnitType==eChimps.CHIMP_TYPE_FARMER_HOPS) && offset==0x9D8;
+            return CanResumeOrdinary && UnitType==eChimps.CHIMP_TYPE_QUARRY_OX && offset==0x8E6;
         }
     }
 
@@ -65,7 +65,8 @@ namespace TrappedUnitRescueTest
     internal static class WorkerTravelPolicy
     {
         // Hash-bound AI-state numbers below are the audited machine state contract, not unit IDs.
-        // Complete role/state/arrival/cargo/terminal evidence: Audits/TERRAIN-WORKERS.md §6.
+        // Complete historical role/state evidence: Audits/TERRAIN-WORKERS.md §6.
+        // Human contracts below survive solely for strict old-record decoding.
         // 188340 only treats flags zero as arrival. Entity/linked and working states are
         // deliberately described but never admitted by the ordinary single-unit policy.
         private static readonly WorkerJourneyField[] Common = {
@@ -121,7 +122,15 @@ namespace TrappedUnitRescueTest
             Array.Copy(Common,fields,Common.Length);Array.Copy(specific,0,fields,Common.Length,specific.Length);
             return new WorkerRoleContract(type,handler,ordinary,entity,fields);
         }
+        internal static bool IsLiveWorkerType(eChimps type) => type==eChimps.CHIMP_TYPE_QUARRY_OX;
         internal static bool TryDescribe(eChimps type,int aiState,out WorkerJourneyRule rule)
+        {
+            rule=default;
+            return IsLiveWorkerType(type) && TryDescribeHistorical(type,aiState,out rule);
+        }
+        // Strict legacy wire schemas only. A known human schema grants no new
+        // capture, delayed continuation or native resume authority.
+        internal static bool TryDescribeHistorical(eChimps type,int aiState,out WorkerJourneyRule rule)
         {
             foreach(var role in Roles)
                 if(role.Type==type)
@@ -181,7 +190,7 @@ namespace TrappedUnitRescueTest
         internal static bool TryRestoreKnownSnapshot(eChimps type,int state,int[] offsets,int[] widths,uint[] source,out WorkerJourneySnapshot snapshot)
         {
             snapshot=null;
-            if(!WorkerTravelPolicy.TryDescribe(type,state,out var rule) || !rule.CanResumeOrdinary ||
+            if(!WorkerTravelPolicy.TryDescribeHistorical(type,state,out var rule) || !rule.HasOrdinarySchema ||
                 offsets==null || widths==null || source==null || offsets.Length!=rule.FieldCount ||
                 widths.Length!=rule.FieldCount || source.Length!=rule.FieldCount)return false;
             for(int i=0;i<source.Length;i++)
@@ -213,7 +222,7 @@ namespace TrappedUnitRescueTest
         // Only for an owner-tagged, delayed continuation. Its caller must still validate
         // the native order/world identity and current parked state; this method authorizes no write.
         internal bool MatchesContinuation(eChimps type,int aiState,Func<int,ushort> word,Func<int,uint> dword)
-            => MatchesCore(type,aiState,word,dword,true);
+            => rule.CanResumeOrdinary && MatchesCore(type,aiState,word,dword,true);
         private bool MatchesCore(eChimps type,int aiState,Func<int,ushort> word,Func<int,uint> dword,bool allowWaitingTimers)
         {
             if(type!=rule.UnitType || aiState!=rule.AIState || word==null || dword==null)return false;

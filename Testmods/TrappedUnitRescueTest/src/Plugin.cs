@@ -34,6 +34,7 @@ namespace TrappedUnitRescueTest
         private static RescueScenarioSeries series;
         private static IMissionLifecycleCapability missions;
         private static int active, fixtureActive, generalFixture;
+        private static int civilianRemovalTick;
         internal static GeneralRescueObserver GeneralObserver => generalObserver;
         private static bool initialized, libraryReady, settingsReady;
         private static Plugin instance;
@@ -80,6 +81,7 @@ namespace TrappedUnitRescueTest
                 runtime = new RescueRuntime(native, () => Volatile.Read(ref active) != 0, Stamp);
                 var generalRuntime = new RescueRuntime(native, () => generalObserver != null && generalObserver.IsActive, Stamp);
                 generalObserver = new GeneralRescueObserver(generalRuntime, SetGeneralSuppression, Stamp);
+                generalRuntime.CanRemoveCivilian=()=>Volatile.Read(ref civilianRemovalTick)!=0 && generalObserver.IsRecovering;
                 generalObserver.ReplanIntents=new NativeRescueReplanIntentWorld(generalRuntime,new NativeWorkerResumeWorld(native));
                 generalObserver.ReplanOwnerGuid=Guid;
                 generalObserver.OwnReplanScope=()=>workers?.Supervisor.IsExecutingNativeCall==true || generalObserver.IsRecovering || idleEscapes?.IsExecutingNativeCall==true;
@@ -108,9 +110,11 @@ namespace TrappedUnitRescueTest
                     throw new InvalidOperationException("Recovery tick unavailable: " + tickReason);
                 orders=new RescueOrderObserver(Guid,()=>workers.Supervisor.IsExecutingNativeCall || generalObserver.IsRecovering || idleEscapes.IsExecutingNativeCall,
                     id=>{idleEscapes.Release(id);generalObserver.ObserveOrder(id,true);if(workers.Ready)workers.Supervisor.ObserveOrderPre(id);},
-                    (id,result)=>{if(workers.Ready)workers.Supervisor.ObserveOrderPost(id,workers.TickValue,result);},
+                    (id,result)=>{try{if(workers.Ready)workers.Supervisor.ObserveOrderPost(id,workers.TickValue,result);}
+                        finally{generalObserver.EndExternalOrder(id);}},
                     id=>generalObserver.IsInterestedInOrder(id) || idleEscapes.Contains(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _),
-                    id=>workers.Supervisor.ObserveOrderAborted(id,workers.TickValue));
+                    id=>{try{workers.Supervisor.ObserveOrderAborted(id,workers.TickValue);}
+                        finally{generalObserver.EndExternalOrder(id);}});
                 if(!UnitMoveEvents.TryRegister(Guid,"rescue-order-identity",orders,out string orderReason,
                     enabled:()=>generalObserver.HasEvidence || idleEscapes.Count!=0 || workers.Supervisor.Ledger.Count!=0))
                     throw new InvalidOperationException("Final unit-move observations unavailable: "+orderReason);
@@ -157,10 +161,16 @@ namespace TrappedUnitRescueTest
         }
         private static void RecoveryTick(int tick)
         {
+            // Acceptance-only hold; construction/order capture remains live.
+            if(Fixture.HoldRecoveryTick(tick))return;
+            if(generalObserver?.HasOpenExternalCalls==true)return;
             generalObserver?.ExpireInactivePending();
             if(!settings.EnableMod || !settings.EnableExperimentalRescue)idleEscapes?.Clear();
             if(workers==null || (generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0 && idleEscapes.Count==0) || !workers.AdmitTick(tick))return;
-            if(!UnitMoveEvents.IsAvailable){generalObserver.ClearPending();idleEscapes.Clear();return;}
+            if(!UnitMoveEvents.IsAvailable)idleEscapes.Clear();
+            // Retire only our historical civilian arrival barriers, including OFF.
+            // This is separate from new rescue and never suppresses Fixes workers.
+            workers.AdvanceLegacyTick(tick);
 #if SERP_DEVDIAG
             long diagnosticStarted=0;
             Shared.DevDiag.BeginBatch();
@@ -168,7 +178,9 @@ namespace TrappedUnitRescueTest
             try
             {
 #endif
-            generalObserver?.Tick(tick);
+            Volatile.Write(ref civilianRemovalTick,1);
+            try{generalObserver?.Tick(tick);}
+            finally{Volatile.Write(ref civilianRemovalTick,0);}
             long completed=idleEscapes.CompletedCount;
             idleEscapes.Advance(unchecked((uint)workers.TickValue));
             if(idleEscapes.CompletedCount!=completed)Stamp("IDLE_ESCAPE_ARRIVED count="+(idleEscapes.CompletedCount-completed));

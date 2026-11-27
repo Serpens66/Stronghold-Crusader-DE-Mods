@@ -1,6 +1,6 @@
 # Einheitenrettung testen
 
-**Vorrang27.11.2026:** Vor einer Wiederaufnahme zuerst den aktiven [RESCUE-PLAN.md](RESCUE-PLAN.md) lesen. Ziel und Spieltests sind pausiert; der vorhandene Build enthält noch den alten Worker-Fortsetzungscode. Seine Szenarien nicht unverändert als neue Abschlussliste ausführen. Nach Umstellung gilt für Bauern/Arbeiter endgültige native Entfernung statt gleicher Identität/Fracht und fortgesetzter Produktion; Soldaten-/Crew-Erhalt und gemeinsame Negativ-/Lifecycle-/Kompatibilitätsprüfungen bleiben maßgeblich. Historische Befehle und Ergebnisse unten belegen nur ihren ausdrücklich dokumentierten Stand.
+**Vorrang27.11.2026:** Vor einer Wiederaufnahme zuerst den aktiven [RESCUE-PLAN.md](RESCUE-PLAN.md) lesen. Ziel und autorisierte Singleplayer-Tests sind aktiv. Der neue frühe Entfernungspfad für Bauern/Arbeiter ist implementiert; der gemeinsame alte Code wird nach Consumergraph bereinigt. Seine Szenarien nicht unverändert als neue Abschlussliste ausführen. Nach Umstellung gilt für Bauern/Arbeiter endgültige native Entfernung statt gleicher Identität/Fracht und fortgesetzter Produktion; Soldaten-/Crew-Erhalt und gemeinsame Negativ-/Lifecycle-/Kompatibilitätsprüfungen bleiben maßgeblich. Historische Befehle und Ergebnisse unten belegen nur ihren ausdrücklich dokumentierten Stand.
 
 Fortlaufender Plan: [RESCUE-PLAN.md](RESCUE-PLAN.md). Aktueller Entwicklungsstand: [IMPLEMENTATION.md](IMPLEMENTATION.md). Vollständige offene Spielabnahme: [INGAME-PENDING.md](INGAME-PENDING.md).
 
@@ -25,6 +25,19 @@ Für längere Wirtschaftsläufe kann `-Layout Integrated -PeaceTimeMinutes 60` d
 Weitere Szenarien: `rescue-group-off/on`, `rescue-aiwall-off/on`, `rescue-moat-off/on`, `rescue-moatworker-off/on`, `rescue-worker-off/on`, `rescue-ox-off/on`, `rescue-siege-off/on` (jeweils die vollständigen Namen wie `rescue-siege-on` übergeben). `-Map` wählt eine vorhandene lokale Gefechtskarte; Standard ist `test AI.map`. Die Vorrichtungen prüfen freie, flache Flächen tatsächlich. Fehlende Voraussetzungen sind Fehler, keine bestandenen Tests.
 
 Der Runner erzeugt verwerfbare Gefechte, sichert Logs und stellt Plugins, Einstellungen und eigene Config wieder her. Er steuert keine globale Maus/Tastatur. Produktive Saves werden nicht geschrieben. Der Testmod bleibt nach dem Lauf nicht installiert; das Paket unter `BepInEx/plugins/TrappedUnitRescueTest_Serp` bleibt zum erneuten Testen erhalten.
+
+## Save-/Load-Fälle einzeln starten (27.11.2026)
+
+Der aktuelle Fixturevertrag erlaubt genau eine neue Datei `SerpAcceptance-<tatsächliche AutomationRun-ID>.sav` pro Runnerlauf. Mehrere Szenarien derselben Serie teilen diese Run-ID. Persönliche Dateien werden weder überschrieben noch durch frei gewählte Suffixe aus der Inventarprüfung ausgenommen. Der Runner archiviert und entfernt ausschließlich diese bekannte eigene Datei; seine Hash- und Wiederherstellungsprüfungen bleiben unverändert.
+
+Die neue Pending-Entfernungsabnahme deshalb in zwei getrennten Aufrufen ausführen:
+
+    .\Run-Tests.ps1 -Layout Planner -Map '4spielerkarte.map' -PeaceTimeMinutes 60 -Scenarios rescue-removal-persistence-off
+    .\Run-Tests.ps1 -Layout Planner -Map '4spielerkarte.map' -PeaceTimeMinutes 60 -Scenarios rescue-removal-persistence-on
+
+Auch andere tatsächlich speichernde Fälle wie `rescue-legacy-civilian-off`, `rescue-persistence-parked-on` und `rescue-persistence-off/on` dürfen nicht dieselbe Run-ID für eine zweite Save-Datei verwenden. Die Legacy-OFF-Vorrichtung benötigt zusätzlich eine geeignete natürliche Quarry-/Tether-Testwelt; ihre belegte Karte ist `2 Penninsula.map`. Editorfälle separat von einer bereits speichernden Serie ausführen: Der aktuelle Editor-Pfadhelfer leitet seinen eigenen Kartennamen ebenfalls über den geschützten Save-Pfad ab.
+
+Lauf175 (`175/d642428c038e`) hat KI-Arbeiter OFF/ON sowie Pending-Save OFF tatsächlich abgeschlossen. Pending-Save ON wurde danach **vor seinem Weltaufbau** abgelehnt, weil OFF bereits den gemeinsamen Save-Pfad angelegt hatte. Das ist eine korrekt greifende Überschreibsperre und eine Grenze dieser Serienzusammenstellung, kein bestandener ON-Test und kein nachgewiesener Rettungsfehler. Die ON-Abnahme bleibt als eigener Runnerlauf erforderlich; vorhandene Laufbelege werden nicht umgedeutet.
 
 ## Aussage der Tests
 

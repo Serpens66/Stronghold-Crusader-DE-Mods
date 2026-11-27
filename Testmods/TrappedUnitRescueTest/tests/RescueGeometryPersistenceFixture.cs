@@ -54,7 +54,7 @@ namespace TrappedUnitRescueTest.Tests
             Check(after.Candidates.Count==2 && after.Candidates[0].X==50 && after.Candidates[0].Distance==0 &&
                 after.Candidates[1].X==42 && Math.Abs(after.Candidates[1].X-after.X)==9 && after.Candidates[1].Distance==8,
                 "distance0 old origin and old radius8 bank are not reinterpreted around rebased Current");
-            VerifyGeometryOnly();VerifyMalformedFrames();VerifyArchives();VerifyServiceObserverLifecycle();
+            VerifyGeometryOnly();VerifyCompactGeometry();VerifyMalformedFrames();VerifyArchives();VerifyServiceObserverLifecycle();
             Console.WriteLine("PASS: rescue geometry persistence "+checks+" checks; production codecs, shared archive bounds, atomic staging and observer lifecycle; no game execution.");
         }
         private static bool Equal(byte[] first,byte[] second)
@@ -87,6 +87,45 @@ namespace TrappedUnitRescueTest.Tests
             Check(!RescueGeometryCodec.TryEncode(new RescuePendingGeometry("\uD800",a,0,0,0),out _) &&
                 !RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("\uD800",Joined(3),0,0,0),out _),"both TryEncode contracts reject non-UTF8 source strings without throwing");
         }
+        private static void VerifyCompactGeometry()
+        {
+            var legacy=Witness(9);
+            Check(RescueLocalField.TryCapture(legacy.Current.X,legacy.Current.Y,legacy.Current.Tile,Tile,_=>true,_=>255,out var field,out _),"compact field captured for codec");
+            Check(RescueGeometryWitness.TryCreateCompact(legacy.UnitId,legacy.GlobalId,legacy.Type,legacy.Owner,legacy.Current,legacy.Next,true,field,out var witness),"compact witness created");
+            var record=new RescuePendingGeometry("x",witness,10000,2,1,RescueQueueLifetimeMode.ActiveWindow,7,true);
+            Check(RescueGeometryCodec.TryEncode(record,out var bytes) && BitConverter.ToUInt16(bytes,4)==2 && bytes.Length==407,"compact v2 has one326B field and no candidate bank");
+            Check(RescueGeometryCodec.TryDecode(bytes,out var restored) && restored.Witness.LocalField!=null && restored.Witness.CandidateCount==0 &&
+                restored.Age==10000 && restored.ActiveAge==7 && restored.AwaitingResources && restored.LifetimeMode==RescueQueueLifetimeMode.ActiveWindow,"v2 preserves active-window metadata and unbound old field");
+            Check(restored.Witness.LocalField.TryFindCandidates(Tile,out var first,out _),"restored old field binds on use");
+            Check(field.TryFindCandidates(Tile,out var second,out _),"captured old field binds on use");
+            Check(first.Count==second.Count && first[0].Tile==second[0].Tile && first[first.Count-1].Distance==second[second.Count-1].Distance,"compact codec retains actual field result");
+            var unstarted=new RescuePendingGeometry("x",witness,int.MaxValue,0,0,RescueQueueLifetimeMode.ActiveWindow,-1,true);
+            Check(RescueGeometryCodec.TryEncode(unstarted,out var waiting) && RescueGeometryCodec.TryDecode(waiting,out var wait) && wait.ActiveAge==-1 && wait.Age==int.MaxValue,"resource waiting does not invent active age or bound source age to old80ticks");
+            foreach(var invalid in new[]{
+                new RescuePendingGeometry("x",witness,100,1,0,RescueQueueLifetimeMode.ActiveWindow,-1,true),
+                new RescuePendingGeometry("x",witness,100,0,0,RescueQueueLifetimeMode.ActiveWindow,80,false),
+                new RescuePendingGeometry("x",witness,1,0,0,RescueQueueLifetimeMode.ActiveWindow,2,false),
+                new RescuePendingGeometry("x",witness,1,0,0,(RescueQueueLifetimeMode)42,0,false)})
+                Check(!RescueGeometryCodec.TryEncode(invalid,out _),"invalid active metadata rejected");
+            Check(RescueGeometryCodec.TryEncode(new RescuePendingGeometry("x",legacy,100,1,0,RescueQueueLifetimeMode.ActiveWindow,3,false),out var activeLegacy) &&
+                RescueGeometryCodec.TryDecode(activeLegacy,out var old) && old.Witness.LocalField==null && old.Witness.CandidateCount==2,"active-window legacy banks use v2 without field loss");
+            Check(!RescueGeometryCodec.TryDecode(ByteAt(bytes,21,42),out _) && !RescueGeometryCodec.TryDecode(ByteAt(bytes,26,2),out _) &&
+                !RescueGeometryCodec.TryDecode(ByteAt(bytes,27,2),out _) && !RescueGeometryCodec.TryDecode(ByteAt(bytes,81+36,255),out _),"v2 mode/bools/unusedbits remain strict");
+            Check(!RescueGeometryCodec.TryDecode(Shorter(bytes,bytes.Length-1),out _),"v2 field cannot truncate");
+            using(var stream=new MemoryStream())using(var writer=new BinaryWriter(stream))
+            {
+                RescueGeometryCodec.WriteCompactWitness(writer,witness);writer.Flush();Check(stream.Length==53,"pooled compact witness helper has no duplicate field");
+                stream.Position=0;using(var reader=new BinaryReader(stream))
+                    Check(RescueGeometryCodec.TryReadCompactWitness(reader,field,out var shared) && ReferenceEquals(shared.LocalField,field),"embedded helper binds exact shared immutable field");
+            }
+            bool refused=false;
+            try{using(var stream=new MemoryStream())using(var writer=new BinaryWriter(stream))RescueGeometryCodec.WriteWitness(writer,witness);}
+            catch(InvalidDataException){refused=true;}Check(refused,"legacy nested writer must not erase compact field as empty candidate bank");
+            // Unbound decoding deliberately knows no diamond. A forged nonzero cell
+            // outside the later real map must still fail before any candidate use.
+            var raw=field.Export();Check(RescueLocalField.TryReadUnbound(50,20,legacy.Current.Tile,raw,out var unbound,out _),"unbound read needs no native/world callbacks");
+            Check(!unbound.TryFindCandidates((x,y)=>x==42 && y==12?-1:Tile(x,y),out var none,out _) && none.Count==0,"late clipped invalid cell rejects unbound geometry");
+        }
         private sealed class Layout
         {internal int Data,VegetationFlag,WitnessFlag,Witness,Kind,FieldCount,FirstField;}
         private static Layout PendingLayout(byte[] bytes)
@@ -94,8 +133,10 @@ namespace TrappedUnitRescueTest.Tests
             var result=new Layout();
             using(var stream=new MemoryStream(bytes))using(var reader=new BinaryReader(stream))
             {
-                stream.Position=6;int source=reader.ReadUInt16();result.Data=8+source+12;stream.Position=result.Data+64+20;
+                stream.Position=4;int version=reader.ReadUInt16();Check(version==4 || version==5,"locate supported pending wire version");
+                int source=reader.ReadUInt16();result.Data=8+source+12;stream.Position=result.Data+64+20;
                 result.VegetationFlag=(int)stream.Position;stream.Position+=5+5+1;
+                if(version==5)stream.Position+=3; // Explicit action and old-exit evidence precede crew.
                 int crew=reader.ReadInt32();stream.Position+=crew*4;result.WitnessFlag=(int)stream.Position;
                 if(reader.ReadBoolean()){result.Witness=(int)stream.Position;Check(RescueGeometryCodec.TryReadWitness(reader,out _),"locate valid nested witness schema");}
                 int candidates=reader.ReadInt32();stream.Position+=candidates*16;result.Kind=(int)stream.Position;reader.ReadByte();
@@ -227,7 +268,10 @@ namespace TrappedUnitRescueTest.Tests
             observer.Tick(world.TickValue);
             Check(observer.TryCaptureGeometry(out var bound) && bound.Length==1 && bound[0].Age==25 && bound[0].Attempts==2,
                 "geometry binds to the fresh world without resetting original age/attempts");
-            Check(service.TryCaptureArchive(out var current) && current.Count==3,"actual service and observer recapture both restored record kinds");
+            Check(service.TryCaptureArchive(out var current),"actual service and observer recapture both restored record kinds");
+            Check(RescueCompactArchiveCodec.TryDecode(current,out var restoredPending,out var restoredGeometry,out _) &&
+                restoredPending.Length==1 && restoredGeometry.Length==1 && restoredGeometry[0].Age==25 && restoredGeometry[0].Attempts==2,
+                "active-window recapture preserves both restored proof kinds in the compact archive");
             observer.ObserveOrder(2);var context=MoveContext(world,2);var call=observer.TryBegin(context);
             Check(call!=null && observer.HasUnsettledReplans,"external original creates the actual general-observer unsettled state");
             Check(!service.TryCaptureArchive(out var blocked) && blocked==null,"source callback false blocks complete atomic archive during unsettled Pre");

@@ -174,17 +174,8 @@ namespace TrappedUnitRescueTest
         }
         private bool UsesPassiveWorkerOpponent()
         {
-            return scenario=="rescue-auto-wheat10-off" ||
-                scenario=="rescue-auto-wheat10-on" ||
-                scenario=="rescue-auto-hops8-off" ||
-                scenario=="rescue-auto-hops8-on" ||
-                scenario=="rescue-auto-cattle5-off" ||
-                scenario=="rescue-auto-cattle5-on" ||
-                scenario=="rescue-auto-hunter5-on" || scenario=="rescue-auto-hunter5-off" ||
-                scenario=="rescue-auto-woodcutter1-on" || scenario=="rescue-auto-woodcutter1-off" ||
-                scenario=="rescue-auto-miner1-on" || scenario=="rescue-auto-miner1-off" ||
-                scenario=="rescue-auto-pitch3-on" || scenario=="rescue-auto-pitch3-off" ||
-                scenario=="rescue-auto-fletcher-on" || scenario=="rescue-auto-fletcher-off";
+            return scenario=="rescue-legacy-civilian-off" || scenario.StartsWith("rescue-removal-",StringComparison.Ordinal) ||
+                scenario.StartsWith("rescue-burst-",StringComparison.Ordinal);
         }
         private Platform_Multiplayer.MPLobbyMember ReplaceFixtureRatWithPassiveLord(FRONT_Multiplayer view,
             Platform_Multiplayer.MPLobby room,Platform_Multiplayer.MPLobbyMember human,Platform_Multiplayer.MPLobbyMember rat)

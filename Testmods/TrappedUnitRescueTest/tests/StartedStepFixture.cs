@@ -41,6 +41,38 @@ namespace TrappedUnitRescueTest.Tests
             before.Health=100;var damaged=before.WithCurrentHealth(60);
             check(before.Health==100 && damaged.Health==60 && damaged.TileId==before.TileId && damaged.NextTileId==before.NextTileId,
                 "Delayed legitimate damage rebases the live transaction without overwriting old geometry or restoring health.");
+            var lifeBefore=new UnitSnapshot{Id=11,GlobalId=7,Type=(int)eChimps.CHIMP_TYPE_SPEARMAN,Owner=1,AIState=0,Health=100};
+            GameUnit life=default;life.r_AliveState=AliveState.IsAlive;life.r_GlobalId=7;life.r_UnitChimp=eChimps.CHIMP_TYPE_SPEARMAN;
+            life.r_ControllableForPlayerId=1;life.r_AIState=0;
+            foreach(uint health in new uint[]{60,120})
+            {
+                life.r_CurrentHealth=health;
+                check(NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Production idle identity admits positive current damage or healing.");
+                var transaction=lifeBefore.WithCurrentHealth(life.r_CurrentHealth);
+                check(transaction.Health==health && lifeBefore.Health==100 && transaction.GlobalId==lifeBefore.GlobalId,
+                    "The existing production transaction clone preserves actual current health without mutating historical proof.");
+            }
+            foreach(ushort selectable in new ushort[]{0,1,ushort.MaxValue})
+            {
+                life.r_SelectionAllowed=selectable;
+                check(NativeRescueMutationWorld.HasOrdinaryIdleMode(&life) && NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Actual idle mode predicate ignores the independent selection/display word8FC.");
+            }
+            foreach(int offset in new[]{0x6EC,0x708,0x8EC,0x8F6,0x8F8,0x9B0,0x9C8})
+            {
+                ushort* field=(ushort*)((byte*)&life+offset-0x65C);*field=1;
+                check(!NativeRescueMutationWorld.HasOrdinaryIdleMode(&life),"Actual idle mode predicate still rejects each nonordinary/portal/hidden/death/moat field.");
+                *field=0;
+            }
+            check(!NativeRescueMutationWorld.HasOrdinaryIdleMode(null),"Missing typed record has no idle mode authority.");
+            life.r_CurrentHealth=0;check(!NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Zero health is not live idle authority.");
+            life.r_CurrentHealth=100;life.r_IsKilledByProjectile=1;
+            check(!NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Projectile death marker rejects idle authority.");
+            life.r_IsKilledByProjectile=0;life.r_AliveState=AliveState.MarkedForDeletion;
+            check(!NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Dead or marked life rejects idle authority.");
+            life.r_AliveState=AliveState.IsAlive;life.r_GlobalId++;
+            check(!NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Reused slot cannot inherit positive health admission.");
+            life.r_GlobalId=7;life.r_AIState=1;
+            check(!NativeRescueMutationWorld.IsLivingIdleIdentity(lifeBefore,&life),"Health allowance never tolerates a changed AI phase.");
             // Exact field contract of native19BA40 on A->B followed by relocation(A):
             // inactive73C remains B while Current and NextXY are A, marker0, substep8.
             // Test the production typed-record reader, not a duplicate predicate.

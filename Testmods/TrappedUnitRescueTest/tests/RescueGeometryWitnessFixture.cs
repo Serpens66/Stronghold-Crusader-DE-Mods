@@ -24,8 +24,8 @@ namespace TrappedUnitRescueTest.Tests
         }
         private static WorkerJourneySnapshot Job(int state,ushort purpose)
         {
-            WorkerTravelPolicy.TryDescribe(eChimps.CHIMP_TYPE_FARMER_APPLE,state,out var rule);
-            Require(WorkerJourneySnapshot.TryCapture(rule,offset=>offset==0x6E6?(ushort)rule.UnitType:
+            WorkerTravelPolicy.TryDescribeHistorical(eChimps.CHIMP_TYPE_FARMER_APPLE,state,out var rule);
+            Require(LegacyWorkerFixtureData.TryDecode(rule,offset=>offset==0x6E6?(ushort)rule.UnitType:
                 offset==0x918?(ushort)state:offset==0x9D0?purpose:(ushort)0,_=>0,out var job),"real immutable typed purpose fixture");return job;
         }
         private static UnitSnapshot Fresh(bool atNext=false,bool step=false)
@@ -41,6 +41,10 @@ namespace TrappedUnitRescueTest.Tests
                 else if(f.FieldType==typeof(byte))f.SetValue(u,(byte)5);
                 else if(f.FieldType==typeof(string))f.SetValue(u,"fresh-boundary-marker");
             }
+            // These are action discriminants/proofs, not command scalar payload.
+            // Valid command inputs cannot carry the removal action or exit witness.
+            // PreservesFresh still checks all three fields rather than excluding them.
+            u.CivilianRemoval=false;u.CurrentHadExit=false;u.NextHadExit=false;
             u.Id=11;u.GlobalId=901;u.Type=(int)eChimps.CHIMP_TYPE_FARMER_APPLE;u.Owner=2;
             u.X=atNext?21:20;u.Y=30;u.TileId=atNext?1001:1000;
             u.NextX=step?21:u.X;u.NextY=30;u.NextTileId=step?1001:u.TileId;
@@ -51,16 +55,16 @@ namespace TrappedUnitRescueTest.Tests
         private static FieldInfo[] Fields()=>typeof(UnitSnapshot).GetFields(BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public);
         private static void PreservesFresh(UnitSnapshot fresh,UnitSnapshot joined)
         {
-            var historical=new HashSet<string>{"AffectedCurrent","AffectedNext","CurrentWasOrdinary","NextWasOrdinary","GroundFlags","NextGroundFlags","Candidates","CrewIdentity","GeometryWitness"};
+            var historical=new HashSet<string>{"AffectedCurrent","AffectedNext","CurrentWasOrdinary","NextWasOrdinary","GroundFlags","NextGroundFlags","Candidates","CrewIdentity","GeometryWitness","LocalField"};
             foreach(var f in Fields())if(!historical.Contains(f.Name))Require(Equals(f.GetValue(fresh),f.GetValue(joined)),"fresh field preserved: "+f.Name);
             Require(!ReferenceEquals(fresh.CrewIdentity,joined.CrewIdentity) && fresh.CrewIdentity.Length==joined.CrewIdentity.Length,"crew array not aliased");
             for(int i=0;i<fresh.CrewIdentity.Length;i++)Require(fresh.CrewIdentity[i]==joined.CrewIdentity[i],"fresh crew identity preserved "+i);
         }
         internal static void Run()
         {
-            checks=0;
+            checks=0;StationaryIndependentJoin();
             foreach(var field in typeof(RescueGeometryWitness).GetFields(BindingFlags.Instance|BindingFlags.NonPublic|BindingFlags.Public))
-                Require(field.IsInitOnly && (field.FieldType.IsValueType || field.FieldType==typeof(RescueCandidate[])),"witness retains immutable geometry/lifetime data only: "+field.Name);
+                Require(field.IsInitOnly && (field.FieldType.IsValueType || field.FieldType==typeof(RescueCandidate[]) || field.FieldType==typeof(RescueLocalField)),"witness retains immutable geometry/lifetime data only: "+field.Name);
             var original=Original();var fresh=Fresh();
             Require(RescueGeometryWitness.TryCapture(original,out var witness),"causal geometry captured");
             Require(RescueGeometryWitness.TryJoin(witness,fresh,out var joined),"fresh active route at original Current");PreservesFresh(fresh,joined);
@@ -78,13 +82,21 @@ namespace TrappedUnitRescueTest.Tests
             fresh=Fresh(true);Require(RescueGeometryWitness.TryJoin(witness,fresh,out joined),"fresh Current at originally accepted Next");PreservesFresh(fresh,joined);
             Require(joined.GroundFlags==2 && joined.CurrentWasOrdinary && joined.AffectedCurrent && !joined.OrdinaryStep && !joined.AffectedNext,"old Next maps to fresh Current only");
             Require(joined.Candidates[0].Distance==0 && joined.Candidates[0].X==20 && Math.Abs(joined.Candidates[2].X-joined.X)==9,"historical bank coordinates/order/distance remain in original frame");
+            foreach(int cached in new[]{0,19777})
+            {
+                fresh=Fresh();fresh.NextTileId=cached;
+                Require(RescueGeometryWitness.TryJoin(witness,fresh,out joined) && joined.NextTileId==cached,
+                    "SS8 joins historical geometry without rewriting inactive packed Next");
+            }
+            fresh=Fresh(false,true);fresh.NextTileId=0;
+            Require(!RescueGeometryWitness.TryJoin(witness,fresh,out _),"active packed Next cannot use stationary-cache exemption");
             fresh=Fresh(false,true);Require(RescueGeometryWitness.TryJoin(witness,fresh,out joined),"same originally accepted edge remains admissible");PreservesFresh(fresh,joined);
             Require(joined.GroundFlags==8 && joined.NextGroundFlags==2 && joined.AffectedNext && joined.Substep==5 && joined.Flags==4,"fresh movement phase and both old endpoints kept separately");
             foreach(var alter in new Action<UnitSnapshot>[]
             {
                 u=>u.Id++,u=>u.GlobalId++,u=>u.Type++,u=>u.Owner++,u=>u.TileId++,u=>u.X++,
                 u=>u.Flags=0,u=>u.Flags=5,u=>u.Substep=9,u=>u.Substep=-1,
-                u=>u.NextTileId++,u=>u.NextX++,u=>u.OrdinaryStep=true,
+                u=>u.NextX++,u=>u.OrdinaryStep=true,
                 u=>{u.Substep=3;u.OrdinaryStep=false;},
                 u=>{u.Substep=3;u.OrdinaryStep=true;u.NextX=22;u.NextTileId=1002;}
             })
@@ -109,8 +121,70 @@ namespace TrappedUnitRescueTest.Tests
                 offset==0xA9E?(ushort)1:offset==0x958?(ushort)9:(ushort)0,offset=>offset==0x6F0?901u:0u,out commandPre.Command),"real immutable fresh command fixture");
             Require(RescueGeometryWitness.TryJoin(soldierWitness,commandPre,out joined) && ReferenceEquals(joined.Command,commandPre.Command) &&
                 joined.Job==null && joined.AIState==101 && joined.RequestedX==commandPre.RequestedX,"fresh command purpose/goal survives geometry transfer");
-            InvalidCaptures();
+            var removalPre=Fresh();removalPre.CivilianRemoval=true;
+            removalPre.CurrentHadExit=true;removalPre.NextHadExit=true;
+            Require(!RescueGeometryWitness.TryJoin(witness,removalPre,out joined) && joined==null && removalPre.CivilianRemoval && removalPre.GeometryWitness==null,
+                "actual removal input cannot be converted into a P7 command join or mutated in place");
+            foreach(var alter in new Action<UnitSnapshot>[] {u=>u.CurrentHadExit=true,u=>u.NextHadExit=true})
+            {var invalidPre=Fresh();alter(invalidPre);Require(!RescueGeometryWitness.TryJoin(witness,invalidPre,out joined) && joined==null,
+                "a removal exit witness without its action flag is not silently discarded by command joining");}
+            var removalSource=Original();removalSource.CivilianRemoval=true;
+            Require(!RescueGeometryWitness.TryCapture(removalSource,out _),"removal sources cannot publish command P7 geometry witnesses");
+            InvalidCaptures();CompactGeometry();
             Console.WriteLine("RescueGeometryWitnessFixture: "+checks+" checks passed");
+        }
+        private static void CompactGeometry()
+        {
+            Func<int,int,int> tile=(x,y)=>(uint)x<800 && (uint)y<400?y*800+x:-1;
+            var original=Original();original.X=50;original.Y=20;original.TileId=tile(50,20);
+            original.NextX=51;original.NextY=20;original.NextTileId=tile(51,20);original.Candidates.Clear();
+            Require(RescueLocalField.TryCapture(50,20,original.TileId,tile,_=>true,_=>255,out var field,out _),"compact original field");
+            original.LocalField=field;
+            Require(RescueGeometryWitness.TryCapture(original,out var witness) && ReferenceEquals(witness.LocalField,field) && witness.CandidateCount==0,"compact witness retains immutable field, no bank duplication");
+            var fresh=Fresh();fresh.X=50;fresh.Y=20;fresh.TileId=original.TileId;fresh.NextX=50;fresh.NextY=20;fresh.NextTileId=original.TileId;
+            Require(RescueGeometryWitness.TryJoin(witness,fresh,out var joined) && ReferenceEquals(joined.LocalField,field) && joined.Candidates.Count==0,"compact join preserves old field");
+            PreservesFresh(fresh,joined);Require(ReferenceEquals(joined.Job,fresh.Job) && joined.RequestedX==fresh.RequestedX,"compact transfer preserves only fresh purpose");
+            fresh.X=fresh.NextX=51;fresh.TileId=fresh.NextTileId=original.NextTileId;
+            Require(RescueGeometryWitness.TryJoin(witness,fresh,out joined) && joined.X==51 && joined.LocalField.OriginX==50,"accepted Next keeps original field frame");
+            Require(joined.LocalField.TryFindCandidates(tile,out var candidates,out _) && candidates.Exists(c=>c.X==42 && c.Y==20 && Math.Abs(c.X-joined.X)==9),"joined Next retains old radius8 rather than truncating effective radius9");
+            original.Candidates.Add(new RescueCandidate{X=50,Y=20,Tile=original.TileId});
+            Require(!RescueGeometryWitness.TryCapture(original,out _),"compact plus legacy bank cannot silently select one representation");original.Candidates.Clear();
+            original.CurrentWasOrdinary=false;
+            Require(!RescueGeometryWitness.TryCapture(original,out _),"compact origin ordinary proof must equal endpoint");original.CurrentWasOrdinary=true;
+            original.X=51;
+            Require(!RescueGeometryWitness.TryCapture(original,out _),"compact origin frame must equal historical Current");
+            fresh.Substep=2;fresh.OrdinaryStep=true;fresh.NextX=52;fresh.NextTileId=tile(52,20);
+            Require(!RescueGeometryWitness.TryJoin(witness,fresh,out _),"compact field cannot authorize a second accepted step");
+        }
+        private static void StationaryIndependentJoin()
+        {
+            var original=Original();original.Type=(int)eChimps.CHIMP_TYPE_SPEARMAN;
+            Require(RescueGeometryWitness.TryCapture(original,out var witness),"stationary join original spatial proof");
+            var idle=Fresh();idle.Type=original.Type;idle.AIState=0;idle.Flags=0;idle.Substep=8;idle.OrdinaryStep=false;
+            idle.Job=null;idle.HasCapturedVegetation=false;idle.CapturedVegetationGlobal=0;idle.Unsupported=null;idle.CrewCount=0;idle.CrewIdentity=Array.Empty<uint>();
+            idle.RequestedX=idle.X;idle.RequestedY=idle.Y;idle.NextTileId=0;idle.Candidates.Clear();
+            Func<int,ushort> word=at=>at==0x6E4?(ushort)AliveState.IsAlive:at==0x6E6?(ushort)idle.Type:at==0x6EE?(ushort)idle.Owner:
+                at==0x930?(ushort)idle.Tribe:at==0xA9E?(ushort)1:(ushort)0;
+            Func<int,uint> dword=at=>at==0x6F0?idle.GlobalId:at==0x93C?idle.TribeGlobalId:0u;
+            Require(CommandJourneySnapshot.TryCaptureStationary((eChimps)idle.Type,idle.AIState,word,dword,out idle.Command),"fresh independent command schema");
+            Require(!RescueGeometryWitness.TryJoin(witness,idle,out _),"active join remains closed to flags0");
+            Require(RescueGeometryWitness.TryJoinStationary(witness,idle,out var joined),"separate stationary join accepts fresh independent idle with inactive packed cache");
+            PreservesFresh(idle,joined);
+            Require(joined.CurrentWasOrdinary && joined.AffectedCurrent && joined.RequestedX==idle.X && joined.AIState==0 &&
+                ReferenceEquals(joined.Command,idle.Command) && RescueGeometryCodec.CanonicalJoin(joined),"only old ground crosses stationary boundary");
+            foreach(var alter in new Action<UnitSnapshot>[] {u=>u.Flags=2,u=>u.AIState=1,u=>u.Substep=7,u=>u.OrdinaryStep=true,
+                u=>u.RequestedX++,u=>u.NextY++,u=>u.Owner++,u=>u.GlobalId++,u=>u.CivilianRemoval=true,u=>u.HasCapturedVegetation=true,u=>u.CurrentHadExit=true})
+            {
+                var bad=RescueReplanIntent.CopySnapshot(idle);alter(bad);
+                Require(!RescueGeometryWitness.TryJoinStationary(witness,bad,out _),"invalid fresh idle cannot acquire historical geometry");
+            }
+            foreach(int target in new[]{0x996,0x998,0x99C,0x6F8,0x9F6,0x9F8,0xA00})
+            {
+                var bad=RescueReplanIntent.CopySnapshot(idle);
+                Require(CommandJourneySnapshot.TryCaptureStationary((eChimps)bad.Type,bad.AIState,at=>at==target?(ushort)1:word(at),
+                    at=>at==target?1u:dword(at),out bad.Command),"typed targeted command can exist without independent idle authority");
+                Require(!RescueGeometryWitness.TryJoinStationary(witness,bad,out _),"live combat/context target blocks stationary geometry join");
+            }
         }
         private static void InvalidCaptures()
         {

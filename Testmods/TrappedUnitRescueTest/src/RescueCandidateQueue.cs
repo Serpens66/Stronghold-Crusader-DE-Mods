@@ -17,15 +17,24 @@ namespace TrappedUnitRescueTest
     }
 
     internal enum RescueOfferResult { Added, Duplicate, ConflictingMutation, CapacityExceeded, Inactive, InvalidIdentity }
-    internal enum RescueQueueDecision { Complete, Retry, Reject }
+    internal enum RescueQueueDecision { Complete, Retry, Reject, Observe, AwaitResources }
+    internal enum RescueQueueLifetimeMode { AbsoluteSourceAge, ActiveWindow }
 
     internal readonly struct RescuePendingCandidate<T>
     {
         internal readonly string Source;
         internal readonly T Snapshot;
+        // Age is always the original source age, never a refreshed admission time.
         internal readonly int Age, Attempts, RetryIn;
+        internal readonly RescueQueueLifetimeMode LifetimeMode;
+        internal readonly int ActiveAge; // -1: no admitted non-resource-wait evaluation yet.
+        internal readonly bool AwaitingResources;
         internal RescuePendingCandidate(string source,T snapshot,int age,int attempts,int retryIn)
-        {Source=source;Snapshot=snapshot;Age=age;Attempts=attempts;RetryIn=retryIn;}
+            :this(source,snapshot,age,attempts,retryIn,RescueQueueLifetimeMode.AbsoluteSourceAge,-1,false){}
+        internal RescuePendingCandidate(string source,T snapshot,int age,int attempts,int retryIn,
+            RescueQueueLifetimeMode lifetimeMode,int activeAge,bool awaitingResources)
+        {Source=source;Snapshot=snapshot;Age=age;Attempts=attempts;RetryIn=retryIn;
+            LifetimeMode=lifetimeMode;ActiveAge=activeAge;AwaitingResources=awaitingResources;}
     }
 
     internal sealed class RescueQueuedCandidate<T>
@@ -37,15 +46,39 @@ namespace TrappedUnitRescueTest
         internal readonly int CapturedTick;
         internal readonly long Sequence;
         internal LinkedListNode<RescueQueuedCandidate<T>> Node;
+        internal bool Preferred;
+        // SourceCapturedTick never changes. ActiveAge is accumulated native time
+        // since admitted non-Await evaluation, excluding declared resource waits.
+        // DueTick only schedules the next bounded check, not a new source lifetime.
+        internal int SourceCapturedTick=>CapturedTick;
+        internal int ActiveAge { get; private set; }=-1;
+        internal bool AwaitingResources { get; private set; }
+        private int activeUpdatedTick;
         internal int DueTick { get; private set; }
         internal int Attempts { get; private set; }
         internal bool IsRestored { get; private set; }
         internal RescueQueuedCandidate(RescueIdentity identity, long mutationId, string source, T snapshot, int tick, long sequence)
-        { Identity = identity; MutationId = mutationId; Source = source; Snapshot = snapshot; CapturedTick = DueTick = tick; Sequence = sequence; }
+        { Identity = identity; MutationId = mutationId; Source = source; Snapshot = snapshot; CapturedTick = DueTick = activeUpdatedTick = tick; Sequence = sequence; }
         internal void BeginAttempt() { Attempts++; }
+        internal void CancelObservationAttempt() { Attempts--; }
         internal void RetryAt(int tick) { DueTick = tick; }
         internal void RestoreAttempts(int attempts) { Attempts=attempts; }
         internal void MarkRestored() { IsRestored=true; }
+        internal bool TryActiveAge(int tick,out int age)
+        {
+            age=ActiveAge;
+            uint elapsed=unchecked((uint)(tick-activeUpdatedTick));
+            if(elapsed>int.MaxValue)return false;
+            if(ActiveAge<0 || AwaitingResources)return true;
+            if(ActiveAge>int.MaxValue-(int)elapsed)return false;
+            age=ActiveAge+(int)elapsed;return true;
+        }
+        internal void BeginEvaluation(int tick,int activeAge)
+        {ActiveAge=activeAge<0?0:activeAge;activeUpdatedTick=tick;AwaitingResources=false;}
+        internal void AwaitResources(int tick,bool hadActiveWindow)
+        {if(!hadActiveWindow)ActiveAge=-1;activeUpdatedTick=tick;AwaitingResources=true;}
+        internal void RestoreActiveWindow(int age,bool awaiting,int tick)
+        {ActiveAge=age;AwaitingResources=awaiting;activeUpdatedTick=tick;}
     }
 
     internal readonly struct RescueQueueDrainResult
@@ -60,14 +93,18 @@ namespace TrappedUnitRescueTest
     internal sealed class RescueCandidateQueue<T>
     {
         private readonly LinkedList<RescueQueuedCandidate<T>> pending = new LinkedList<RescueQueuedCandidate<T>>();
+        private LinkedListNode<RescueQueuedCandidate<T>> preferredTail;
         private readonly Dictionary<int, RescueQueuedCandidate<T>> byUnit = new Dictionary<int, RescueQueuedCandidate<T>>();
         private readonly int capacity, maximumAttempts, lifetimeTicks, retryTicks, maximumUnitId;
+        private readonly RescueQueueLifetimeMode lifetimeMode;
         private long session, world, epoch, sequence;
         private bool draining;
         internal int Count => byUnit.Count;
         internal int PendingCount => pending.Count;
         internal bool HasWork => byUnit.Count != 0;
         internal bool ContainsUnit(int unitId)=>byUnit.ContainsKey(unitId);
+        internal bool TryGetSnapshot(int unitId,out T snapshot)
+        {snapshot=default;if(!byUnit.TryGetValue(unitId,out var candidate))return false;snapshot=candidate.Snapshot;return true;}
         internal bool TryTakeUnit(int unitId,out RescueQueuedCandidate<T> candidate)
         {
             if(!byUnit.TryGetValue(unitId,out candidate))return false;
@@ -77,17 +114,27 @@ namespace TrappedUnitRescueTest
         internal long ConflictCount { get; private set; }
 
         // The default ID limit is the audited 10000-slot native allocation minus reserved slot0.
-        internal RescueCandidateQueue(int capacity = 512, int maximumAttempts = 4, int lifetimeTicks = 80, int retryTicks = 1, int maximumUnitId = 9999)
+        internal RescueCandidateQueue(int capacity = 512, int maximumAttempts = 4, int lifetimeTicks = 80, int retryTicks = 1, int maximumUnitId = 9999, RescueQueueLifetimeMode lifetimeMode = RescueQueueLifetimeMode.AbsoluteSourceAge)
         {
-            if (capacity < 1 || maximumAttempts < 1 || lifetimeTicks < 1 || retryTicks < 1 || retryTicks > lifetimeTicks || maximumUnitId < 1)
+            if (capacity < 1 || maximumAttempts < 1 || lifetimeTicks < 1 || retryTicks < 1 || retryTicks > lifetimeTicks || maximumUnitId < 1 ||
+                lifetimeMode!=RescueQueueLifetimeMode.AbsoluteSourceAge && lifetimeMode!=RescueQueueLifetimeMode.ActiveWindow)
                 throw new ArgumentOutOfRangeException(nameof(capacity));
-            this.capacity = capacity; this.maximumAttempts = maximumAttempts; this.lifetimeTicks = lifetimeTicks; this.retryTicks = retryTicks; this.maximumUnitId = maximumUnitId;
+            this.capacity = capacity; this.maximumAttempts = maximumAttempts; this.lifetimeTicks = lifetimeTicks; this.retryTicks = retryTicks; this.maximumUnitId = maximumUnitId; this.lifetimeMode=lifetimeMode;
         }
 
         // A new native world must call Reset even when the mission SessionId was retained.
         internal void Reset(long sessionId, long worldGeneration)
         {
-            pending.Clear(); byUnit.Clear(); session = sessionId; world = worldGeneration; epoch++;
+            pending.Clear(); preferredTail=null; byUnit.Clear(); session = sessionId; world = worldGeneration; epoch++;
+        }
+
+        // Invalidation only, including the currently evaluated entry. This is not
+        // a save capture: it grants no age/retry/attempt or persistence authority.
+        internal T[] CopyOwnedSnapshots()
+        {
+            var snapshots=new T[byUnit.Count];int index=0;
+            foreach(var candidate in byUnit.Values)snapshots[index++]=candidate.Snapshot;
+            return snapshots;
         }
 
         // Read-only save capture under the caller's engine monitor. Expired proofs are
@@ -98,21 +145,48 @@ namespace TrappedUnitRescueTest
             var result=new List<RescuePendingCandidate<T>>(byUnit.Count);
             foreach(var candidate in pending)
             {
-                if(!TryForward(candidate.CapturedTick,tick,out int age) || age>=lifetimeTicks || candidate.Attempts>=maximumAttempts)continue;
+                if(!TryForward(candidate.CapturedTick,tick,out int age) || candidate.Attempts>=maximumAttempts)continue;
+                int activeAge=-1;
+                if(lifetimeMode==RescueQueueLifetimeMode.AbsoluteSourceAge?age>=lifetimeTicks:
+                    !candidate.TryActiveAge(tick,out activeAge) || activeAge>=lifetimeTicks)continue;
                 int delay=Reached(candidate.DueTick,tick)?0:unchecked(candidate.DueTick-tick);
                 if(delay<0 || delay>retryTicks)return false;
-                result.Add(new RescuePendingCandidate<T>(candidate.Source,candidate.Snapshot,age,candidate.Attempts,delay));
+                result.Add(lifetimeMode==RescueQueueLifetimeMode.AbsoluteSourceAge?
+                    new RescuePendingCandidate<T>(candidate.Source,candidate.Snapshot,age,candidate.Attempts,delay):
+                    new RescuePendingCandidate<T>(candidate.Source,candidate.Snapshot,age,candidate.Attempts,delay,lifetimeMode,activeAge,candidate.AwaitingResources));
             }
             records=result.ToArray();return true;
         }
 
-        internal bool OfferRestored(RescueIdentity identity,long mutationId,RescuePendingCandidate<T> record,int tick)
+        internal bool OfferRestored(RescueIdentity identity,long mutationId,RescuePendingCandidate<T> record,int tick,bool preferFirst=false)
         {
-            if(record.Age<0 || record.Age>=lifetimeTicks || record.Attempts<0 || record.Attempts>=maximumAttempts ||
-                record.RetryIn<0 || record.RetryIn>retryTicks)return false;
+            if(record.Age<0 || record.Attempts<0 || record.Attempts>=maximumAttempts || record.RetryIn<0 || record.RetryIn>retryTicks)return false;
+            int activeAge=-1;bool awaiting=false;
+            if(record.LifetimeMode==RescueQueueLifetimeMode.AbsoluteSourceAge)
+            {
+                if(record.Age>=lifetimeTicks)return false;
+                // Old records can never gain a fresh lifetime by selecting a new queue mode.
+                if(lifetimeMode==RescueQueueLifetimeMode.ActiveWindow)activeAge=record.Age;
+            }
+            else if(record.LifetimeMode==RescueQueueLifetimeMode.ActiveWindow && lifetimeMode==RescueQueueLifetimeMode.ActiveWindow)
+            {
+                if(record.ActiveAge< -1 || record.ActiveAge>=lifetimeTicks || record.ActiveAge>record.Age ||
+                    record.ActiveAge<0 && record.Attempts!=0)return false;
+                activeAge=record.ActiveAge;awaiting=record.AwaitingResources;
+            }
+            else return false;
             if(Offer(identity,mutationId,record.Source,record.Snapshot,unchecked(tick-record.Age))!=RescueOfferResult.Added)return false;
             var candidate=byUnit[identity.UnitId];candidate.RestoreAttempts(record.Attempts);candidate.MarkRestored();
-            candidate.RetryAt(unchecked(tick+record.RetryIn));return true;
+            if(lifetimeMode==RescueQueueLifetimeMode.ActiveWindow)candidate.RestoreActiveWindow(activeAge,awaiting,tick);
+            candidate.RetryAt(unchecked(tick+record.RetryIn));
+            if(preferFirst && candidate.Node!=null)
+            {
+                // Priority is FIFO among already ready stationary receipts; new
+                // arrivals must never push an older active window backwards.
+                // Sequence still excludes every new entry from a running drain.
+                UnlinkPending(candidate);candidate.Preferred=true;AddPending(candidate);
+            }
+            return true;
         }
 
         internal RescueOfferResult Offer(RescueIdentity identity, long mutationId, string source, T snapshot, int tick)
@@ -173,15 +247,39 @@ namespace TrappedUnitRescueTest
                 {
                     var candidate = pending.First.Value;
                     if (candidate.Sequence > observedSequence) break;
-                    pending.RemoveFirst(); candidate.Node = null; visited++;
+                    UnlinkPending(candidate); visited++;
                     if (!IsCurrent(candidate)) continue;
-                    if (!TryForward(candidate.CapturedTick, tick, out int age) || age >= lifetimeTicks || candidate.Attempts >= maximumAttempts)
+                    int activeAge=-1;
+                    if (!TryForward(candidate.CapturedTick, tick, out int age) || candidate.Attempts >= maximumAttempts ||
+                        (lifetimeMode==RescueQueueLifetimeMode.AbsoluteSourceAge?age>=lifetimeTicks:
+                            !candidate.TryActiveAge(tick,out activeAge) || activeAge>=lifetimeTicks))
                     { Remove(candidate); expired++; continue; }
                     if (!Reached(candidate.DueTick, tick)) { AddPending(candidate); continue; }
+                    // Priority protects the first eligible admission only. A
+                    // Retry/Observe/Await then uses the ordinary fair FIFO; a
+                    // resource wait must not monopolize the ready segment.
+                    candidate.Preferred=false;
+                    bool hadActiveWindow=candidate.ActiveAge>=0;
+                    if(lifetimeMode==RescueQueueLifetimeMode.ActiveWindow)candidate.BeginEvaluation(tick,activeAge);
                     candidate.BeginAttempt(); attempted++;
                     RescueQueueDecision decision;
                     try { decision = evaluate(candidate); }
                     catch { decision = RescueQueueDecision.Reject; failed++; }
+                    // Observe/Await performed only a state/resource check, not a native attempt.
+                    // Await alone suspends the active window; Observe does not.
+                    // Keep callback-visible attempt numbering for existing Retry users;
+                    // undo it only while this exact candidate is still owned here.
+                    if(decision==RescueQueueDecision.Observe || decision==RescueQueueDecision.AwaitResources)
+                    {
+                        attempted--;
+                        if(epoch!=observedEpoch)break;
+                        if(!IsCurrent(candidate))continue;
+                        candidate.CancelObservationAttempt();
+                        if(decision==RescueQueueDecision.AwaitResources && lifetimeMode==RescueQueueLifetimeMode.ActiveWindow)
+                            candidate.AwaitResources(tick,hadActiveWindow);
+                        candidate.RetryAt(unchecked(tick+retryTicks));AddPending(candidate);
+                        continue;
+                    }
                     // A callback may end/load the world or invalidate this very order.
                     if (epoch != observedEpoch) break;
                     if (!IsCurrent(candidate)) continue;
@@ -201,7 +299,7 @@ namespace TrappedUnitRescueTest
             finally
             {
                 draining = false;
-                if (byUnit.Count == 0) pending.Clear();
+                if (byUnit.Count == 0) { pending.Clear();preferredTail=null; }
             }
             return new RescueQueueDrainResult(visited, attempted, complete, rejected, expired, retried, failed);
         }
@@ -212,9 +310,21 @@ namespace TrappedUnitRescueTest
         {
             if (!IsCurrent(candidate)) return;
             byUnit.Remove(candidate.Identity.UnitId);
-            if (candidate.Node != null) { pending.Remove(candidate.Node); candidate.Node = null; }
+            UnlinkPending(candidate);
         }
-        private void AddPending(RescueQueuedCandidate<T> candidate) { candidate.Node = pending.AddLast(candidate); }
+        private void UnlinkPending(RescueQueuedCandidate<T> candidate)
+        {
+            var node=candidate.Node;if(node==null)return;
+            if(ReferenceEquals(node,preferredTail))
+                preferredTail=node.Previous!=null && node.Previous.Value.Preferred?node.Previous:null;
+            pending.Remove(node);candidate.Node=null;
+        }
+        private void AddPending(RescueQueuedCandidate<T> candidate)
+        {
+            if(!candidate.Preferred){candidate.Node=pending.AddLast(candidate);return;}
+            candidate.Node=preferredTail==null?pending.AddFirst(candidate):pending.AddAfter(preferredTail,candidate);
+            preferredTail=candidate.Node;
+        }
         private static bool Reached(int due, int tick) => unchecked(tick - due) >= 0;
         private static bool TryForward(int from, int to, out int elapsed)
         { uint distance = unchecked((uint)(to - from)); elapsed = distance <= int.MaxValue ? (int)distance : 0; return distance <= int.MaxValue; }

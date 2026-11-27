@@ -1,0 +1,193 @@
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using APIShared;
+using APIShared.NativeSites;
+using APIShared.Units;
+using SHCDESE.API;
+using SHCDESE.GameGlobals;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+
+namespace BugfixesAndQoL.TrappedUnitRescue
+{
+    // Hash-bound single-record relocation through the existing Lord guard owner.
+    // This consumer never publishes a native hook or accepts an unowned entry.
+    internal sealed unsafe class NativeRelocation
+    {
+        internal const string NativeHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
+        internal const int MaximumUnitId = 9999, TileCapacity = 320800;
+        private readonly byte* image;
+        private readonly string ownerGuid;
+        // Instances can only be created after the canonical file/layout/entry audit.
+        internal IntPtr ImageBase => (IntPtr)image;
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate void RelocateDelegate(IntPtr manager, int id, uint x, uint y, ushort height);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)] private delegate long MoveDelegate(IntPtr manager, int id, int x, int y, int mode);
+        private readonly RelocateDelegate relocate;
+        private readonly MoveDelegate move;
+        private NativeRelocation(IntPtr module,string ownerGuid)
+        {
+            image = (byte*)module;
+            this.ownerGuid=ownerGuid;
+            relocate = Marshal.GetDelegateForFunctionPointer<RelocateDelegate>(module + 0x19BA40);
+            move = Marshal.GetDelegateForFunctionPointer<MoveDelegate>(module + 0x196280);
+        }
+        internal static NativeRelocation Create(string ownerGuid)
+        {
+            if(string.IsNullOrWhiteSpace(ownerGuid))throw new ArgumentException("A stable caller GUID is required.",nameof(ownerGuid));
+            if(!UnitMoveEvents.IsAvailable)throw new InvalidOperationException("Verified native move observations are unavailable.");
+            ProcessModule selected = null;
+            using (var process = Process.GetCurrentProcess())
+                foreach (ProcessModule module in process.Modules)
+                    if (string.Equals(module.ModuleName, "CrusaderDE.dll", StringComparison.OrdinalIgnoreCase)) { selected = module; break; }
+            if (selected == null) throw new InvalidOperationException("CrusaderDE.dll is not loaded.");
+            using (var stream = File.OpenRead(selected.FileName))
+            using (var sha = SHA256.Create())
+                if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != NativeHash)
+                    throw new InvalidOperationException("Unsupported native image; relocation disabled.");
+            if (Marshal.SizeOf(typeof(GameUnit)) != 0x490 || GameUnitManager.UnitRecordByteSize != 0x490)
+                throw new InvalidOperationException("Unsupported unit record size.");
+            Offset(nameof(GameUnit.r_GlobalId), 0x94); Offset(nameof(GameUnit.r_CurrentTilePositionX), 0xC0);
+            Offset(nameof(GameUnit.r_AliveState),0x88);Offset(nameof(GameUnit.r_UnitChimp),0x8A);
+            Offset(nameof(GameUnit.r_ControllableForPlayerId),0x92);Offset(nameof(GameUnit.r_IsKilledByProjectile),0x29C);
+            Offset(nameof(GameUnit.r_CurrentPositionTileId), 0xD0); Offset(nameof(GameUnit.r_PathPlanStateBitFlags), 0xF2);
+            Offset(nameof(GameUnit.r_NextTilePositionX2),0xDC);Offset(nameof(GameUnit.r_NextTilePositionY2),0xDE);
+            Offset(nameof(GameUnit.r_NextPositionTileId2),0xE0);
+            Offset(nameof(GameUnit.r_TargetTilePositionX2),0xE8);Offset(nameof(GameUnit.r_TargetTilePositionY2),0xEA);
+            Offset(nameof(GameUnit.r_PathPlanLength),0xF8);
+            Offset(nameof(GameUnit.r_MovementSubstep), 0xF4); Offset(nameof(GameUnit.r_AssignedEngineer1), 0x310);
+            Offset(nameof(GameUnit.r_AIState), 0x2BC); Offset(nameof(GameUnit.r_CurrentHealth), 0x3C4);
+            Offset(nameof(GameUnit.N00000573),0x90);Offset(nameof(GameUnit.N000000DB),0x442);
+            // Validate pristine file bytes; live entry may legitimately be LordTeleportGuard's permanent hook.
+            byte[] expected = { 0x48,0x89,0x6C,0x24,0x18,0x56,0x57,0x41,0x56,0x48,0x83,0xEC,0x20,0x49,0x63,0xF0 };
+            byte[] actual = ReadRva(selected.FileName, 0x19BA40, expected.Length);
+            for (int i = 0; i < expected.Length; i++) if (actual[i] != expected[i]) throw new InvalidOperationException("Relocation entry contract differs.");
+            byte[] live = new byte[16]; Marshal.Copy(selected.BaseAddress + 0x19BA40,live,0,live.Length);
+            // The main mod has one exclusive owner for these sixteen bytes.
+            // Absence of its published guard disables rescue; never install a fallback.
+            {
+                if(!NativeSiteRegistry.TryGetWriter(0x19BA40,out NativeSiteRegistration owner) || owner.OwnerGuid!=ownerGuid ||
+                    owner.Name!="Lord.HomeTeleportGuard" || owner.Rva!=0x19BA40 || owner.Length!=16 || !owner.OriginalBytesVerified ||
+                    live[0]!=0xFF || live[1]!=0x25 || BitConverter.ToInt32(live,2)!=0 || live[14]!=0x90 || live[15]!=0x90)
+                    throw new InvalidOperationException("Unknown live relocation entry owner/patch.");
+                IntPtr stub=new IntPtr(BitConverter.ToInt64(live,6));
+                if(VirtualQuery(stub,out MemoryInformation info,(UIntPtr)Marshal.SizeOf(typeof(MemoryInformation)))==UIntPtr.Zero ||
+                    info.State!=0x1000 || (info.Protect & 0xF0)==0 || (info.Protect & 0x100)!=0)
+                    throw new InvalidOperationException("Lord guard stub is not executable committed memory.");
+                byte[] prefix=new byte[8];Marshal.Copy(stub,prefix,0,prefix.Length);
+                byte[] guardPrefix={0x9C,0x50,0x41,0x52,0x41,0x53,0x49,0xBA};
+                for(int i=0;i<prefix.Length;i++)if(prefix[i]!=guardPrefix[i])throw new InvalidOperationException("Lord guard stub prefix differs.");
+            }
+            var callSite=NativeSiteRegistry.Register(ownerGuid,"TrappedUnitRescue.RelocationCall",0x19BA40,16,NativeSiteMode.CallOnly);
+            if(!callSite.Succeeded)throw new InvalidOperationException("Relocation call registration refused: "+callSite.Reason);
+            return new NativeRelocation(selected.BaseAddress,ownerGuid);
+        }
+        [StructLayout(LayoutKind.Sequential)] private struct MemoryInformation
+        { internal IntPtr BaseAddress,AllocationBase; internal uint AllocationProtect; internal UIntPtr RegionSize; internal uint State,Protect,Type; }
+        [DllImport("kernel32.dll")] private static extern UIntPtr VirtualQuery(IntPtr address,out MemoryInformation information,UIntPtr size);
+        private static void Offset(string name, int expected)
+        { if (Marshal.OffsetOf(typeof(GameUnit), name).ToInt32() != expected) throw new InvalidOperationException("Unit layout differs: " + name); }
+        private static byte[] ReadRva(string path, int rva, int count)
+        {
+            using (var stream = File.OpenRead(path)) using (var reader = new BinaryReader(stream))
+            {
+                stream.Position = 0x3C; int pe = reader.ReadInt32(); stream.Position = pe + 6;
+                int sections = reader.ReadUInt16(); stream.Position = pe + 20; int optional = reader.ReadUInt16();
+                for (int i = 0; i < sections; i++)
+                {
+                    stream.Position = pe + 24 + optional + i * 40 + 8;
+                    uint virtualSize = reader.ReadUInt32(), start = reader.ReadUInt32(), size = reader.ReadUInt32(), raw = reader.ReadUInt32();
+                    if (rva >= start && rva + count <= start + Math.Min(virtualSize, size))
+                    { stream.Position = raw + rva - start; return reader.ReadBytes(count); }
+                }
+                throw new InvalidOperationException("Native RVA has no file-backed section.");
+            }
+        }
+        internal bool TryUnit(int id, out GameUnit* unit) => id >= 1 && id <= MaximumUnitId
+            ? UnitAccess.TryGetById(id, out unit, out _) && unit != null && UnitAccess.IsReallyAlive(unit)
+            : Missing(out unit);
+        private static bool Missing(out GameUnit* unit) { unit = null; return false; }
+        internal int Tile(int x, int y)
+        {
+            if ((uint)x >= 800 || (uint)y >= 800 || !GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y)) return -1;
+            int tile = GameTileManagerAPI.Instance.GetTileId(x, y); return (uint)tile < TileCapacity ? tile : -1;
+        }
+        internal uint Flags(int tile) => ((uint*)(image + 0x48F71B0))[tile];
+        internal byte Connections(int tile) => image[0x51890D0 + tile];
+        internal int Building(int tile) => ((short*)(image + 0x4B6AA50))[tile];
+        internal int Head(int tile) => ((short*)(image + 0x4C559B0))[tile];
+        internal int Next(GameUnit* unit) => *(short*)((byte*)unit + (0x8FA - 0x65C));
+        internal ushort Word(GameUnit* unit, int nativeOffset) => *(ushort*)((byte*)unit + nativeOffset - 0x65C);
+        internal ushort JobWord(GameUnit* unit,int nativeOffset)
+        {
+            if(unit==null || nativeOffset<0x65C || nativeOffset>0xAEA)throw new ArgumentOutOfRangeException(nameof(nativeOffset));
+            return Word(unit,nativeOffset);
+        }
+        internal uint JobDword(GameUnit* unit,int nativeOffset)
+        {
+            if(unit==null || nativeOffset<0x65C || nativeOffset>0xAE8)throw new ArgumentOutOfRangeException(nameof(nativeOffset));
+            return *(uint*)((byte*)unit+nativeOffset-0x65C);
+        }
+        internal bool TryTribeGlobal(int tribeId,out uint globalId)
+        {
+            globalId=0;
+            if(tribeId==0)return true;
+            if(!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId,out var tribe) || tribe==null)return false;
+            globalId=tribe->r_GlobalId;return true;
+        }
+        internal bool OrdinaryGround(int tile) => tile >= 0 && (Flags(tile) & 0x5A7015B1u) == 0 && Building(tile) == 0;
+        internal bool HasOccupancyExactlyOnce(int tile, int id) => HasOccupancyCount(tile,id,1);
+        internal bool HasOccupancyCount(int tile, int id,int expected)
+        {
+            int found = 0, cursor = Head(tile), steps = 0;
+            var seen = new System.Collections.Generic.HashSet<int>();
+            while (cursor != 0)
+            {
+                if (++steps > MaximumUnitId || !seen.Add(cursor) || !TryUnit(cursor, out GameUnit* unit)) return false;
+                if (unit->r_CurrentPositionTileId != (uint)tile) return false;
+                if (cursor == id) found++;
+                cursor = Next(unit);
+            }
+            return found == expected;
+        }
+        // 19BA40 normalizes Current/Next XY and clears the midpoint marker. The
+        // packed Next cache at native73C is inactive until a new step publishes it.
+        internal static bool IsNormalizedPose(GameUnit* unit,int currentTile,uint midpointMarker) =>
+            unit!=null && currentTile>=0 && unit->r_MovementSubstep==8 &&
+            unit->r_CurrentPositionTileId==(uint)currentTile &&
+            unit->r_CurrentTilePositionX==unit->r_NextTilePositionX2 &&
+            unit->r_CurrentTilePositionY==unit->r_NextTilePositionY2 &&
+            midpointMarker==0;
+
+        internal bool Relocate(int id, int x, int y)
+        {
+            if(!UnitMoveEvents.IsAvailable)return false;
+            int tile = Tile(x, y); if (tile < 0) return false;
+            relocate((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA, id, (uint)x, (uint)y, image[0x4DDD350 + tile]);
+            return TryUnit(id, out GameUnit* unit) && unit->r_CurrentTilePositionX == x && unit->r_CurrentTilePositionY == y &&
+                unit->r_CurrentPositionTileId == (uint)tile && HasOccupancyExactlyOnce(tile, id);
+        }
+        internal bool Reissue(int id, int x, int y,Func<bool> authorityCurrent=null)
+            =>TryReissue(id,x,y,authorityCurrent,out _);
+        internal bool TryReissue(int id,int x,int y,Func<bool> authorityCurrent,out UnitMoveRunResult result)
+        {
+            result=null;
+            if(!TryUnit(id,out var before))return false;
+            uint global=before->r_GlobalId;var type=before->r_UnitChimp;
+            int owner=before->r_ControllableForPlayerId,tribe=before->r_TribeId;
+            if(!TryTribeGlobal(tribe,out uint tribeGlobal) || tribe!=0 && JobDword(before,0x93C)!=tribeGlobal)return false;
+            bool IdentityCurrent()=>TryUnit(id,out var live) && live->r_GlobalId==global && live->r_UnitChimp==type &&
+                live->r_ControllableForPlayerId==owner && live->r_TribeId==tribe && TryTribeGlobal(tribe,out uint currentTribeGlobal) && currentTribeGlobal==tribeGlobal &&
+                (tribe==0 || JobDword(live,0x93C)==tribeGlobal) && (authorityCurrent==null || authorityCurrent());
+            // R3 Post can overwrite or throw after the original. Its managed return is
+            // not evidence of native refusal or publication; use the sole shared owner.
+            if(!UnitMoveEvents.TryRun(ownerGuid,id,x,y,0,IdentityCurrent,
+                ()=>move((IntPtr)GameGlobalsManager.Instance.GameUnitManagerVA,id,x,y,0),out result,out _))return false;
+            return IdentityCurrent() && TryUnit(id,out var unit) && unit->r_TargetTilePositionX2==x && unit->r_TargetTilePositionY2==y &&
+                ((unit->r_PathPlanLength>0 && (unit->r_PathPlanStateBitFlags==2 || unit->r_PathPlanStateBitFlags==4)) ||
+                (unit->r_PathPlanStateBitFlags==0 && unit->r_CurrentTilePositionX==x && unit->r_CurrentTilePositionY==y));
+        }
+    }
+}

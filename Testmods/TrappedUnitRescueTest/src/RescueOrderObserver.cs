@@ -21,7 +21,15 @@ namespace TrappedUnitRescueTest
             if(context==null || context.UnitId<1 || context.UnitId>NativeRelocation.MaximumUnitId ||
                 interested!=null && !interested(context.UnitId) ||
                 context.OriginOwnerGuid==owner && ownRecovery())return null;
-            before(context.UnitId);return new Completion(context,after,aborted);
+            var completion=new Completion(context,after,aborted);
+            try{before(context.UnitId);return completion;}
+            catch
+            {
+                // No receipt reaches the broker when Begin fails. Close any
+                // partially opened observer scope through the same abort path.
+                try{aborted?.Invoke(context.UnitId);}catch{}
+                throw;
+            }
         }
         private sealed class Completion : IUnitMoveInvocation
         {

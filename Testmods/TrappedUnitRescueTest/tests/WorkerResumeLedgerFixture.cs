@@ -18,7 +18,7 @@ namespace TrappedUnitRescueTest.Tests
         }
         internal static void Run()
         {
-            checks=0;var ledger=new WorkerResumeLedger();
+            checks=0;var ledger=new WorkerResumeLedger();Check(ledger.CanReserveSlot,"empty ledger has a reservation resource");
             var ticket=Ticket(1);
             Check(ledger.TryReserve(ticket,out var token),"reserve before native mutation");
             Check(!ledger.TryReserve(ticket,out _),"duplicate unit forbidden");
@@ -45,13 +45,13 @@ namespace TrappedUnitRescueTest.Tests
             ledger.CommitPark(newToken,0);
             Check(ledger.Drain(0,512,1,t=>{throw new InvalidOperationException();})==1 && ledger.Count==1,"exception retains ownership");
             ledger.MarkWorldMutation();
-            Check(ledger.Drain(0,512,1,t=>{Check(!ledger.Release(newToken),"callback cannot mutate receipts");return WorkerResumeDecision.Invalidated;})==1 && ledger.Count==0,"new order ack");
+            Check(ledger.Drain(0,512,1,t=>{Check(!ledger.CanReserveSlot,"draining ledger exposes no new reservation capacity");Check(!ledger.Release(newToken),"callback cannot mutate receipts");return WorkerResumeDecision.Invalidated;})==1 && ledger.Count==0,"new order ack");
 
             for(int i=1;i<=WorkerResumeLedger.Capacity;i++)
             {Check(ledger.TryReserve(Ticket(i),out var entry),"bounded capacity");Check(ledger.CommitPark(entry,0),"park capacity");}
-            Check(!ledger.TryReserve(Ticket(999),out _) && ledger.Count==512,"capacity fails before mutation");
+            Check(!ledger.TryReserve(Ticket(999),out _) && ledger.Count==512 && !ledger.CanReserveSlot,"capacity fails before mutation");
             called=0;
-            Check(ledger.Drain(0,7,2,t=>{called++;return WorkerResumeDecision.Release;})==2 && called==2,"native cap");
+            Check(ledger.Drain(0,7,2,t=>{called++;return WorkerResumeDecision.Release;})==2 && called==2 && ledger.CanReserveSlot,"native cap releases resource slots");
             Check(ledger.Drain(0,1,20,t=>{called++;return WorkerResumeDecision.Release;})==1 && called==3,"visit cap");
             Check(ledger.TrySerialize(out var bytes),"serialize parked");
             var roundtrip=new WorkerResumeLedger();

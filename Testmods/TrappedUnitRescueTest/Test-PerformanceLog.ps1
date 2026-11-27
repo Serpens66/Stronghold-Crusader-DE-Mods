@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([string]$LogPath,[string]$ExpectedRun,[string]$OutputPath,
-    [ValidateSet('rescue-perf-1000-passive-on','rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on')]
+    [ValidateSet('rescue-perf-1000-passive-on','rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on','rescue-perf-9871-nojesters-passive-on')]
     [string]$ExpectedScenario='rescue-perf-1000-passive-on')
 $ErrorActionPreference='Stop'
 
@@ -14,6 +14,20 @@ function Assert-RescuePerformanceLog {
         Require ($matches.Count -eq 1) "Expected one $Name token"
         return $matches[0].Groups['value'].Value
     }
+    # Additive outcomeSchema2 observes requests, NOT completed native deletion.
+    # Missing outcomeSchema is historical1 and cannot prove current removal work.
+    function OutcomeSchema([string]$Line){
+        $values=[regex]::Matches($Line,'(?:^|\s)outcomeSchema=(?<value>\S+)')
+        Require ($values.Count -le 1) 'Duplicate outcomeSchema token'
+        if($values.Count -eq 0){return 1}
+        Require ($values[0].Groups['value'].Value -cin @('1','2')) 'Unknown outcome schema'
+        return [int]$values[0].Groups['value'].Value
+    }
+    function OutcomeCounter([string]$Line,[string]$Name){
+        $value=Token $Line $Name;[long]$parsed=0
+        Require ($value -cmatch '^(0|[1-9][0-9]*)$' -and [long]::TryParse($value,[ref]$parsed)) "Invalid nonnegative outcome counter $Name"
+        return $parsed
+    }
     # The archived log can contain unrelated messages between evidence records.
     # Compare positions in the original input, never sorted/filter-only order.
     function Position([string]$Line){return [Array]::IndexOf($Lines,$Line)}
@@ -23,10 +37,11 @@ function Assert-RescuePerformanceLog {
         'rescue-perf-1000-passive-on'{1000}
         'rescue-perf-4000-idle1000walk-passive-on'{4000}
         'rescue-perf-4000-nojesters-passive-on'{4000}
+        'rescue-perf-9871-nojesters-passive-on'{9871}
         'rescue-perf-9871-idle1000walk-passive-on'{9871}
         default{throw 'PERFORMANCE_UNQUALIFIED: Unknown explicitly selected performance scenario'}
     }
-    $nativeStateFixture=$Scenario -ceq 'rescue-perf-4000-nojesters-passive-on'
+    $nativeStateFixture=$Scenario -cin @('rescue-perf-4000-nojesters-passive-on','rescue-perf-9871-nojesters-passive-on')
     $worldRows=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-world ') -and (Token $_ 'run') -ceq $Run})
     $readyRows=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-ready ') -and (Token $_ 'run') -ceq $Run})
     $baselineRows=@($Lines|Where-Object {$_.Contains('RESCUE_TEST performance-nojesters-baseline ') -and (Token $_ 'run') -ceq $Run})
@@ -104,6 +119,7 @@ function Assert-RescuePerformanceLog {
     Require ((Token $begin[0] 'schema') -ceq '1' -and (Token $end[0] 'schema') -ceq '1') 'Unknown manifest schema'
     Require ((Token $begin[0] 'population') -ceq [string]$population -and (Token $begin[0] 'batches') -ceq [string]$batchCount -and
         (Token $begin[0] 'observeArmyMoves') -ieq 'false') 'Expected explicitly selected passive population profile'
+    $outcomeSchema=OutcomeSchema $begin[0]
     $stateTokens=[regex]::Matches($begin[0],'(?:^|\s)native-state-fixture=(?<value>\S+)')
     if($nativeStateFixture){
         Require ($stateTokens.Count -eq 1 -and $stateTokens[0].Groups['value'].Value -ieq 'true' -and
@@ -190,7 +206,21 @@ function Assert-RescuePerformanceLog {
     Require ($windows.Count -eq 8) 'Expected eight completed measurement windows'
     $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $windowPositions=[Collections.Generic.Dictionary[string,int]]::new([StringComparer]::Ordinal)
+    [decimal]$captureTotal=0;[decimal]$attemptTotal=0;[decimal]$rescueTotal=0;[decimal]$removalTotal=0
+    [int]$removalWindows=0
     foreach($line in $windows){
+        Require ((OutcomeSchema $line) -eq $outcomeSchema) 'Mixed outcome schemas'
+        if($outcomeSchema -eq 2){
+            $captureTotal+=OutcomeCounter $line 'captureDelta'
+            $attemptTotal+=OutcomeCounter $line 'attemptDelta'
+            $rescueTotal+=OutcomeCounter $line 'rescueDelta'
+            $requests=OutcomeCounter $line 'removalRequestDelta';$removalTotal+=$requests
+            if($requests -gt 0){$removalWindows++}
+            Require ($captureTotal -le [long]::MaxValue -and $attemptTotal -le [long]::MaxValue -and
+                $rescueTotal -le [long]::MaxValue -and $removalTotal -le [long]::MaxValue) 'Outcome counter total overflow'
+        }else{
+            Require ($line -notmatch '(?:^|\s)removalRequestDelta=') 'Historical outcome schema contains undeclared removal requests'
+        }
         Require ((Token $line 'run') -ceq $Run) 'Window belongs to another run'
         $iteration=Token $line 'iteration';$workload=Token $line 'workload'
         Require ($iteration -cmatch '^[0-3]$' -and $workload -cin @('idle','walking') -and $seen.Add($iteration+'/'+$workload)) 'Wrong or duplicate measurement window'
@@ -276,6 +306,15 @@ function Assert-RescuePerformanceLog {
     Require ((Position $terminal[0]) -gt $cursor) 'Terminal PASS precedes completed performance evidence'
     return [pscustomobject][ordered]@{Schema=1;Run=$Run;Profile='no-extra-unitmove-demand';NativeStateFixture=$nativeStateFixture;GeneralPerformanceClaim=$false;Population=$population;WalkingPopulation=1000;Scenario=$Scenario;ManifestBatches=$batchCount;
         ArmyResultCount=$armyResults;CompletedWindows=8;EndpointCompletions=4;Identity=$identity;Qualified=$true;
+        OutcomeSchema=$outcomeSchema;OutcomeCountersObserved=($outcomeSchema -eq 2);
+        CaptureCountTotal=$(if($outcomeSchema -eq 2){[long]$captureTotal}else{$null});
+        AttemptCountTotal=$(if($outcomeSchema -eq 2){[long]$attemptTotal}else{$null});
+        RescueCountTotal=$(if($outcomeSchema -eq 2){[long]$rescueTotal}else{$null});
+        RemovalRequestCountTotal=$(if($outcomeSchema -eq 2){[long]$removalTotal}else{$null});
+        RemovalRequestWindows=$(if($outcomeSchema -eq 2){$removalWindows}else{$null});
+        AmbientRemovalRequestsObserved=$(if($outcomeSchema -eq 2){$removalTotal -gt 0}else{$null});
+        NativeDeletionCompletionObserved=$false;CurrentRemovalOverheadClaim=$false;
+        OutcomeLimitation=$(if($outcomeSchema -eq 2){'Counters describe captures/attempts/rescues/removal requests inside eight windows; no native deletion completion or pure removal overhead claim'}else{'Historical outcome schema1: current removal requests unobserved; no current removal overhead claim'});
         Limitation=$(if($nativeStateFixture){'Artificial no-new-Jesters world; its separate common-save baseline only; not ordinary-world or general overhead acceptance'}else{'Ambient AI; log/pose/endpoints qualify this profile, not higher populations or pure feature overhead'})}
 }
 

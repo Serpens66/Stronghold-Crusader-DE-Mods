@@ -5,6 +5,7 @@ using APIShared.WorldMutations;
 using SHCDESE.API;
 using SHCDESE.Extensions;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 
 namespace TrappedUnitRescueTest
 {
@@ -189,6 +190,10 @@ namespace TrappedUnitRescueTest
                 !api.TryGetVillageSlotByPlayerId(owner, out int villageSlot) || !api.TryGetVillageBySlot(villageSlot, out var village) ||
                 village->OwnerPlayerId != owner || !api.TryGetBuildStep(villageSlot, source.FrameIndex, out var step))
             { reason = "aiv-frame-identity-contract"; return false; }
+            // 517FF..51807 returns before geometry for these exact native states.
+            // Prepared Keep/overwritten frames can legitimately retain MapperNull.
+            // Resolve no map payload for an inactive step: its zero payload is not a tile.
+            if (AivGeometryIsNoop(step->State)) return true;
             eMappers mapper = step->BuildingType;
             var fields = api.GetBuildStepMapTiles(villageSlot, source.FrameIndex);
             if (fields.Length > budget.MaximumTiles) { reason = "aiv-field-budget"; return false; }
@@ -203,6 +208,9 @@ namespace TrappedUnitRescueTest
             BuildAivRequests(session, requests, mapper, direction, copiedFields);
             return true;
         }
+        internal static bool AivGeometryIsNoop(AivBuildStepState state) =>
+            state == AivBuildStepState.Inactive || state == AivBuildStepState.Abandoned;
+
         private void BuildAivRequests(Session session, List<RescueMutationFootprintRequest> requests, eMappers mapper, int direction, int[] fields)
         {
             if (fields == null) throw new InvalidOperationException("aiv-field-reference-contract");
@@ -252,9 +260,13 @@ namespace TrappedUnitRescueTest
 
         internal RescueFootprintContext ContextForOfflineFixture() => new Session(memory, budget, maximumBuildingReads).Context;
         internal bool TryPlanAivFieldsForOfflineFixture(eMappers mapper, int direction, int[] fields,
-            out List<RescueTile> tiles, out RescueFootprintMetrics metrics, out string reason)
+            out List<RescueTile> tiles, out RescueFootprintMetrics metrics, out string reason,
+            AivBuildStepState state = AivBuildStepState.Pending)
         {
             tiles = new List<RescueTile>(); metrics = default; reason = null;
+            // Uses the identical production early-return predicate above, before
+            // any payload decoding, memory-backed session or footprint planning.
+            if (AivGeometryIsNoop(state)) return true;
             var session = new Session(memory, budget, maximumBuildingReads);
             try
             {

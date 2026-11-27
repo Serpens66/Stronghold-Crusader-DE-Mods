@@ -64,7 +64,7 @@ namespace BugfixesAndQoL.AreaConstruction
             {
                 // Only an unpublished candidate is eligible for rollback.
                 if (runtime != null)
-                    foreach (var hook in runtime.hooks.Reverse())
+                    foreach (var hook in Enumerable.Reverse(runtime.hooks))
                     {
                         try { hook?.Dispose(); }
                         catch (Exception rollbackError)

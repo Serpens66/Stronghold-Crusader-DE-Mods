@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.IO;
 using System.Collections.Generic;
 using APIShared.Savegames;
 using SHCDESE.Interop;
@@ -34,24 +35,33 @@ namespace TrappedUnitRescueTest.Tests
         }
         internal static void Run()
         {
-            checks=0;var original=new RescuePendingCandidate<UnitSnapshot>("BuildStructure",Soldier(),17,2,1);
+            checks=0;RemovalRoundtrips();var original=new RescuePendingCandidate<UnitSnapshot>("BuildStructure",Soldier(),17,2,1);
             Check(RescuePendingCodec.TryEncode(original,out byte[] bytes),"encode actual causal snapshot");
             Check(RescuePendingCodec.TryDecode(bytes,out var copy),"decode causal snapshot");
+            Check(RescuePendingCodec.TryDecode(AsVersion4(bytes),out var legacySoldier) && !legacySoldier.Snapshot.CivilianRemoval &&
+                legacySoldier.Snapshot.Command!=null && !legacySoldier.Snapshot.CurrentHadExit && !legacySoldier.Snapshot.NextHadExit,
+                "v4 command record retains its historical meaning without removal inference");
             Check(copy.Age==17 && copy.Attempts==2 && copy.RetryIn==1 && copy.Source==original.Source,"retry history retained without process counters");
             Check(copy.Snapshot.Id==1 && copy.Snapshot.GlobalId==1 && copy.Snapshot.Candidates.Count==2 && copy.Snapshot.AffectedNext && copy.Snapshot.OrdinaryStep,
                 "identity, accepted step and old reachable fields retained");
             copy.Snapshot.Candidates.Clear();
             Check(original.Snapshot.Candidates.Count==2,"decode owns its independent old reachability proof");
             var worker=Soldier();worker.Type=(int)eChimps.CHIMP_TYPE_QUARRY_OX;worker.AIState=1;worker.Command=null;
-            WorkerTravelPolicy.TryDescribe((eChimps)worker.Type,worker.AIState,out var rule);
-            WorkerJourneySnapshot.TryCapture(rule,offset=>offset==0x6E6?(ushort)worker.Type:offset==0x918?(ushort)worker.AIState:
+            WorkerTravelPolicy.TryDescribeHistorical((eChimps)worker.Type,worker.AIState,out var rule);
+            LegacyWorkerFixtureData.TryDecode(rule,offset=>offset==0x6E6?(ushort)worker.Type:offset==0x918?(ushort)worker.AIState:
                 offset==0x6EE?(ushort)worker.Owner:(ushort)0,offset=>offset==0x6F0?worker.GlobalId:0,out worker.Job);
             Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",worker,1,0,0),out var workerBytes) &&
                 RescuePendingCodec.TryDecode(workerBytes,out var workerCopy) && workerCopy.Snapshot.Job.Rule.UnitType==(eChimps)worker.Type,
                 "pending worker preserves its exact known job schema for later live revalidation");
+            Check(RescuePendingCodec.TryDecode(AsVersion4(workerBytes),out var legacyWorker) && !legacyWorker.Snapshot.CivilianRemoval &&
+                legacyWorker.Snapshot.Job!=null && legacyWorker.Snapshot.Command==null,
+                "v4 worker job stays a worker job, never an inferred removal");
+            worker.CivilianRemoval=true;worker.CurrentHadExit=true;worker.NextHadExit=true;worker.Candidates.Clear();
+            Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",worker,0,0,0),out _),
+                "historical worker job payload cannot become removal by switching the new action flag");
             var apple=Soldier();apple.Type=(int)eChimps.CHIMP_TYPE_FARMER_APPLE;apple.AIState=2;apple.Command=null;
-            WorkerTravelPolicy.TryDescribe((eChimps)apple.Type,apple.AIState,out var appleRule);
-            WorkerJourneySnapshot.TryCapture(appleRule,offset=>offset==0x6E6?(ushort)apple.Type:offset==0x918?(ushort)apple.AIState:
+            WorkerTravelPolicy.TryDescribeHistorical((eChimps)apple.Type,apple.AIState,out var appleRule);
+            LegacyWorkerFixtureData.TryDecode(appleRule,offset=>offset==0x6E6?(ushort)apple.Type:offset==0x918?(ushort)apple.AIState:
                 offset==0x6EE?(ushort)apple.Owner:offset==0x9A0?(ushort)7:(ushort)0,
                 offset=>offset==0x6F0?apple.GlobalId:0,out apple.Job);
             Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("BuildStructure",apple,0,0,0),out _),
@@ -108,6 +118,81 @@ namespace TrappedUnitRescueTest.Tests
             queue.Drain(0,1,1,item=>{Check(!queue.TryCopyPending(0,out _),"save during an active mutation is refused");return RescueQueueDecision.Complete;});
             ArchiveRoundtrip(original,bytes);
             Console.WriteLine("PASS: pending rescue persistence checks="+checks+"; production queue and binary codec, no native calls.");
+        }
+        private static UnitSnapshot Removal()
+        {
+            var u=Soldier();u.Type=(int)eChimps.CHIMP_TYPE_PEASANT;u.AIState=0;u.Command=null;
+            u.Candidates.Clear();u.CivilianRemoval=true;u.CurrentHadExit=true;u.NextHadExit=true;return u;
+        }
+        // Derive the position from the wire header, not from source-name length assumptions.
+        // v4 lacks exactly these three v5 booleans; all remaining historical bytes are unchanged.
+        private static int RemovalFlagsOffset(byte[] data)
+        {
+            using(var stream=new MemoryStream(data,false))using(var reader=new BinaryReader(stream))
+            {
+                reader.ReadUInt32();reader.ReadUInt16();int length=reader.ReadUInt16();reader.ReadBytes(length);
+                stream.Position+=3*4+16*4+5*4+1+4+5+1;return checked((int)stream.Position);
+            }
+        }
+        private static byte[] AsVersion4(byte[] data)
+        {
+            int offset=RemovalFlagsOffset(data);var legacy=data.Take(offset).Concat(data.Skip(offset+3)).ToArray();
+            legacy[4]=4;legacy[5]=0;return legacy;
+        }
+        private static void RemovalRoundtrips()
+        {
+            var u=Removal();var record=new RescuePendingCandidate<UnitSnapshot>("MoatDig",u,7,1,1);
+            Check(RescuePendingCodec.TryEncode(record,out var bytes) && RescuePendingCodec.TryDecode(bytes,out var restored) &&
+                restored.Snapshot.CivilianRemoval && restored.Snapshot.CurrentHadExit && restored.Snapshot.NextHadExit &&
+                restored.Snapshot.Job==null && restored.Snapshot.Command==null && restored.Snapshot.Candidates.Count==0 &&
+                restored.Age==7 && restored.Attempts==1 && restored.RetryIn==1,
+                "minimal removal identity/exit witness roundtrips without job, vegetation or banks");
+            Check(!RescuePendingCodec.TryDecode(AsVersion4(bytes),out _),"removal kind cannot be reinterpreted as a historical v4 job");
+            int offset=RemovalFlagsOffset(bytes);
+            for(int i=0;i<3;i++)
+            {
+                var invalid=(byte[])bytes.Clone();invalid[offset+i]=2;
+                Check(!RescuePendingCodec.TryDecode(invalid,out _),"all three new booleans reject noncanonical byte values");
+            }
+            var unknown=(byte[])bytes.Clone();unknown[unknown.Length-1]=3;
+            Check(!RescuePendingCodec.TryDecode(unknown,out _),"removal does not bypass unknown intent-kind validation");
+            foreach(eChimps type in Enum.GetValues(typeof(eChimps)))
+            {
+                var sample=Removal();sample.Type=(int)type;
+                Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",sample,0,0,0),out _)==
+                    CivilianRemovalPolicy.IsRemovableType(type),"codec uses actual type policy, including protected military and Ox types");
+            }
+            u=Removal();u.Flags=0;u.Substep=8;u.OrdinaryStep=false;u.NextX=u.X;u.NextY=u.Y;u.NextTileId=u.TileId;
+            u.AffectedCurrent=true;u.AffectedNext=false;u.NextHadExit=false;
+            Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("AiBuildWall",u,0,0,0),out _),
+                "stationary Peasant with affected Current and an old exit needs no travel job");
+            Action<UnitSnapshot>[] invalidChanges={
+                x=>x.CivilianRemoval=false,x=>x.AIState=109,x=>x.AIState=108,x=>x.AIState=-1,
+                x=>x.Type=ushort.MaxValue,x=>x.GlobalId=0,x=>x.Health=0,x=>x.Id=0,x=>x.Owner=9,
+                x=>{x.CurrentHadExit=false;x.NextHadExit=false;},
+                x=>x.CurrentWasOrdinary=false,x=>x.NextWasOrdinary=false,
+                x=>{x.AffectedCurrent=false;x.AffectedNext=false;},
+                x=>x.OrdinaryStep=false,x=>x.Substep=8,
+                x=>x.HasCapturedVegetation=true,x=>x.CapturedVegetationGlobal=5,
+                x=>x.Command=Soldier().Command,
+                x=>{x.CrewCount=8;x.CrewIdentity=new uint[8];},
+                x=>x.Candidates.Add(new RescueCandidate{X=x.X,Y=x.Y,Tile=x.TileId,Distance=0})
+            };
+            foreach(var change in invalidChanges)
+            {
+                var invalid=Removal();change(invalid);
+                Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",invalid,0,0,0),out _),
+                    "removal rejects mismatched action, recruitment, identity, old-exit or semantic payload");
+            }
+            var soldier=Soldier();
+            Check(RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",soldier,0,0,0),out var commandBytes),
+                "prepare actual command wire record for action-kind mismatch");
+            int commandOffset=RemovalFlagsOffset(commandBytes);
+            commandBytes[commandOffset]=1;commandBytes[commandOffset+1]=1;commandBytes[commandOffset+2]=1;
+            Check(!RescuePendingCodec.TryDecode(commandBytes,out _),"wire removal flag cannot claim a saved military command");
+            soldier.CurrentHadExit=true;
+            Check(!RescuePendingCodec.TryEncode(new RescuePendingCandidate<UnitSnapshot>("MoatDig",soldier,0,0,0),out _),
+                "new exit flags cannot be smuggled into the historical command action");
         }
         private static void ArchiveRoundtrip(RescuePendingCandidate<UnitSnapshot> original,byte[] bytes)
         {

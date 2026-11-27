@@ -175,6 +175,7 @@ namespace TrappedUnitRescueTest.Tests
             nested.Tick(20,512,1);
             Check(nested.Ledger.TryGetParkedByUnit(4,out nestedTicket) && nestedTicket.RequestedX==155 && nestedWorld.Writes==nestedWrites,
                 "drain flush atomically rebinds without an extra native write");
+            VerifyCapacityAdmission();
             VerifyStartedMoatPreparation();
             VerifyNativeAuthority();
             for(int id=1;id<=WorkerResumeLedger.Capacity;id++)
@@ -182,6 +183,42 @@ namespace TrappedUnitRescueTest.Tests
             bool mutated=false;world.Ticket=Ticket(900);
             Check(!supervisor.TryRecover(null,()=>{mutated=true;return true;},4,out _,out _) && !mutated,"capacity prevents native mutation");
             Console.WriteLine("PASS: worker supervisor "+checks+" checks; reservation, safe park, failed resume, replacement and capacity; no game execution.");
+        }
+        private static void VerifyCapacityAdmission()
+        {
+            var world=new World{Ticket=Ticket(900)};var supervisor=new WorkerResumeSupervisor(world);
+            WorkerResumeToken first=default;
+            for(int id=1;id<=WorkerResumeLedger.Capacity;id++)
+            {
+                Check(supervisor.Ledger.TryReserve(Ticket(id),out var token),"capacity fixture reserves real typed tickets");
+                if(id==1)first=token;
+            }
+            bool mutated=false;
+            Check(!supervisor.CanReserveSlot && !supervisor.TryRecover(null,()=>{mutated=true;return true;},0,out var outcome,out _) &&
+                outcome==WorkerRecoveryOutcome.AwaitResources && !mutated && world.Writes==0 && world.Attempts==0 && world.Probes==0 && world.Normalizations==0,
+                "full ledger reports resource wait after readonly valid capture and before all native effects");
+            world.Ticket=Ticket(1);
+            Check(!supervisor.TryRecover(null,()=>{mutated=true;return true;},0,out outcome,out _) && outcome==WorkerRecoveryOutcome.Rejected && !mutated,
+                "duplicate ownership stays rejected even when ledger is full");
+            world.Ticket=null;
+            Check(!supervisor.TryRecover(null,()=>{mutated=true;return true;},0,out outcome,out _) && outcome==WorkerRecoveryOutcome.Rejected && !mutated,
+                "capture failure does not masquerade as a capacity wait");
+            world.Ticket=Ticket(0);
+            Check(!supervisor.TryRecover(null,()=>{mutated=true;return true;},0,out outcome,out _) && outcome==WorkerRecoveryOutcome.Rejected && !mutated,
+                "invalid captured ticket cannot gain a resource-wait outcome");
+            world.Ticket=Ticket(900);Check(supervisor.Ledger.Release(first) && supervisor.CanReserveSlot,"released reservation exposes capacity immediately");
+            world.Resume=true;
+            Check(supervisor.TryRecover(null,()=>{mutated=true;world.State=WorkerReceiptState.MatchingStopped;return true;},0,out outcome,out _) &&
+                mutated && outcome==WorkerRecoveryOutcome.Resumed,"available reservation allows ordinary guarded recovery");
+
+            world=new World{Ticket=Ticket(900)};supervisor=new WorkerResumeSupervisor(world);
+            Check(supervisor.Ledger.TryReserve(Ticket(1),out var parked) && supervisor.Ledger.CommitPark(parked,0),"draining capacity fixture has one owned park");
+            Check(supervisor.Ledger.Drain(0,1,1,ticket=>
+            {
+                Check(!supervisor.CanReserveSlot && !supervisor.TryRecover(null,()=>{world.Writes++;return true;},0,out var wait,out _) &&
+                    wait==WorkerRecoveryOutcome.AwaitResources && world.Writes==0 && world.Attempts==0,"draining resource gate precedes native effects");
+                return WorkerResumeDecision.WaitForGeometry;
+            })==1 && supervisor.CanReserveSlot,"drain completion restores free reservation capacity");
         }
         private static UnitSnapshot StartedMoatBefore()=>new UnitSnapshot { Id=99,GlobalId=99,Type=(int)eChimps.CHIMP_TYPE_QUARRY_OX,
             X=5,Y=5,TileId=10,NextX=6,NextY=5,NextTileId=11,Flags=2,Substep=0,OrdinaryStep=true,

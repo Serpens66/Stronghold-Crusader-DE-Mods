@@ -208,7 +208,7 @@ namespace TrappedUnitRescueTest
             log("performance-population run="+proof.RunId+" requested="+population+" physicalBefore="+occupied+" physicalAfter="+PerformanceCensus()+
                 " physicalCapacity="+capacity+" ambientReservation="+proof.AmbientReserve+" freeMarginRequired=64 walkingPopulation=1000 groups="+proof.Groups.Count+" actors="+proof.Actors.Count);
         }
-        private bool IsHigherPerformanceTier()=>scenario=="rescue-diag-health4000-on" || scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on" || scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
+        private bool IsHigherPerformanceTier()=>scenario=="rescue-diag-health4000-on" || scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on" || scenario=="rescue-perf-9871-nojesters-passive-on" || scenario=="rescue-perf-4000-idle1000walk-passive-on" || scenario=="rescue-perf-9871-idle1000walk-passive-on";
         private void ConfigurePerformanceLobby(EngineInterface.MultiplayerSetupData setup)
         {
             if(!IsHigherPerformanceTier())return;
@@ -403,7 +403,7 @@ namespace TrappedUnitRescueTest
 #if SERP_DEVDIAG
             nativeStateFixture=IsNoJestersProfile();
 #endif
-            log("performance-army-begin schema=1 run="+proof.RunId+" population="+proof.Actors.Count+" batches="+batches+
+            log("performance-army-begin schema=1 run="+proof.RunId+" outcomeSchema=2 population="+proof.Actors.Count+" batches="+batches+
                 " scenario="+scenario+" walkingPopulation=1000 workloadModel=full-idle-1000-walking observeArmyMoves="+(proof.ObserveArmyMoves?"true":"false")+" native-state-fixture="+nativeStateFixture+
                 " baseline="+(nativeStateFixture?"jester-spawn-disabled":"ordinary-skirmish"));
             for(int batch=0;batch<batches;batch++)
@@ -563,7 +563,7 @@ namespace TrappedUnitRescueTest
                             foreach(var wait in run.SetPause(run.CurrentMission,true))yield return wait;
                             run.InSimulation(run.CurrentMission,()=>{proof.Walking=false;Require(proof.Fault==null,"Performance walking warmup failed: "+proof.Fault);return true;});
                         }
-                        int start=0,end=0,physical=0;long captures=0,attempts=0,rescues=0;
+                        int start=0,end=0,physical=0;long captures=0,attempts=0,rescues=0,removalRequests=0;
 #if SERP_DEVDIAG
                         RescueCaptureDiagnostics.Sample windowAllocation=default;
 #endif
@@ -574,7 +574,7 @@ namespace TrappedUnitRescueTest
 #endif
                             PerformanceBoundary(proof,false);if(workload==0)PerformanceAtSavedSources(proof);physical=PerformanceCensus();
                             RequirePerformanceCamera("before-window-"+label,referenceCentreX,referenceCentreY,referenceCameraX,referenceCameraY,referenceZoom);
-                            var observer=Plugin.GeneralObserver;captures=observer.CaptureCount;attempts=observer.AttemptCount;rescues=observer.RescueCount;
+                            var observer=Plugin.GeneralObserver;captures=observer.CaptureCount;attempts=observer.AttemptCount;rescues=observer.RescueCount;removalRequests=observer.RemovalCount;
                             Require(SimulationTickEvents.TryGetCurrentTick(out start),"Performance native clock unavailable");
                             proof.WindowStart=start;proof.LastCommandTick=start;proof.Commands=0;
                             foreach(var group in proof.Groups){group.Progress=false;group.LastX=group.Sample.X;group.LastY=group.Sample.Y;}
@@ -616,12 +616,12 @@ namespace TrappedUnitRescueTest
                             var observer=Plugin.GeneralObserver;
                             if(proof.ObserveArmyMoves)Require(proof.OwnArmyMoves==0,"Measured performance army received an own recovery call");
                             if(workload==1)foreach(var group in proof.Groups)Require(group.Progress,"A shared walking group's fixed sample made no physical progress");
-                            log("performance-window run="+proof.RunId+" iteration="+iteration+" enabled="+proof.Enabled+" workload="+(workload==0?"idle":"walking")+
+                            log("performance-window run="+proof.RunId+" outcomeSchema=2 iteration="+iteration+" enabled="+proof.Enabled+" workload="+(workload==0?"idle":"walking")+
                                 " startTick="+start+" endTick="+end+" advancingTicks="+unchecked((uint)(end-start))+" warmupTicks="+warmupTicks+
                                 " requestedPopulation="+population+" scenario="+scenario+" walkingPopulation=1000 workloadModel=full-idle-1000-walking physicalStart="+physical+" physicalEnd="+PerformanceCensus()+" identity="+identity+
                                 " ambientAi=true ordinaryGroupCommands="+proof.Commands+" armyObservation="+(proof.ObserveArmyMoves?"final-unitmove":"passive-runtime-log")+
                                 " ownArmyRecoveryCalls="+(proof.ObserveArmyMoves?proof.OwnArmyMoves.ToString(CultureInfo.InvariantCulture):"unobserved")+
-                                " captureDelta="+(observer.CaptureCount-captures)+" attemptDelta="+(observer.AttemptCount-attempts)+" rescueDelta="+(observer.RescueCount-rescues)+" "+summary);return true;
+                                " captureDelta="+(observer.CaptureCount-captures)+" attemptDelta="+(observer.AttemptCount-attempts)+" rescueDelta="+(observer.RescueCount-rescues)+" removalRequestDelta="+(observer.RemovalCount-removalRequests)+" "+summary);return true;
                         });
                     }
                     // Boundary-only completion proof, outside the measured windows.

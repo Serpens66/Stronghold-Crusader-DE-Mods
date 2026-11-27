@@ -13,9 +13,12 @@ internal static class Program
             MountedScannerRuntimeFixture.Run(args[0]);
             int native = WorkerGuardFixture.Run();
             RescuePolicyFixture.Run();
+            CivilianRemovalPolicyFixture.Run();
             CandidateOwnerGateFixture.Run();
             IdleEscapeFixture.Run();
             SeriesFixture.Run();
+            LocalFieldFixture.Run();
+            CompactArchiveFixture.Run();
             GeneralObserverFixture.Run();
             RescueGeometryWitnessFixture.Run();
             RescueReplanIntentFixture.Run();

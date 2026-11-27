@@ -149,81 +149,131 @@ $ordinaryTagged=@($valid|ForEach-Object {if($_ -like '*performance-army-begin *'
 if(!(Assert-RescuePerformanceLog -Lines $ordinaryTagged -Run $run).Qualified){throw 'Explicit default false baseline was rejected'};$checks++
 Reject @($valid|ForEach-Object {if($_ -like '*performance-army-begin *'){$_+' native-state-fixture=true baseline=jester-spawn-disabled'}else{$_}}) 'Ordinary manifest conceals'
 # Separate artificial-world profile: ordinary input cannot silently qualify it.
-$noJesters='rescue-perf-4000-nojesters-passive-on';$world=[Collections.Generic.List[string]]::new()
-[int]$worldBoundary=0;[int]$worldLoad=0;[int]$worldSession=1
-function NativeWorldRow([string]$phase,[int]$writes){
-    $generation=3*$worldSession;if($phase -ceq 'boundary'){$generation+=2}
-    return "RESCUE_TEST performance-nojesters-world schema=1 run=$run profile=$noJesters phase=$phase session=$worldSession world=$generation flag=0 lady=0 allEightPairsEmpty=true wordWrites=$writes loadCount=$worldLoad boundary=$worldBoundary native-state-fixture=true newSharedBaseline=true generalPerformanceClaim=false"
-}
-function NativeReadyRow{
-    $early=3*$worldSession;$generation=$early+2
-    return "RESCUE_TEST performance-nojesters-ready schema=1 run=$run profile=$noJesters session=$worldSession earlyWorld=$early world=$generation tokenSame=true flag=0 lady=0 allEightPairsEmpty=true wordWrites=0 loadCount=$worldLoad native-state-fixture=true newSharedBaseline=true generalPerformanceClaim=false"
-}
-foreach($line in $tierInputs['rescue-perf-4000-idle1000walk-passive-on']){
-    $line=$line.Replace('rescue-perf-4000-idle1000walk-passive-on',$noJesters)
-    if($line -like '*performance-extreme-lobby *'){
-        $world.Add($line);$world.Add((NativeWorldRow 'fresh' 1));$world.Add((NativeReadyRow))
-        $world.Add("RESCUE_TEST performance-nojesters-baseline schema=1 run=$run profile=$noJesters native-state-fixture=true newSharedBaseline=true generalPerformanceClaim=false defaultProfilesUnchanged=true")
-        continue
+foreach($noJestersPopulation in @(4000,9871)){
+    $noJesters="rescue-perf-$noJestersPopulation-nojesters-passive-on"
+    $ordinaryTier="rescue-perf-$noJestersPopulation-idle1000walk-passive-on"
+    $world=[Collections.Generic.List[string]]::new()
+    [int]$worldBoundary=0;[int]$worldLoad=0;[int]$worldSession=1
+    function NativeWorldRow([string]$phase,[int]$writes){
+        $generation=3*$worldSession;if($phase -ceq 'boundary'){$generation+=2}
+        return "RESCUE_TEST performance-nojesters-world schema=1 run=$run profile=$noJesters phase=$phase session=$worldSession world=$generation flag=0 lady=0 allEightPairsEmpty=true wordWrites=$writes loadCount=$worldLoad boundary=$worldBoundary native-state-fixture=true newSharedBaseline=true generalPerformanceClaim=false"
     }
-    if($line -like '*performance-army-begin *'){$worldBoundary++;$world.Add((NativeWorldRow 'boundary' 0));$line+=' native-state-fixture=true baseline=jester-spawn-disabled'}
-    if($line -like '*performance-extreme *boundary=load-*'){$worldLoad++;$worldSession++;$world.Add((NativeWorldRow 'load' 0));$world.Add((NativeReadyRow))}
-    if($line -like '*performance-window *'){$worldBoundary++;$world.Add((NativeWorldRow 'boundary' 0))}
-    $world.Add($line)
+    function NativeReadyRow{
+        $early=3*$worldSession;$generation=$early+2
+        return "RESCUE_TEST performance-nojesters-ready schema=1 run=$run profile=$noJesters session=$worldSession earlyWorld=$early world=$generation tokenSame=true flag=0 lady=0 allEightPairsEmpty=true wordWrites=0 loadCount=$worldLoad native-state-fixture=true newSharedBaseline=true generalPerformanceClaim=false"
+    }
+    foreach($line in $tierInputs[$ordinaryTier]){
+        $line=$line.Replace($ordinaryTier,$noJesters)
+        if($line -like '*performance-extreme-lobby *'){
+            $world.Add($line);$world.Add((NativeWorldRow 'fresh' 1));$world.Add((NativeReadyRow))
+            $world.Add("RESCUE_TEST performance-nojesters-baseline schema=1 run=$run profile=$noJesters native-state-fixture=true newSharedBaseline=true generalPerformanceClaim=false defaultProfilesUnchanged=true")
+            continue
+        }
+        if($line -like '*performance-army-begin *'){$worldBoundary++;$world.Add((NativeWorldRow 'boundary' 0));$line+=' native-state-fixture=true baseline=jester-spawn-disabled'}
+        if($line -like '*performance-extreme *boundary=load-*'){$worldLoad++;$worldSession++;$world.Add((NativeWorldRow 'load' 0));$world.Add((NativeReadyRow))}
+        if($line -like '*performance-window *'){$worldBoundary++;$world.Add((NativeWorldRow 'boundary' 0))}
+        $world.Add($line)
+    }
+    $noJestersValid=$world.ToArray()
+    $qualified=Assert-RescuePerformanceLog -Lines $noJestersValid -Run $run -Scenario $noJesters
+    if(!$qualified.Qualified -or !$qualified.NativeStateFixture -or $qualified.GeneralPerformanceClaim -or $qualified.Population -ne $noJestersPopulation){throw 'Artificial world lost its separate qualification'};$checks++
+    function RejectNativeWorld([string[]]$inputLines){
+        $rejected=$false;try{$null=Assert-RescuePerformanceLog -Lines $inputLines -Run $run -Scenario $noJesters}catch{$rejected=$true}
+        if(!$rejected){throw 'Changed/missing native-state world evidence was accepted'};$script:checks++
+    }
+    RejectNativeWorld @($noJestersValid|Where-Object {$_ -notlike '*phase=fresh *'})
+    RejectNativeWorld @($noJestersValid|Where-Object {$_ -notlike '*performance-nojesters-baseline *'})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('wordWrites=0','wordWrites=1')})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('allEightPairsEmpty=true','allEightPairsEmpty=false')})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('flag=0','flag=1')})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*phase=load *loadCount=2 *'){$_.Replace('lady=0','lady=1')}else{$_}})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*phase=load *loadCount=2 *'){$_.Replace('session=3','session=2')}else{$_}})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*phase=boundary *boundary=4 *'){[regex]::Replace($_,'(?<= )world=\d+','world=999')}else{$_}})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('phase=fresh','phase=unknown')})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('newSharedBaseline=true','newSharedBaseline=false')})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-army-begin *'){$_.Replace('native-state-fixture=true','native-state-fixture=false')}else{$_}})
+    RejectNativeWorld ($noJestersValid+"RESCUE_TEST performance-nojesters-fault run=$run error=test")
+    RejectNativeWorld ($noJestersValid+"RESCUE_TEST performance-health-diagnostic run=$run diagnosticSubscriptions=true")
+    RejectNativeWorld @($noJestersValid|Where-Object {$_ -notlike '*performance-nojesters-ready *'})
+    $readyExample=@($noJestersValid|Where-Object {$_ -like '*performance-nojesters-ready *'})[0]
+    RejectNativeWorld ($noJestersValid+$readyExample)
+    RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('tokenSame=true','tokenSame=false')})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-nojesters-ready *'){[regex]::Replace($_,'earlyWorld=\d+','earlyWorld=999')}else{$_}})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-nojesters-ready *loadCount=2 *'){$_.Replace('session=3','session=2')}else{$_}})
+    RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-nojesters-ready *'){$_.Replace('wordWrites=0','wordWrites=1')}else{$_}})
+    RejectNativeWorld (@($readyExample)+$noJestersValid)
+    # A coherent Ready/Boundary sequence after measurement is still too late.
+    $lateRecords=@($noJestersValid|Where-Object {($_ -like '*performance-nojesters-ready *' -or $_ -like '*phase=boundary *') -and $_ -like '*session=2 *'})
+    $lateReady=[Collections.Generic.List[string]]::new()
+    foreach($row in $noJestersValid){
+        if($row -cin $lateRecords){continue}
+        $lateReady.Add($row)
+        if($row -like '*RESCUE_TEST performance-window *iteration=0 *workload=walking*'){foreach($late in $lateRecords){$lateReady.Add($late)}}
+    }
+    RejectNativeWorld $lateReady.ToArray()
+    $sameGeneration=@($noJestersValid|ForEach-Object {
+        $row=$_
+        for($sid=1;$sid -le 5;$sid++){$row=$row.Replace(' world='+[string](3*$sid+2)+' ',' world='+[string](3*$sid)+' ')}
+        $row
+    })
+    if(!(Assert-RescuePerformanceLog -Lines $sameGeneration -Run $run -Scenario $noJesters).Qualified){throw 'Equal generation with explicit same-native-token handoff was rejected'};$checks++
+    $rejected=$false;try{$null=Assert-RescuePerformanceLog -Lines $noJestersValid -Run $run -Scenario $ordinaryTier}catch{$rejected=$true}
+    if(!$rejected){throw 'Artificial world was accepted as an ordinary performance baseline'};$checks++
+    $tierInputs[$noJesters]=$noJestersValid
 }
-$noJestersValid=$world.ToArray()
-$qualified=Assert-RescuePerformanceLog -Lines $noJestersValid -Run $run -Scenario $noJesters
-if(!$qualified.Qualified -or !$qualified.NativeStateFixture -or $qualified.GeneralPerformanceClaim -or $qualified.Population -ne 4000){throw 'Artificial world lost its separate qualification'};$checks++
-function RejectNativeWorld([string[]]$inputLines){
-    $rejected=$false;try{$null=Assert-RescuePerformanceLog -Lines $inputLines -Run $run -Scenario $noJesters}catch{$rejected=$true}
-    if(!$rejected){throw 'Changed/missing native-state world evidence was accepted'};$script:checks++
+
+
+# Outcome schema2 is additive to manifest schema1. Historical records remain
+# qualified only with an explicit unknown-removal result, never a false zero.
+if($result.OutcomeSchema -ne 1 -or $result.OutcomeCountersObserved -or
+    $null -ne $result.RemovalRequestCountTotal -or $result.CurrentRemovalOverheadClaim -or
+    $result.NativeDeletionCompletionObserved){throw 'Historical outcome limitations were lost'};$checks++
+function Add-OutcomeCounters([string[]]$inputLines,[long]$requests=0){
+    return @($inputLines|ForEach-Object {
+        if($_ -like '*performance-army-begin *'){$_+' outcomeSchema=2'}
+        elseif($_ -like '*performance-window *'){$_+" outcomeSchema=2 captureDelta=3 attemptDelta=2 rescueDelta=1 removalRequestDelta=$requests"}
+        else{$_}
+    })
 }
-RejectNativeWorld @($noJestersValid|Where-Object {$_ -notlike '*phase=fresh *'})
-RejectNativeWorld @($noJestersValid|Where-Object {$_ -notlike '*performance-nojesters-baseline *'})
-RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('wordWrites=0','wordWrites=1')})
-RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('allEightPairsEmpty=true','allEightPairsEmpty=false')})
-RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('flag=0','flag=1')})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*phase=load *loadCount=2 *'){$_.Replace('lady=0','lady=1')}else{$_}})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*phase=load *loadCount=2 *'){$_.Replace('session=3','session=2')}else{$_}})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*phase=boundary *boundary=4 *'){[regex]::Replace($_,'(?<= )world=\d+','world=999')}else{$_}})
-RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('phase=fresh','phase=unknown')})
-RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('newSharedBaseline=true','newSharedBaseline=false')})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-army-begin *'){$_.Replace('native-state-fixture=true','native-state-fixture=false')}else{$_}})
-RejectNativeWorld ($noJestersValid+"RESCUE_TEST performance-nojesters-fault run=$run error=test")
-RejectNativeWorld ($noJestersValid+"RESCUE_TEST performance-health-diagnostic run=$run diagnosticSubscriptions=true")
-RejectNativeWorld @($noJestersValid|Where-Object {$_ -notlike '*performance-nojesters-ready *'})
-$readyExample=@($noJestersValid|Where-Object {$_ -like '*performance-nojesters-ready *'})[0]
-RejectNativeWorld ($noJestersValid+$readyExample)
-RejectNativeWorld @($noJestersValid|ForEach-Object {$_.Replace('tokenSame=true','tokenSame=false')})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-nojesters-ready *'){[regex]::Replace($_,'earlyWorld=\d+','earlyWorld=999')}else{$_}})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-nojesters-ready *loadCount=2 *'){$_.Replace('session=3','session=2')}else{$_}})
-RejectNativeWorld @($noJestersValid|ForEach-Object {if($_ -like '*performance-nojesters-ready *'){$_.Replace('wordWrites=0','wordWrites=1')}else{$_}})
-RejectNativeWorld (@($readyExample)+$noJestersValid)
-# A coherent Ready/Boundary sequence after measurement is still too late.
-$lateRecords=@($noJestersValid|Where-Object {($_ -like '*performance-nojesters-ready *' -or $_ -like '*phase=boundary *') -and $_ -like '*session=2 *'})
-$lateReady=[Collections.Generic.List[string]]::new()
-foreach($row in $noJestersValid){
-    if($row -cin $lateRecords){continue}
-    $lateReady.Add($row)
-    if($row -like '*RESCUE_TEST performance-window *iteration=0 *workload=walking*'){foreach($late in $lateRecords){$lateReady.Add($late)}}
+$current=Add-OutcomeCounters $valid
+$currentResult=Assert-RescuePerformanceLog -Lines $current -Run $run
+if(!$currentResult.Qualified -or !$currentResult.OutcomeCountersObserved -or $currentResult.OutcomeSchema -ne 2 -or
+    $currentResult.CaptureCountTotal -ne 24 -or $currentResult.AttemptCountTotal -ne 16 -or
+    $currentResult.RescueCountTotal -ne 8 -or $currentResult.RemovalRequestCountTotal -ne 0 -or
+    $currentResult.RemovalRequestWindows -ne 0 -or $currentResult.AmbientRemovalRequestsObserved -or
+    $currentResult.NativeDeletionCompletionObserved -or $currentResult.GeneralPerformanceClaim -or
+    $currentResult.CurrentRemovalOverheadClaim){throw 'Current complete outcome counters were not reported honestly'};$checks++
+$ambient=Add-OutcomeCounters $valid 2
+$ambientResult=Assert-RescuePerformanceLog -Lines ($ambient+'RESCUE_TEST unit=1001/9001 result=Removed') -Run $run
+if(!$ambientResult.Qualified -or $ambientResult.RemovalRequestCountTotal -ne 16 -or
+    $ambientResult.RemovalRequestWindows -ne 8 -or !$ambientResult.AmbientRemovalRequestsObserved){throw 'Unrelated ambient removal requests were rejected or hidden'};$checks++
+Reject ($ambient+'RESCUE_TEST unit=1/1001 result=Removed') 'rescue attempt affected'
+foreach($name in @('captureDelta','attemptDelta','rescueDelta','removalRequestDelta')){
+    Reject @($current|ForEach-Object {[regex]::Replace($_,' '+$name+'=\d+','')}) ('Expected one '+$name+' token')
+    Reject @($current|ForEach-Object {if($_ -like '*performance-window *'){$_+' '+$name+'=0'}else{$_}}) ('Expected one '+$name+' token')
+    foreach($invalid in @('-1','1.5','+1','01','9223372036854775808','bad')){
+        Reject @($current|ForEach-Object {[regex]::Replace($_,'(?<= )'+$name+'=\d+',$name+'='+$invalid)}) ('Invalid nonnegative outcome counter '+$name)
+    }
 }
-RejectNativeWorld $lateReady.ToArray()
-$sameGeneration=@($noJestersValid|ForEach-Object {
-    $row=$_
-    for($sid=1;$sid -le 5;$sid++){$row=$row.Replace(' world='+[string](3*$sid+2)+' ',' world='+[string](3*$sid)+' ')}
-    $row
-})
-if(!(Assert-RescuePerformanceLog -Lines $sameGeneration -Run $run -Scenario $noJesters).Qualified){throw 'Equal generation with explicit same-native-token handoff was rejected'};$checks++
-$rejected=$false;try{$null=Assert-RescuePerformanceLog -Lines $noJestersValid -Run $run -Scenario 'rescue-perf-4000-idle1000walk-passive-on'}catch{$rejected=$true}
-if(!$rejected){throw 'Artificial world was accepted as an ordinary performance baseline'};$checks++
-$tierInputs[$noJesters]=$noJestersValid
+Reject @($current|ForEach-Object {if($_ -like '*performance-window *iteration=2 *workload=idle*'){$_.Replace(' outcomeSchema=2','')}else{$_}}) 'Mixed outcome schemas'
+Reject @($current|ForEach-Object {if($_ -like '*performance-army-begin *'){$_.Replace(' outcomeSchema=2','')}else{$_}}) 'Mixed outcome schemas'
+Reject @($current|ForEach-Object {$_.Replace('outcomeSchema=2','outcomeSchema=3')}) 'Unknown outcome schema'
+Reject @($current|ForEach-Object {if($_ -like '*performance-window *'){$_+' outcomeSchema=2'}else{$_}}) 'Duplicate outcomeSchema token'
+Reject @($current|ForEach-Object {if($_ -like '*performance-army-begin *'){$_+' outcomeSchema=2'}else{$_}}) 'Duplicate outcomeSchema token'
+Reject @($current|ForEach-Object {$_.Replace('outcomeSchema=2','outcomeSchema=1')}) 'Historical outcome schema contains undeclared removal requests'
+Reject @($current|ForEach-Object {$_.Replace('removalRequestDelta=0','removalRequestDelta=9223372036854775807')}) 'Outcome counter total overflow'
+foreach($profile in @('rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on','rescue-perf-9871-nojesters-passive-on')){
+    $currentTier=Add-OutcomeCounters $tierInputs[$profile] 1
+    $outcome=Assert-RescuePerformanceLog -Lines $currentTier -Run $run -Scenario $profile
+    if(!$outcome.Qualified -or !$outcome.OutcomeCountersObserved -or $outcome.RemovalRequestCountTotal -ne 8){throw 'Current higher-tier outcome schema rejected'};$checks++
+}
 
 $workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
 $temporary=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-perflog -Identity 'passive log CLI contract'
 try{
     $inputFile=Join-Path $temporary 'input.log';$outputFile=Join-Path $temporary 'result.json'
-    foreach($profile in @('rescue-perf-1000-passive-on','rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on')){
+    foreach($profile in @('rescue-perf-1000-passive-on','rescue-perf-4000-idle1000walk-passive-on','rescue-perf-9871-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on','rescue-perf-9871-nojesters-passive-on')){
         $inputLines=if($profile -eq 'rescue-perf-1000-passive-on'){$valid}else{$tierInputs[$profile]}
         $population=if($profile -eq 'rescue-perf-1000-passive-on'){1000}elseif($profile -in @('rescue-perf-4000-idle1000walk-passive-on','rescue-perf-4000-nojesters-passive-on')){4000}else{9871}
         [IO.File]::WriteAllLines($inputFile,[string[]]$inputLines)
@@ -233,6 +283,12 @@ try{
         if(!$actual.Qualified -or $actual.Run -cne $run -or $actual.Population -ne $population -or $actual.WalkingPopulation -ne 1000){throw 'CLI did not write exactly selected qualified evidence'}
         $checks++
     }
+    [IO.File]::WriteAllLines($inputFile,[string[]]$ambient)
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot '../Test-PerformanceLog.ps1') -LogPath $inputFile -ExpectedRun $run -OutputPath $outputFile
+    if($LASTEXITCODE -ne 0){throw 'Fresh-process current outcome validator failed'}
+    $actual=[IO.File]::ReadAllText($outputFile)|ConvertFrom-Json
+    if(!$actual.Qualified -or !$actual.OutcomeCountersObserved -or $actual.RemovalRequestCountTotal -ne 16 -or
+        $actual.NativeDeletionCompletionObserved -or $actual.CurrentRemovalOverheadClaim){throw 'CLI lost current request/completion distinction'};$checks++
 
 }finally{Remove-ShortWorkDirectory -Path $temporary}
 Write-Output "PASS: passive performance log contract $checks checks; complete manifests, lifetime filtering, callback faults and actual completion boundaries; no game execution."

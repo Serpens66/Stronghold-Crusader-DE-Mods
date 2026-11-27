@@ -24,7 +24,7 @@ namespace TrappedUnitRescueTest
             if(noJestersErrors==null)noJestersErrors=BepInEx.Logging.Logger.CreateLogSource("RescueTest.NativeState");
             noJestersErrors.LogError("["+DateTime.Now.ToString("HH:mm:ss.fff")+"] NOJESTERS_TEST_WORLD_REJECTED "+error);
         }
-        private bool IsNoJestersProfile()=>scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on";
+        private bool IsNoJestersProfile()=>scenario=="rescue-diag-nojesters4000-on" || scenario=="rescue-perf-4000-nojesters-passive-on" || scenario=="rescue-perf-9871-nojesters-passive-on";
         private void ArmNoJestersWorld(AutomationRun run)
         {
             if(!IsNoJestersProfile())return;
