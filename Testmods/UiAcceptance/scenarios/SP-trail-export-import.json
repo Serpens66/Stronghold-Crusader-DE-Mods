@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "series": "SP-trail-export-import",
+  "role": "sp",
+  "quitWhenDone": true,
+  "quitDelayMs": 1000,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "allowErrors": true, "stopOnFail": true },
+    { "id": "round-trip", "do": "Trail.ExportImport", "timeoutMs": 180000, "stopOnFail": true }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "series": "MP-save-round-trip-client",
+  "role": "client",
+  "relay": [
+    { "from": "host", "step": "leave-first", "checkpoint": "host-left-first" },
+    { "from": "host", "step": "leave-final", "checkpoint": "host-left-final" }
+  ],
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "lobby", "do": "Mp.Follow", "args": ["lobby"], "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "ready", "do": "Mp.Ready", "timeoutMs": 180000, "stopOnFail": true },
+    { "id": "play", "do": "Mp.Follow", "args": ["mission"], "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "real-mp", "do": "Mp.ExpectRealMultiplayer", "stopOnFail": true },
+    { "id": "before-save", "do": "WaitTicks", "args": ["120"], "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "autotrade-new", "do": "ExpectGameState", "args": ["MP_AllowAutoTrading", "False"], "stopOnFail": true },
+    { "id": "save-file", "do": "Mp.AwaitSaveFile", "timeoutMs": 150000, "stopOnFail": true },
+    { "id": "host-left", "do": "Paired.WaitCheckpoint", "args": ["host-left-first"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "leave-first", "do": "QuitToMenu", "timeoutMs": 50000, "stopOnFail": true },
+    { "id": "reload-lobby", "do": "Mp.Follow", "args": ["lobby", "fresh"], "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "reload-ready", "do": "Mp.Ready", "timeoutMs": 180000, "stopOnFail": true },
+    { "id": "load", "do": "Mp.Follow", "args": ["mission", "fresh"], "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "reload-mp", "do": "Mp.ExpectRealMultiplayer", "stopOnFail": true },
+    { "id": "after-load", "do": "WaitTicks", "args": ["240"], "timeoutMs": 90000, "stopOnFail": true },
+    { "id": "autotrade-loaded", "do": "ExpectGameState", "args": ["MP_AllowAutoTrading", "False"], "stopOnFail": true },
+    { "id": "host-left-final", "do": "Paired.WaitCheckpoint", "args": ["host-left-final"], "timeoutMs": 120000, "stopOnFail": true },
+    { "id": "leave-final", "do": "QuitToMenu", "timeoutMs": 50000, "stopOnFail": true }
+  ]
+}

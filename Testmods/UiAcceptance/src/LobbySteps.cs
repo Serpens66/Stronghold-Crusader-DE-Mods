@@ -22,6 +22,7 @@ namespace UiAcceptance
             Runner.Register("Lobby.Button", s => Do(view => view.ButtonClicked(s.Arg(0)), 1));
             Runner.Register("Lobby.Play", Play);
             Runner.Register("Lobby.PeaceTime", PeaceTime);
+            Runner.Register("Lobby.AutoTrade", AutoTrade);
             Runner.Register("Lobby.GameSpeed", GameSpeed);
             Runner.Register("Lobby.AddCustomAi", AddCustomAi);
             Runner.Register("Lobby.StartPositions", StartPositions);
@@ -144,6 +145,30 @@ namespace UiAcceptance
             yield return new Delay(250);
             Lobby.ButtonClicked("ApplySettings");
             yield return new Delay(250);
+        }
+
+        private static IEnumerable<Wait> AutoTrade(Step step)
+        {
+            string choice = step.Arg(0);
+            Runner.Require(choice == "on" || choice == "off", "AutoTrade expects on or off.");
+            int expected = choice == "on" ? 1 : 0;
+            yield return new Until("lobby ready", LobbyReady);
+            Runner.Require(Lobby.currentLobby.isHost, "Only the host applies lobby settings.");
+            Lobby.ButtonClicked("Setup");
+            yield return new Delay(250);
+            var draft = GameSteps.Read(typeof(FRONT_Multiplayer), Lobby, "MPTEMPsetupData", BindingFlags.Instance)
+                as EngineInterface.MultiplayerSetupData;
+            Runner.Require(draft != null, "Vanilla AutoTrade setup is unavailable.");
+            if (draft.allow_autotrading != expected)
+                Lobby.ButtonClicked("Settings_Autotrading");
+            Runner.Require(draft.allow_autotrading == expected, "Vanilla did not change the draft AutoTrade setting.");
+            Lobby.ButtonClicked("ApplySettings");
+            yield return new Delay(250);
+            var committed = GameSteps.Read(typeof(FRONT_Multiplayer), Lobby, "MPsetupData", BindingFlags.Instance)
+                as EngineInterface.MultiplayerSetupData;
+            Runner.Require(committed != null && committed.allow_autotrading == expected,
+                "The confirmed Vanilla setup did not retain AutoTrade " + choice + ".");
+            AcceptLog.Info("LOBBY_AUTOTRADE applied=" + choice);
         }
 
         // Starting speed of an MP lobby through the same settings panel. Vanilla stores slider*5 in

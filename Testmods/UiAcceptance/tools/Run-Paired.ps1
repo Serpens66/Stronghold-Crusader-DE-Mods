@@ -38,7 +38,9 @@ PASS requires all of:
   - settings and saves restored and verified on both PCs (no deferred recovery); plugins and patchers as well,
     unless -KeepLayout kept the layout (result.json LayoutKept=true);
   - the saves folders only gained SerpAcceptance-<label>.msv, which is archived and removed again;
-  - when the host scenario contains a Mp.SaveConfirmed step: both archived saves carry the expected Lord data.
+  - a host scenario with saveEvidence="round-trip" requires both archived saves and a genuine loaded mission
+    on each peer at the same native archive tick. It does not install the trading Lord fixture;
+  - other host scenarios with Mp.SaveConfirmed keep the existing Lord-data assertion.
 
 -DryRun validates the inputs, inspects both PCs read-only and prints the plan (including whether each side would
 apply, reuse or rebuild the layout). It changes nothing. Combined with -RestoreLayout it shows what would be restored.
@@ -201,6 +203,30 @@ function Read-Scenario([string]$Path, [string]$Role, [switch]$AllowNoQuit) {
         if ($id -notmatch '^\S+$' -or -not $ids.Add($id)) { throw "Scenario step ids must be unique and non-empty: $full ($id)" }
     }
     return [pscustomobject]@{ Path = $full; Data = $data; Ids = $ids; Does = @($steps | ForEach-Object { [string]$_.do }) }
+}
+
+function Get-SaveEvidenceMode($HostScenario, $ClientScenario, [bool]$ManualRun) {
+    if ($ClientScenario.Data.PSObject.Properties['saveEvidence']) { throw 'saveEvidence belongs to the host scenario.' }
+    if (-not $HostScenario.Data.PSObject.Properties['saveEvidence']) {
+        if ($HostScenario.Does -contains 'Mp.SaveConfirmed') { return 'lord-data' }
+        return 'none'
+    }
+    if ($HostScenario.Data.saveEvidence -cne 'round-trip' -or $ManualRun) {
+        throw 'Explicit saveEvidence must be round-trip in an automated paired scenario.'
+    }
+    foreach ($requirement in @(
+        @{ Scenario = $HostScenario; Step = 'Mp.SaveConfirmed' },
+        @{ Scenario = $ClientScenario; Step = 'Mp.AwaitSaveFile' },
+        @{ Scenario = $HostScenario; Step = 'Mp.LoadSave' }
+    )) {
+        $commands = @($requirement.Scenario.Data.steps | Where-Object { $_.do -ceq $requirement.Step })
+        if ($commands.Count -ne 1 -or
+            ($commands[0].PSObject.Properties['args'] -and @($commands[0].args).Count -gt 0) -or
+            $commands[0].stopOnFail -ne $true) {
+            throw "Round-trip save evidence requires one $($requirement.Step) step using the default run save name and stopOnFail=true."
+        }
+    }
+    return 'round-trip'
 }
 
 function Get-RelayRules {
@@ -789,7 +815,7 @@ function Get-BackupTargets($Side) {
         )
         if ($Side.Name -eq 'host') {
             $list += [pscustomobject]@{ Path = $bfqSettings; Name = 'mod-settings'; Directory = $true; Why = 'personal APIShared mod settings of all mods (changed while playing)' }
-            if (-not $lordState.Installed) { $list += [pscustomobject]@{ Path = $lordTarget; Name = 'custom-lord'; Directory = $true; Why = 'trading AI fixture copied in' } }
+            if ($lordState -and -not $lordState.Installed) { $list += [pscustomobject]@{ Path = $lordTarget; Name = 'custom-lord'; Directory = $true; Why = 'trading AI fixture copied in' } }
         }
         return $list
     }
@@ -800,7 +826,7 @@ function Get-BackupTargets($Side) {
             [pscustomobject]@{ Path = $bfqSettings; Name = 'mod-settings'; Directory = $true; Why = 'personal APIShared mod settings of all mods' }
             [pscustomobject]@{ Path = (Join-Path $Side.Config 'UiAcceptance_Serp.cfg'); Name = 'ui.cfg'; Directory = $false; Why = '[Run] scenario arming' }
         )
-        if (-not $lordState.Installed) { $list += [pscustomobject]@{ Path = $lordTarget; Name = 'custom-lord'; Directory = $true; Why = 'trading AI fixture copied in' } }
+        if ($lordState -and -not $lordState.Installed) { $list += [pscustomobject]@{ Path = $lordTarget; Name = 'custom-lord'; Directory = $true; Why = 'trading AI fixture copied in' } }
         return $list
     }
     return @(
@@ -1052,6 +1078,27 @@ function Get-SideFindings($Side) {
         Lines = $lines.Length; Summaries = $summaries; ModFailures = @($lines | Where-Object { $_ -match 'MOD_FAILURE' })
         Desync = $desync; RunStartFound = $start -ge 0; Observed = $observed
     }
+}
+
+function Test-MultiplayerSaveRoundTrip($Side, $Observed, [string]$ExpectedName) {
+    $problems = New-Object 'System.Collections.Generic.List[string]'
+    $archive = $Side.ArchivedSave
+    $expectedArchive = $Side.Name + '-' + $ExpectedName
+    if (-not $archive -or [IO.Path]::GetFileName($archive) -cne $expectedArchive -or
+        -not [IO.File]::Exists($archive) -or ([IO.FileInfo]::new($archive)).Length -le 0) {
+        $problems.Add("Missing verified archive copy $expectedArchive")
+    }
+    $load = @($Observed.Missions | Where-Object { $_.Mp -and $_.Save -and -not $_.Editor })
+    $tick = $null
+    if ($load.Count -ne 1 -or $load[0].Line -notmatch '\brealNetworkGameMembers=([2-9]|[1-9]\d+)(?:,|\s|$)') {
+        $problems.Add('Expected one restored multiplayer mission with at least two human peers.')
+    } else {
+        $anchorPattern = '\bMISSION_ANCHOR session=' + [regex]::Escape($load[0].Session) + ' mapTick=(\d+) save=True(?:\s|$)'
+        $anchors = @($Side.Tail.Lines | Select-String -Pattern $anchorPattern)
+        if ($anchors.Count -eq 1) { $tick = [long]$anchors[0].Matches[0].Groups[1].Value }
+        else { $problems.Add('Expected one native tick at the restored mission anchor.') }
+    }
+    return [ordered]@{ Path = $archive; Ok = $problems.Count -eq 0; Problems = $problems.ToArray(); ArchiveTick = $tick }
 }
 
 function Read-JsonText([string]$Text) { return $Text | ConvertFrom-Json }
@@ -1759,7 +1806,7 @@ if ($RestoreLayout) {
 $hostSide.Scenario = Read-Scenario $HostScenario 'host' -AllowNoQuit:$Manual
 $clientSide.Scenario = Read-Scenario $ClientScenario 'client' -AllowNoQuit:$Manual
 $relays = Get-RelayRules
-$saveCheckRequired = $hostSide.Scenario.Does -contains 'Mp.SaveConfirmed'
+$saveEvidenceMode = Get-SaveEvidenceMode $hostSide.Scenario $clientSide.Scenario ([bool]$Manual)
 
 $layout = Get-InGameTestPath $PluginLayout
 $api = Get-InGameTestPath $ApiPluginPackage
@@ -1781,7 +1828,7 @@ $apiTree = Get-InGameTestTree $api
 $patcherHash = Get-ApiRepositoryHash $patcher
 $expectedPlugins = Get-ExpectedPluginTree
 $layoutIdentity = Get-LayoutIdentity
-$lordState = Assert-LordFixture
+$lordState = if ($saveEvidenceMode -ne 'round-trip') { Assert-LordFixture } else { $null }
 
 Write-ProgressLine ("Run label $label. Host scenario $($hostSide.Scenario.Path). Client scenario $($clientSide.Scenario.Path).")
 Write-ProgressLine ("Layout packages: " + ((Get-TopNames $layoutTree | Sort-Object) -join ', '))
@@ -1791,7 +1838,7 @@ if ($Manual) {
     Write-ProgressLine ("MANUAL session: the user starts and plays both games; observer scenarios, Debug disk logging on both PCs, timeout $TimeoutMinutes min. " +
         'Lord save check on every new/changed .msv (informational).')
 } else {
-    Write-ProgressLine ("Lord-data save check: " + $(if ($saveCheckRequired) { 'required (host scenario has Mp.SaveConfirmed)' } else { 'skipped' }))
+    Write-ProgressLine "Save evidence mode: $saveEvidenceMode"
 }
 Write-ProgressLine ("Layout identity $layoutIdentity. After the run: " + $(if ($KeepLayout) { 'keep the layout (-KeepLayout)' } else { 'restore plugins and patchers' }))
 
@@ -1809,7 +1856,9 @@ if ($DryRun) {
         Write-ProgressLine ('[{0}] {1}: {2}' -f $(if ($check.Ok) { 'OK' } else { 'BLOCK' }), $check.Check, $check.Detail)
         if (-not $check.Ok) { $blocking.Add($check.Check + ': ' + $check.Detail) }
     }
-    Write-ProgressLine ('Trading AI fixture: ' + $(if ($lordState.Installed) { 'installed and identical' } else { "would be copied to $lordTarget and removed afterwards" }))
+    if ($lordState) {
+        Write-ProgressLine ('Trading AI fixture: ' + $(if ($lordState.Installed) { 'installed and identical' } else { "would be copied to $lordTarget and removed afterwards" }))
+    }
     foreach ($side in @($hostSide, $clientSide)) {
         if (-not [IO.Directory]::Exists($side.Plugins)) { Write-ProgressLine "$($side.Name): plugins not reachable, no plan."; continue }
         if (-not $side.LoadedSession -and (Test-Path -LiteralPath $side.Rollback)) { Write-ProgressLine "$($side.Name) layout: BLOCKED (rollback folder without valid session), no plan."; continue }
@@ -1902,7 +1951,7 @@ if ($Manual) {
                 foreach ($item in (Get-BackupTargets $side)) { Save-SideState $side $item.Path $item.Name -Directory:$item.Directory }
             }
             Write-Recovery 'prepared'
-            if (-not $lordState.Installed) { $hostSide.Changed = $true; Copy-InGameTestTree $lordSource $lordTarget $lordState.Inventory }
+            if ($lordState -and -not $lordState.Installed) { $hostSide.Changed = $true; Copy-InGameTestTree $lordSource $lordTarget $lordState.Inventory }
             foreach ($side in @($hostSide, $clientSide)) {
                 if ($side.LayoutAction -eq 'reuse') {
                     if ($side.TestModRefresh) { try { Update-SideTestMod $side } finally { Write-Recovery 'layout' } }
@@ -2128,7 +2177,7 @@ try {
         }
         Write-Recovery 'prepared'
 
-        if (-not $lordState.Installed) { $hostSide.Changed = $true; Copy-InGameTestTree $lordSource $lordTarget $lordState.Inventory }
+        if ($lordState -and -not $lordState.Installed) { $hostSide.Changed = $true; Copy-InGameTestTree $lordSource $lordTarget $lordState.Inventory }
         foreach ($side in @($hostSide, $clientSide)) {
             if ($side.LayoutAction -eq 'reuse') {
                 if ($side.TestModRefresh) { try { Update-SideTestMod $side } finally { Write-Recovery 'layout' } }
@@ -2336,12 +2385,20 @@ try {
             elseif (-not $side.Restored) { $failures.Add("$($side.Name): restoration failed: " + ($side.RestoreErrors -join ' | ')) }
         }
         $saveCheck = $null
-        if ($saveCheckRequired) {
+        if ($saveEvidenceMode -ne 'none') {
             $saveCheck = [ordered]@{}
             foreach ($side in @($hostSide, $clientSide)) {
-                try { $saveCheck[$side.Name] = Test-LordSave $side.ArchivedSave }
+                try {
+                    $saveCheck[$side.Name] = if ($saveEvidenceMode -eq 'round-trip') {
+                        Test-MultiplayerSaveRoundTrip $side $findings[$side.Name].Observed $testSaveName
+                    } else { Test-LordSave $side.ArchivedSave }
+                }
                 catch { $saveCheck[$side.Name] = [ordered]@{ Path = $side.ArchivedSave; Ok = $false; Problems = @('save check error: ' + $_.Exception.Message) } }
                 if (-not $saveCheck[$side.Name].Ok) { $failures.Add("$($side.Name) save: " + (@($saveCheck[$side.Name].Problems) -join '; ')) }
+            }
+            if ($saveEvidenceMode -eq 'round-trip' -and $saveCheck.host.Ok -and $saveCheck.client.Ok -and
+                $saveCheck.host.ArchiveTick -ne $saveCheck.client.ArchiveTick) {
+                $failures.Add("The restored native tick differs between host ($($saveCheck.host.ArchiveTick)) and client ($($saveCheck.client.ArchiveTick)).")
             }
         }
         $result = [ordered]@{
@@ -2359,7 +2416,7 @@ try {
             }
             Deferred = [ordered]@{ Host = $hostSide.Deferred; Client = $clientSide.Deferred }
             RestoreErrors = @($hostSide.RestoreErrors) + @($clientSide.RestoreErrors)
-            SaveCheck = $saveCheck
+            SaveEvidenceMode = $saveEvidenceMode; SaveCheck = $saveCheck
             Observe = $observeCompare
             ModFailures = [ordered]@{ Host = $findings.host.ModFailures; Client = $findings.client.ModFailures }
             DesyncLines = [ordered]@{ Host = $findings.host.Desync; Client = $findings.client.Desync }

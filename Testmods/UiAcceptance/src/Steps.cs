@@ -23,9 +23,11 @@ namespace UiAcceptance
             MissionReadinessSteps.Register();
             WorkerProductionSteps.Register();
             LocalAutosaveSteps.Register();
+            TrailRoundTripSteps.Register();
             LongMapSteps.Register();
             GateAutomationSteps.Register();
             ObserveSteps.Register();
+            SkinVisualSteps.Register();
         }
     }
 }

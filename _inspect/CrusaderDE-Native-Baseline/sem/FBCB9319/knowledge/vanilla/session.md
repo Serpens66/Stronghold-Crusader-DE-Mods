@@ -256,6 +256,7 @@ Managed facts refer to `Assembly-CSharp.dll` SHA-256 BC8B6A39... (full value in 
 ### AutoTrade setup and reload
 
 - Setup field `allow_autotrading` crosses export 0x81050 and helper 0x26370 into network-state +0x2787A0 (image 0x87ECAC0). Mode 0 bypasses this rule in transaction routine 0xD0380. Modes 99 and 1 obey it. The managed PlayState bit reports the rule, whereas Chore 109 sets per-good controls and paused state. [confirmed, static + disassembly] ([MODSETTINGS_ACTIVATION](../MODSETTINGS_ACTIVATION.md#autotrade-setup-native-execution-and-save-routes-2026-11-27))
+- The local Skirmish restart payload contains the original setup string. The network restart payload contains player names, lord types and images. The native load finalizer calls the simulation update with the pause DWORD set to -1, so that call cannot reach the scheduled AutoTrade phase. [confirmed, static and sampled archives] ([Restart metadata and execution boundary](../MODSETTINGS_ACTIVATION.md#restart-metadata-and-the-first-autotrade-execution-boundary-2026-11-27))
 - New local/MP maps and local setup restart apply the setup after preinit. The ordinary local save path clears the rule and can restore mode 99, while the shared MP save start preserves the preinit default of 1 without applying the original setup. Runtime validation on the first PlayState and later ticks remains open. [static] ([MODSETTINGS_ACTIVATION](../MODSETTINGS_ACTIVATION.md#load-and-restart))
 
 ### Lord identity, names and media

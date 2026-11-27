@@ -71,10 +71,35 @@ namespace UiAcceptance
         // clears it for that pass, as a real click on the map would; otherwise the result depends on where the user's
         // cursor happens to be, and on a hidden desktop it always counts as over the UI.
         private static int clickX = -1, clickY = -1, clickState;
+        private static (int X, int Y, int Mapper, int Owner)? buildingHover;
         private static bool patched;
+        internal static int BuildingHoverCalls { get; private set; }
+        internal static int BuildingHoverStatus { get; private set; }
         private static IEnumerable<Wait> MapClick(Step step) => ClickTile(step.Int(0), step.Int(1));
 
         internal static IEnumerable<Wait> ClickTile(int x, int y)
+        {
+            EnsureMapInput();
+            clickX = x; clickY = y;
+            clickState = 1;
+            // At high speed the engine can read down and up between two frames: wait until it left the down state.
+            yield return new Until("engine read the button-down", () => clickState != 1);
+            yield return new Until("engine read the button-up", () => clickState == 0);
+            clickX = clickY = -1;
+            yield return new Delay(200);
+        }
+
+        internal static void HoverBuilding(int x, int y, int mapper, int owner)
+        {
+            EnsureMapInput();
+            BuildingHoverCalls = 0;
+            BuildingHoverStatus = int.MinValue;
+            buildingHover = (x, y, mapper, owner);
+        }
+
+        internal static void ClearHoverTile() => buildingHover = null;
+
+        private static void EnsureMapInput()
         {
             if (!patched)
             {
@@ -85,17 +110,18 @@ namespace UiAcceptance
                     postfix: new HarmonyMethod(typeof(InputSteps), nameof(AfterMouseState)) { priority = Priority.First });
                 patched = true;
             }
-            clickX = x; clickY = y;
-            clickState = 1;
-            // At high speed the engine can read down and up between two frames: wait until it left the down state.
-            yield return new Until("engine read the button-down", () => clickState != 1);
-            yield return new Until("engine read the button-up", () => clickState == 0);
-            clickX = clickY = -1;
-            yield return new Delay(200);
         }
 
         private static void AfterPreDll(ref int mouseOverX, ref int mouseOverY, ref bool ___overNoesisUI)
         {
+            if (buildingHover is { } hover)
+            {
+                // The Vanilla hover action runs under the engine lock immediately before rendering the native frame.
+                mouseOverX = hover.X; mouseOverY = hover.Y;
+                BuildingHoverStatus = EngineInterface.DLL_MapAction(hover.Mapper, hover.X, hover.Y, 0, hover.Owner,
+                    inGameNotMapEditor: true, constructingOnly: true, mouseState: 0);
+                BuildingHoverCalls++;
+            }
             if (clickX < 0) return;
             ___overNoesisUI = false;
             mouseOverX = clickX; mouseOverY = clickY;

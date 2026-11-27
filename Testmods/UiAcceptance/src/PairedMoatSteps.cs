@@ -28,6 +28,7 @@ namespace UiAcceptance
             Runner.Register("Paired.RemoveMoat", RemoveMoat);
             Runner.Register("Paired.WaitSoil", s => WaitForTerrain(dug: false));
             Runner.Register("Paired.ClientCheckpoint", ClientCheckpoint);
+            Runner.Register("Paired.WaitCheckpoint", s => Checkpoint(s.Arg(0)));
             Runner.Register("Paired.HostSetup", s => Checkpoint("host-setup"));
             Runner.Register("Paired.PauseBuildings", PauseBuildings);
             Runner.Register("Paired.CheckPausedBuilding", CheckPausedBuilding);
@@ -295,6 +296,7 @@ namespace UiAcceptance
         private static string CheckpointPath(string checkpoint)
         {
             Runner.Require(Regex.IsMatch(AcceptLog.RunId, "^paired-[a-f0-9]+$"), "invalid paired run label");
+            Runner.Require(Regex.IsMatch(checkpoint, "^[A-Za-z0-9_-]{1,48}$"), "invalid paired checkpoint name");
             return Path.Combine(BepInEx.Paths.ConfigPath, "UiAcceptance", AcceptLog.RunId + "-" + checkpoint + ".ok");
         }
 

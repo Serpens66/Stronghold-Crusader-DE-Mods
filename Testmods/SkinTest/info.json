@@ -19,7 +19,7 @@
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.75.0"
+      "MinimumVersion": "0.76.0"
     }
   ]
 }

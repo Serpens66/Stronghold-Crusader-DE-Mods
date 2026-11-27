@@ -72,6 +72,14 @@ internal static class Program
         Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, LordCulture.Unknown), "An unresolved culture must fail closed.");
         Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, LordCulture.NonEuropean), "A non-European culture must fail closed.");
 
+        object renderer = new object(), ownSprite = new object(), foreignSprite = new object();
+        Check(SkinSelectionPolicy.OwnsSpriteWrite(renderer, ownSprite, 47, renderer, ownSprite, 47),
+            "An unchanged image with the exact owned sprite on the same renderer can be restored.");
+        Check(!SkinSelectionPolicy.OwnsSpriteWrite(renderer, foreignSprite, 47, renderer, ownSprite, 47) &&
+              !SkinSelectionPolicy.OwnsSpriteWrite(new object(), ownSprite, 47, renderer, ownSprite, 47) &&
+              !SkinSelectionPolicy.OwnsSpriteWrite(renderer, ownSprite, 48, renderer, ownSprite, 47),
+            "A foreign sprite, different renderer or another frame must remain untouched.");
+
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(1) == 0, "Body image 1 must map to atlas frame 0.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(128) == 127, "Body image 128 must map to alternate atlas frame 127.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(1088) == 1087, "Body image 1088 must map to normal atlas frame 1087.");
@@ -531,35 +539,37 @@ internal static class Program
         Check(preview.Success &&
               buildingPaint.Success &&
               preview.Value.Contains("tile.constructionOrigImage") &&
-              preview.Value.Contains("controls.CurrentAction != 5") &&
-              preview.Value.Contains("Enums.eMappers.MAPPER_TOWER5") &&
+              buildingPaint.Value.Contains("controls.CurrentAction == 5") &&
+              buildingPaint.Value.Contains("Enums.eMappers.MAPPER_TOWER5") &&
               preview.Value.Contains("ToCastleTileAtlasIndex(image)") &&
-              preview.Value.Contains("ReferenceEquals(tile.tileImage, expected)") &&
+              preview.Value.Contains("IsUntouchedSprite(tile.tileImage, expected)") &&
               Regex.IsMatch(preview.Value, @"if \(!paint.TryClaim\(\)\)\s+return true;\s+tile.tileImage = castleSprites\[frameIndex\];") &&
               preview.Value.Contains("tile.tileImage = castleSprites[frameIndex]") &&
               !preview.Value.Contains("tile.constructionOrigImage =") &&
               !preview.Value.Contains("tile.light =") &&
               !preview.Value.Contains("GetTileBuildingId") &&
-              preview.Value.IndexOf("if (!activeMap", StringComparison.Ordinal) <
+              preview.Value.IndexOf("if (!hasConstructionOriginal)", StringComparison.Ordinal) <
               preview.Value.IndexOf("GetLocalPlayerId()", StringComparison.Ordinal) &&
               !runtime.Contains("TryReplaceRoundTowerPlacementPreview") &&
               !runtime.Contains("mouseCursorGO") &&
-              buildingPaint.Value.Contains("TryReplaceRoundTowerTilePreview(ref paint, expected)") &&
-              buildingPaint.Value.IndexOf("TryReplaceRoundTowerTilePreview(ref paint, expected)", StringComparison.Ordinal) <
+              buildingPaint.Value.Contains("TryReplaceRoundTowerTilePreview(ref paint, expected, controls)") &&
+              buildingPaint.Value.IndexOf("TryReplaceRoundTowerTilePreview(ref paint, expected, controls)", StringComparison.Ordinal) <
               buildingPaint.Value.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
             "Round-tower placement preview must use Vanilla tile fragments, direct indices and conflict-friendly sprite-only replacement before building resolution.");
         Check(runtime.Contains("PaintEvents.TryRegisterTileGraphic") &&
+              runtime.Contains("PaintEvents.TryEnableTileGraphicPass") &&
               runtime.Contains("files: new[] { (int)ExtenderGM.GM_CASTLES }") &&
               !runtime.Contains("setGenericBuildingTileGraphic") && !runtime.Contains("buildingTrampoline") &&
               buildingPaint.Value.Contains("paint.IsClaimed") &&
-              buildingPaint.Value.Contains("ReferenceEquals(tile.tileImage, expected)") &&
+              buildingPaint.Value.Contains("paint.Pass != TileGraphicPass.VisibleTile") &&
+              buildingPaint.Value.Contains("IsUntouchedSprite(tile.tileImage, expected)") &&
               Regex.IsMatch(buildingPaint.Value, @"if \(!paint.TryClaim\(\)\)\s+return;\s+tile.tileImage = castleSprites\[image\];") &&
               buildingPaint.Value.Contains("GetTileBuildingId(tileId)") &&
               buildingPaint.Value.Contains("BuildingAccess.TryGetById(buildingId") &&
               buildingPaint.Value.Contains("STRUCT_TOWER5_DESTROYED") && buildingPaint.Value.Contains("SH1DE round-tower skin applied"),
             "Round-tower replacement, one-based building resolution or diagnostics are incomplete.");
         Check(runtime.Contains("AddUpdateBuildingAnimHook") && runtime.Contains("AddUpdateWallFillinHook") &&
-              runtime.Contains("castleAnimContexts.Push(context)") && runtime.Contains("PopCastleAnimContext(context)") &&
+              !runtime.Contains("castleAnimContexts") &&
               runtime.Contains("GetGMSprite(GameGM.GM_CASTLE_ANIMS, image, false)") &&
               runtime.Contains("SH1DE round-tower animation applied") &&
               runtime.Contains("new Sprite[139]") && runtime.Contains("\"anim_castle \", 122, 138"),
@@ -569,16 +579,21 @@ internal static class Program
               prepareAssets.Contains("CASTLE_ANIM_SOURCE_TEXTURE_PATH_ID = 26"),
             "anim_castle extraction must use its PathID-26 AllTileSprites texture.");
         Match castleAnimReplacement = Regex.Match(runtime,
-            @"private void TryReplaceRoundTowerAnimation[\s\S]*?\n\s*}\r?\n\r?\n\s*private unsafe LordCulture ResolveOwnerCulture");
+            @"private void TryReplaceRoundTowerAnimation[\s\S]*?\n\s*}\r?\n\r?\n\s*private void BindExtenderSpriteCheck");
         Check(castleAnimReplacement.Success && castleAnimReplacement.Value.Contains("renderer.sprite = replacement") &&
+              castleAnimReplacement.Value.Contains("renderer.sprite = previous.Original") &&
+              castleAnimReplacement.Value.Contains("towerSpriteWrites.TryGetValue(visual") &&
               !castleAnimReplacement.Value.Contains("sharedMaterial") &&
               !castleAnimReplacement.Value.Contains("renderer.color"),
             "Castle animations must replace only the sprite and preserve Vanilla plain material, colour and transparency.");
-        Check(runtime.IndexOf("buildingAnimTrampoline(gameMap", StringComparison.Ordinal) <
-              runtime.IndexOf("TryReplaceRoundTowerAnimation(visual.sprRenderer", StringComparison.Ordinal) &&
-              runtime.IndexOf("wallFillinTrampoline(gameMap", StringComparison.Ordinal) <
-              runtime.LastIndexOf("TryReplaceRoundTowerAnimation(visual.sprRenderer", StringComparison.Ordinal),
+        Check(Regex.IsMatch(runtime, @"buildingAnimTrampoline\(gameMap[\s\S]*?TryReplaceRoundTowerAnimation\(visual, visual.sprRenderer") &&
+              Regex.IsMatch(runtime, @"wallFillinTrampoline\(gameMap[\s\S]*?TryReplaceRoundTowerAnimation\(visual, visual.sprRenderer"),
             "Existing building-animation and wall-fillin hook chains must run before post replacement.");
+        Check(runtime.Contains("!tryGetExtenderSpriteMaterials(current.GetInstanceID()") &&
+              runtime.Contains("query.CreateDelegate(") &&
+              runtime.Contains("IsUntouchedSprite(renderer.sprite, expected)") &&
+              castleAnimReplacement.Value.Contains("IsUntouchedSprite(current, expected)"),
+            "Match the loader's expected sprite and retain Extender-indexed asset overrides.");
         Check(runtime.Contains("FindName(\"ButtonBuildTowerE\")") && runtime.Contains("PropEx.SetSprite1") &&
               runtime.Contains("PropEx.SetSprite2") && runtime.Contains("RestoreTowerHud") &&
               Regex.Matches(runtime, @"IsValidPlayerId\(localPlayerId\)").Count >= 2,

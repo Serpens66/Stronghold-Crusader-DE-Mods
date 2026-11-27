@@ -81,6 +81,14 @@ namespace SkinTest
 
         public static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= 8;
 
+        public static bool OwnsSpriteWrite<TRenderer, TSprite>(TRenderer renderer, TSprite sprite, int image,
+            TRenderer writtenRenderer, TSprite writtenSprite, int writtenImage)
+            where TRenderer : class where TSprite : class
+        {
+            return image == writtenImage &&
+                ReferenceEquals(renderer, writtenRenderer) && ReferenceEquals(sprite, writtenSprite);
+        }
+
         public static bool CanReplaceBuilding(bool expectedVanillaSprite, bool isRoundTower,
             int ownerPlayerId, LordCulture culture, bool frameAvailable)
         {

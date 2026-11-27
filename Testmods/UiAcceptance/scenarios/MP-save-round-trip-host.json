@@ -1,0 +1,34 @@
+{
+  "enabled": true,
+  "series": "MP-save-round-trip-host",
+  "role": "host",
+  "saveEvidence": "round-trip",
+  "relay": [
+    { "from": "client", "step": "save-file", "checkpoint": "client-save-stable" },
+    { "from": "client", "step": "autotrade-loaded", "checkpoint": "client-reload-live" }
+  ],
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "stopOnFail": true, "allowErrors": true },
+    { "id": "host", "do": "Mp.Host", "args": ["DoHostDefault", "private"], "timeoutMs": 70000, "stopOnFail": true },
+    { "id": "map", "do": "Lobby.SelectMap", "args": ["4spielerkarte.map"], "stopOnFail": true },
+    { "id": "autotrade-off", "do": "Lobby.AutoTrade", "args": ["off"], "stopOnFail": true },
+    { "id": "members", "do": "Mp.WaitMembers", "args": ["2"], "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "ready", "do": "Mp.Ready", "args": ["after-peers"], "timeoutMs": 180000, "stopOnFail": true },
+    { "id": "play", "do": "Lobby.Play", "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "real-mp", "do": "Mp.ExpectRealMultiplayer", "stopOnFail": true },
+    { "id": "before-save", "do": "WaitTicks", "args": ["180"], "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "autotrade-new", "do": "ExpectGameState", "args": ["MP_AllowAutoTrading", "False"], "stopOnFail": true },
+    { "id": "save-file", "do": "Mp.SaveConfirmed", "timeoutMs": 60000, "stopOnFail": true },
+    { "id": "client-file", "do": "Paired.WaitCheckpoint", "args": ["client-save-stable"], "timeoutMs": 90000, "stopOnFail": true },
+    { "id": "leave-first", "do": "QuitToMenu", "timeoutMs": 50000, "stopOnFail": true },
+    { "id": "host-reload", "do": "Mp.Host", "args": ["DoHostDefault", "private"], "timeoutMs": 70000, "stopOnFail": true },
+    { "id": "reload-members", "do": "Mp.WaitMembers", "args": ["2"], "timeoutMs": 300000, "stopOnFail": true },
+    { "id": "reload-ready", "do": "Mp.Ready", "args": ["after-peers"], "timeoutMs": 180000, "stopOnFail": true },
+    { "id": "load", "do": "Mp.LoadSave", "timeoutMs": 240000, "stopOnFail": true },
+    { "id": "reload-mp", "do": "Mp.ExpectRealMultiplayer", "stopOnFail": true },
+    { "id": "after-load", "do": "WaitTicks", "args": ["240"], "timeoutMs": 90000, "stopOnFail": true },
+    { "id": "autotrade-loaded", "do": "ExpectGameState", "args": ["MP_AllowAutoTrading", "False"], "stopOnFail": true },
+    { "id": "client-live", "do": "Paired.WaitCheckpoint", "args": ["client-reload-live"], "timeoutMs": 90000, "stopOnFail": true },
+    { "id": "leave-final", "do": "QuitToMenu", "timeoutMs": 50000, "stopOnFail": true }
+  ]
+}

@@ -241,20 +241,24 @@ namespace UiAcceptance
         private static IEnumerable<Wait> QuitToMenu(Step step)
         {
             var view = MainViewModel.Instance;
-            // Vanilla reopens the skirmish lobby only when restart info exists; "menu" clears it so the
-            // quit ends in the main menu (the lobby navigation below stays as a fallback).
-            if (step.Arg(0, "menu") == "menu" && view.HUDIngameMenu.restartSkirmishMapInfo != null)
+            bool mainMenu = step.Arg(0, "menu") == "menu";
+            // A peer may have already returned to the front end when the host left.
+            if (FatControler.currentScene != Enums.SceneIDS.FrontEnd)
             {
-                view.HUDIngameMenu.restartSkirmishMapInfo = null;
-                AcceptLog.Info("QUIT cleared skirmish restart info");
+                // Vanilla otherwise reopens the skirmish lobby when restart info exists.
+                if (mainMenu && view.HUDIngameMenu.restartSkirmishMapInfo != null)
+                {
+                    view.HUDIngameMenu.restartSkirmishMapInfo = null;
+                    AcceptLog.Info("QUIT cleared skirmish restart info");
+                }
+                view.HUDmain.InGameOptions(null, null);
+                yield return new Delay(300);
+                view.ButtonIngameMenuCommand.Execute("6");
+                yield return new Delay(300);
+                view.ButtonConfirmationCommand.Execute("1");
+                yield return new Until("front end", () => FatControler.currentScene == Enums.SceneIDS.FrontEnd);
             }
-            view.HUDmain.InGameOptions(null, null);
-            yield return new Delay(300);
-            view.ButtonIngameMenuCommand.Execute("6");
-            yield return new Delay(300);
-            view.ButtonConfirmationCommand.Execute("1");
-            yield return new Until("front end", () => FatControler.currentScene == Enums.SceneIDS.FrontEnd);
-            if (step.Arg(0, "menu") != "menu") yield break;
+            if (!mainMenu || MenuReady()) yield break;
             // Vanilla reopens the skirmish lobby after quitting a skirmish. Leave it through its own
             // commands: lobby Back (asks for confirmation), confirm, then FrontendMenus "BackMain".
             yield return new Delay(1500);

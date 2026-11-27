@@ -4,8 +4,8 @@ using ExtendedData.Core;
 
 internal static class TrailAuthoringSetupTests
 {
-    private const string AuthoredSetup = "-12,1,5,2,3,4,5,123,25,1,Schloss,";
-    private const string NeutralSetup = "-12,1,40,2,3,4,5,0,25,1,Schloss,";
+    private const string AuthoredSetup = "-12,1,5,2,3,0,5,123,25,1,Schloss,";
+    private const string NeutralSetup = "-12,1,40,2,3,0,5,0,25,1,Schloss,";
 
     internal static void Run()
     {
@@ -22,6 +22,12 @@ internal static class TrailAuthoringSetupTests
             if (!TrailAuthoringSetup.Neutralize(result, 40).SequenceEqual(result))
                 throw new Exception("Exporting an already neutral Trail changed it.");
         }
+
+        // In the versioned setup, the fifth option is the explicit AutoTrade permission.
+        byte[] allowed = Container(60, "-12,1,5,2,3,1,5,123,25,1,Schloss,");
+        if (!TrailAuthoringSetup.Neutralize(allowed, 40)
+            .SequenceEqual(Container(60, "-12,1,40,2,3,1,5,0,25,1,Schloss,")))
+            throw new Exception("Exporting a Trail with AutoTrade allowed changed the match option.");
 
         try
         {

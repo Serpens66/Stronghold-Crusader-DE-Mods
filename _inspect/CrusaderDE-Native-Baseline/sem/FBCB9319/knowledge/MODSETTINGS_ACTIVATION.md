@@ -193,3 +193,35 @@ hashes. The paths above were not exercised in a running game. The first
 published PlayState and later ticks on two peers are still needed to confirm
 the effective flags, archive provenance and trade behavior in each scenario.
 No conclusion is implied for externally altered saves or later foreign writes.
+
+### Restart metadata and the first AutoTrade execution boundary (2026-11-27)
+
+`MapFileManager` distinguishes restart payload types 50–99 from 100 and above
+when decoding the length-bounded restart data. The local Skirmish reader gets
+the original setup string, which serializes `allow_autotrading`
+(`HUD_IngameMenu.cs:281–310,401–409`, `EngineInterface.cs:502,674`).
+The network save reader uses `RestartMPInfo`. Its encoder writes player
+names, lord types and images. The multiplayer save loader reads it for the
+menu after calling the native map loader (`HUD_IngameMenu.cs:577–671`,
+`MapFileManager.cs:1655–1674`, `Platform_Multiplayer.cs:4127–4134`).
+Read-only parsing of the eight most recent local .msv files sampled the type
+102 format. The eight player records consumed each entire restart payload.
+The 24 most recent .sav files sampled type 60 and each carried value 1 in
+its embedded setup string. These samples support the format distinction and
+do not exercise the enabled or disabled setting in a running mission.
+
+The finalizer at `71670` calls the main update at `CDE60` inside loading.
+Immediately before the call it sets `366A0F8` to -1. The scheduled phases
+in `D1AD0`, including the call to AutoTrade at `D0380`, are reached from
+`CDE60` only with that field zero. This finalizer call therefore cannot
+execute an automatic trade. The later game tick at `DLL_RunTick` can.
+For the multiplayer-save branch, the restore at `95548` is after the raw
+archive reader returns and before finalization. A measurement or write at
+the raw reader's return still precedes that restore.
+
+The native options serializer at `14C00` transfers the setup DWORDs
+`87EE2CC`, `87EE2D4` and `87EE2D8` in both directions. They correspond to
+Strong Walls, No Cows and No Dogs in the installed Extender's
+`ChoreManagerOptionsInternal` layout. The same archive block omits the
+AutoTrade DWORD. The presence of another rule's setup value in a save does
+not by itself establish when its active state is restored.

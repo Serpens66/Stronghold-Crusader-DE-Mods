@@ -28,6 +28,9 @@ namespace UiAcceptance
         private static int woodId, millerId, owner;
         private static uint woodGid, millerGid;
         private static bool observer, editor, reloadArmed, reloadVerified, restartArmed, freshVerified;
+        private const string ExtraFeaturesGuid = "ExtraFeatures_Serp";
+        private static readonly List<Action> restoreFixtureSettings = new List<Action>();
+        private static bool extraFeaturesProfile;
         private static string savedPath, callbackFailure;
         private static byte[] savedRow;
         private static long previousSession;
@@ -91,13 +94,47 @@ namespace UiAcceptance
         private static IEnumerable<Wait> Configure(Step step)
         {
             Runner.Require(GameSteps.MenuReady(), "Configure production only before a fresh mission.");
-            if (registration == null)
-                Runner.Require(WorkerProductionModifiers.TryRegister(UiAcceptancePlugin.Guid, "worker-production-acceptance",
-                    out registration, out string reason, int.MaxValue), reason);
-            registration.SetProfile(new WorkerProductionProfile(new Dictionary<eChimps, WorkerProductionValues> {
-                { eChimps.CHIMP_TYPE_WOODCUTTER, new WorkerProductionValues(ValueModifierContribution.Factor(.25m), ValueModifierContribution.Factor(.25m)) },
-                { eChimps.CHIMP_TYPE_MILLER, new WorkerProductionValues(ValueModifierContribution.FixedValue(3), ValueModifierContribution.FixedValue(3)) }
-            }, ValueModifierContribution.FixedValue(0)));
+            string profile = step.Arg(0, "synthetic");
+            Runner.Require(profile == "synthetic" || profile == "extra-features", "Unknown production profile: " + profile);
+            Runner.Require(restoreFixtureSettings.Count == 0, "Run Production.Disable before configuring another production fixture.");
+            extraFeaturesProfile = profile == "extra-features";
+            try { PrepareProfileAndObservation(); }
+            catch
+            {
+                var restoreFailure = RestoreFixtureSettings();
+                if (restoreFailure != null)
+                    AcceptLog.Warn("PRODUCTION_FIXTURE_SETTING_RESTORE_FAILED " + restoreFailure);
+                extraFeaturesProfile = false;
+                throw;
+            }
+            yield break;
+        }
+
+        private static void PrepareProfileAndObservation()
+        {
+            if (extraFeaturesProfile)
+            {
+                registration?.SetProfile(null);
+                object extra = InstalledPluginSettings(ExtraFeaturesGuid);
+                SetFixtureSetting(extra, "EnableMod", true);
+                SetFixtureSetting(extra, "FixedProductionBonusPercent", 0);
+                SetFixtureSetting(extra, "MultiplyGoodsGainHuman", .2);
+                SetFixtureSetting(extra, "MultiplyGoodsGainAI", 1d);
+                object fixes = InstalledPluginSettings("BugfixesAndQoL_Serp");
+                SetFixtureSetting(fixes, "EnableMod", true);
+                SetFixtureSetting(fixes, "ShowMpAdvancedSettingsInSingleplayer", true);
+                SetFixtureSetting(fixes, "EnablePeaceTimeGameplayFixes", true);
+            }
+            else
+            {
+                if (registration == null)
+                    Runner.Require(WorkerProductionModifiers.TryRegister(UiAcceptancePlugin.Guid, "worker-production-acceptance",
+                        out registration, out string reason, int.MaxValue), reason);
+                registration.SetProfile(new WorkerProductionProfile(new Dictionary<eChimps, WorkerProductionValues> {
+                    { eChimps.CHIMP_TYPE_WOODCUTTER, new WorkerProductionValues(ValueModifierContribution.Factor(.25m), ValueModifierContribution.Factor(.25m)) },
+                    { eChimps.CHIMP_TYPE_MILLER, new WorkerProductionValues(ValueModifierContribution.FixedValue(3), ValueModifierContribution.FixedValue(3)) }
+                }, ValueModifierContribution.FixedValue(0)));
+            }
             if (!observer)
             {
                 Runner.Require(UiAcceptancePlugin.Missions != null && UiAcceptancePlugin.Missions.TryRegisterObserver(
@@ -106,8 +143,11 @@ namespace UiAcceptance
                 observer = true;
             }
             var status = WorkerProductionModifiers.Status;
-            Runner.Require(status.CanStart && status.HasBaseContributions && status.ResolvedFixedBonusPercent == 0,
-                "Production preflight failed: " + Issues(status));
+            if (extraFeaturesProfile)
+                RequireExtraFeaturesProfile(status);
+            else
+                Runner.Require(status.CanStart && status.HasBaseContributions && status.ResolvedFixedBonusPercent == 0,
+                    "Production preflight failed: " + Issues(status));
             ProbeSteps.RequireNativeReferenceHash();
             image = GetModuleHandle("CrusaderDE.dll");
             Runner.Require(image != IntPtr.Zero, "Native library is not loaded.");
@@ -122,8 +162,60 @@ namespace UiAcceptance
             rows = (IntPtr)address.GetValue(null);
             Runner.Require(rows != IntPtr.Zero, "Sidecar table unavailable.");
             checksum = Marshal.GetDelegateForFunctionPointer<ChecksumCall>(image + ChecksumRva);
-            AcceptLog.Info("PRODUCTION_CONFIGURED woodFactor=0.25 millerFixed=3 fixedBonus=0 desiredDigest=" + status.Digest);
-            yield break;
+            AcceptLog.Info("PRODUCTION_CONFIGURED profile=" + (extraFeaturesProfile ? "extra-features" : "synthetic") +
+                (extraFeaturesProfile ? " woodFactor=0.2 " : " woodFactor=0.25 millerFixed=3 ") +
+                "fixedBonus=0 desiredDigest=" + status.Digest);
+        }
+
+        private static object InstalledPluginSettings(string guid)
+        {
+            if (!BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(guid, out var info) ||
+                ReferenceEquals(info.Instance, null))
+                throw new StepFailure("Required fixture plugin is unavailable: " + guid);
+            object plugin = info.Instance;
+            return plugin.GetType().GetProperty("Settings")?.GetValue(plugin, null) ??
+                throw new StepFailure("Required plugin settings are unavailable: " + guid);
+        }
+
+        private static void SetFixtureSetting(object settings, string propertyName, object value)
+        {
+            var property = settings.GetType().GetProperty(propertyName) ??
+                throw new StepFailure("Required fixture setting is unavailable: " + propertyName);
+            object previous = property.GetValue(settings, null);
+            object expected = Convert.ChangeType(value, property.PropertyType, System.Globalization.CultureInfo.InvariantCulture);
+            restoreFixtureSettings.Add(() => property.SetValue(settings, previous, null));
+            property.SetValue(settings, expected, null);
+            Runner.Require(Equals(property.GetValue(settings, null), expected), "Fixture setting was rejected: " + propertyName);
+        }
+
+        private static Exception RestoreFixtureSettings()
+        {
+            Exception failure = null;
+            for (int index = restoreFixtureSettings.Count - 1; index >= 0; index--)
+            {
+                try { restoreFixtureSettings[index](); }
+                catch (Exception error) { if (failure == null) failure = error; }
+            }
+            restoreFixtureSettings.Clear();
+            return failure;
+        }
+
+        private static void RequireExtraFeaturesProfile(WorkerProductionStatus status)
+        {
+            WorkerProductionProfile profile = null;
+            foreach (var contribution in status.Registrations)
+            {
+                if (contribution.DesiredProfile == null) continue;
+                Runner.Require(contribution.OwnerGuid == ExtraFeaturesGuid && contribution.RegistrationId == "fixed-production-bonus",
+                    "ExtraFeatures fixture found another production contribution: " + contribution.OwnerGuid + "/" + contribution.RegistrationId);
+                profile = contribution.DesiredProfile;
+            }
+            Runner.Require(status.CanStart && status.IsAvailable && profile != null &&
+                profile.FixedBonusPercent.Kind == ValueModifierKind.FixedValue && profile.FixedBonusPercent.Value == 0 &&
+                profile.BaseAmounts.TryGetValue(eChimps.CHIMP_TYPE_WOODCUTTER, out var wood) &&
+                wood.Human.Kind == ValueModifierKind.Factor && wood.Human.Value == .2m &&
+                wood.AI.Kind == ValueModifierKind.Factor && wood.AI.Value == 1,
+                "Expected the real ExtraFeatures one-fifth profile: " + Issues(status));
         }
 
         private static string Issues(WorkerProductionStatus status)
@@ -141,6 +233,16 @@ namespace UiAcceptance
                 "Production fixture requires a fresh local SP/editor mission.");
             Runner.Require(WorkerProductionModifiers.Status.IsAvailable && WorkerProductionModifiers.Status.CanStart,
                 "Installed production backend unavailable: " + Issues(WorkerProductionModifiers.Status));
+            if (extraFeaturesProfile)
+            {
+                var status = WorkerProductionModifiers.Status;
+                RequireExtraFeaturesProfile(status);
+                Runner.Require(!editor && context.Mode.Kind == APIShared.GameModes.GameModeKind.CustomGame &&
+                    status.ResolvedFixedBonusPercent == 0 &&
+                    status.TryGetResolvedBaseAmount(eChimps.CHIMP_TYPE_WOODCUTTER, false, 1, out var amount) &&
+                    amount.Whole == 0 && amount.FractionNumerator == 1 && amount.FractionDenominator == 5,
+                    "The launched custom game did not resolve ExtraFeatures' wood output to exactly 1/5.");
+            }
             woodId = millerId = 0;
             owner = editor ? 1 : HuntSteps.Local();
             if (editor)
@@ -150,22 +252,30 @@ namespace UiAcceptance
             }
             else
             {
-                if (!capacityRegistered)
+                if (extraFeaturesProfile)
                 {
-                    Runner.Require(SimulationTickEvents.TryRegister(UiAcceptancePlugin.Guid, "production-capacity-observation", CaptureCapacity,
-                        out string reason), reason);
-                    capacityRegistered = true;
+                    lock (HuntSteps.Engine()) PlaceWoodProductionBuildings(out _, out _);
                 }
-                RequestCapacity(true, true);
-                yield return new Until("shared simulation fixture with at least64 free flour capacity", () => !Volatile.Read(ref capacityPending));
-                lock (HuntSteps.Engine())
+                else
                 {
-                    Runner.Require(capacityFailure == null && flourCapacity != null && flourCapacity.HasStorage && flourCapacity.FreeAmount >= 64,
-                        "Flour fixture capacity was not established: " + capacityFailure + "; " + capacityState);
-                    AcceptLog.Info("PRODUCTION_STORAGE_PRECHECK requiredFlourFree=64 verified=True builds=" + capacityBuilds + " " + capacityState);
+                    if (!capacityRegistered)
+                    {
+                        Runner.Require(SimulationTickEvents.TryRegister(UiAcceptancePlugin.Guid, "production-capacity-observation", CaptureCapacity,
+                            out string reason), reason);
+                        capacityRegistered = true;
+                    }
+                    RequestCapacity(true, true);
+                    yield return new Until("shared simulation fixture with at least64 free flour capacity", () => !Volatile.Read(ref capacityPending));
+                    lock (HuntSteps.Engine())
+                    {
+                        Runner.Require(capacityFailure == null && flourCapacity != null && flourCapacity.HasStorage && flourCapacity.FreeAmount >= 64,
+                            "Flour fixture capacity was not established: " + capacityFailure + "; " + capacityState);
+                        AcceptLog.Info("PRODUCTION_STORAGE_PRECHECK requiredFlourFree=64 verified=True builds=" + capacityBuilds + " " + capacityState);
+                    }
                 }
-                yield return new Until("naturally assigned woodcutter and miller", () => {
-                    lock (HuntSteps.Engine()) return FindWorker(eChimps.CHIMP_TYPE_WOODCUTTER, out woodId) && FindWorker(eChimps.CHIMP_TYPE_MILLER, out millerId);
+                yield return new Until(extraFeaturesProfile ? "naturally assigned woodcutter" : "naturally assigned woodcutter and miller", () => {
+                    lock (HuntSteps.Engine()) return FindWorker(eChimps.CHIMP_TYPE_WOODCUTTER, out woodId) &&
+                        (extraFeaturesProfile || FindWorker(eChimps.CHIMP_TYPE_MILLER, out millerId));
                 });
                 lock (HuntSteps.Engine()) CaptureWoodIdentity();
             }
@@ -271,12 +381,18 @@ namespace UiAcceptance
             woodGid = unit->r_GlobalId;
         }
 
-        private static unsafe void PlaceProductionBuildings()
+        private static unsafe void PlaceWoodProductionBuildings(out int x, out int y)
         {
             Runner.Require(UnitAccess.TryGetById(GamePlayerManagerAPI.Instance.GetLordUnitId(owner), out GameUnit* lord, out _), "Local lord unavailable.");
-            int x = lord->r_CurrentTilePositionX, y = lord->r_CurrentTilePositionY;
+            x = lord->r_CurrentTilePositionX;
+            y = lord->r_CurrentTilePositionY;
             Runner.Require(HuntSteps.Place(owner, x, y, eMappers.MAPPER_WOODSMAN, eStructs.STRUCT_WOODCUTTERS_HUT, 8, out _, out _), "No woodsman's site.");
             Runner.Require(HuntSteps.Place(owner, x, y, eMappers.MAPPER_HOVEL, eStructs.STRUCT_HOVEL, 12, out _, out _), "No extra fixture housing site.");
+        }
+
+        private static unsafe void PlaceProductionBuildings()
+        {
+            PlaceWoodProductionBuildings(out int x, out int y);
             Runner.Require(HuntSteps.Place(owner, x, y, eMappers.MAPPER_MILL, eStructs.STRUCT_MILL, 10, out _, out _), "No mill site.");
             Runner.Require(GamePlayerManagerAPI.Instance.TryAddGood(owner, eGoods.STORED_RAW_WHEAT, 30), "Wheat could not enter the real stockpile.");
         }
@@ -298,7 +414,7 @@ namespace UiAcceptance
 
         private static IEnumerable<Wait> MillerDelivery(Step step)
         {
-            Runner.Require(!editor, "Natural mill delivery is the SP fixture; editor uses bounded manual yield integration.");
+            Runner.Require(!editor && !extraFeaturesProfile, "Three-item natural mill delivery requires the synthetic SP fixture.");
             var trace = new MillerTrace(step.TimeoutMs);
             // Other workers can occupy storage while this fixture is being assigned.
             // Repeat the authoritative query immediately before the delivery measurement.
@@ -386,16 +502,17 @@ namespace UiAcceptance
                 Runner.Require(UnitAccess.TryGetById(woodId, out GameUnit* unit, out _) && unit->r_GlobalId == woodGid &&
                     unit->r_UnitChimp == eChimps.CHIMP_TYPE_WOODCUTTER, "Physical fixture worker identity changed.");
                 int productivity = Marshal.ReadInt32(image + 0x379CEEC + owner * 0x583C);
-                Runner.Require(productivity <= 100, "Isolated quarter fixture requires no positive fear productivity; actual=" + productivity);
-                // Four calls preserve the starting base credit and yield exactly one in total.
+                Runner.Require(productivity <= 100, "Isolated fractional fixture requires no positive fear productivity; actual=" + productivity);
+                // A complete credit cycle preserves the starting fraction and yields one in total.
                 // Calls enter the installed SE wrapper and native hook, not an arithmetic clone.
                 int total = 0; bool crcObserved = false;
-                for (int n = 0; n < 4; n++)
+                int outputsPerUnit = extraFeaturesProfile ? 5 : 4;
+                for (int n = 0; n < outputsPerUnit; n++)
                 {
                     byte[] beforeRow = Row(woodId), beforeNative = UnitRecord(unit);
                     int beforeCrc = UnitChecksum(woodId, out int beforeCategory);
                     long amount = (long)calculateYield.Invoke(null, new object[] { woodId, 1, 0 });
-                    Runner.Require(amount == 0 || amount == 1, "Quarter native output outside0..1: " + amount);
+                    Runner.Require(amount == 0 || amount == 1, "Fractional native output outside 0..1: " + amount);
                     total += (int)amount;
                     byte[] afterRow = Row(woodId), afterNative = UnitRecord(unit);
                     int afterCrc = UnitChecksum(woodId, out int afterCategory);
@@ -406,9 +523,9 @@ namespace UiAcceptance
                     AcceptLog.Info("PRODUCTION_LIVE_YIELD unit=" + woodId + " call=" + n + " result=" + amount + " fraction=" + Fraction(afterRow) +
                         " nativeBytesEqual=True crcBefore=" + beforeCrc + " crcAfter=" + afterCrc);
                 }
-                Runner.Require(total == 1 && crcObserved, "Four real quarter outputs did not total one.");
+                Runner.Require(total == 1 && crcObserved, "One fractional credit cycle did not total one.");
                 // Leave a nonzero exact credit for save/load; at most one additional call
-                // is needed when the preceding four returned to an empty starting credit.
+                // is needed when the complete cycle returned to an empty starting credit.
                 if (ReadU64(Row(woodId), 8) == 0) calculateYield.Invoke(null, new object[] { woodId, 1, 0 });
                 Runner.Require(ReadU64(Row(woodId), 8) != 0, "Save fixture has no fractional credit.");
                 AcceptLog.Info("PRODUCTION_QUARTER_RESULT total=" + total + " savedFraction=" + Fraction(Row(woodId)) + " scope=manual-installed-yield");
@@ -556,6 +673,9 @@ namespace UiAcceptance
         {
             Runner.Require(GameSteps.MenuReady(), "Disable acceptance only after leaving the mission.");
             registration?.SetProfile(null);
+            var restoreFailure = RestoreFixtureSettings();
+            extraFeaturesProfile = false;
+            Runner.Require(restoreFailure == null, "Fixture setting restoration failed: " + restoreFailure);
             AcceptLog.Info("PRODUCTION_ACCEPTANCE_DISABLED");
             yield break;
         }

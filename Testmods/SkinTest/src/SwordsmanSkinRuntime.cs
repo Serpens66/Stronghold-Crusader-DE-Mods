@@ -4,6 +4,7 @@ using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.Components.Sprite;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
@@ -37,6 +38,7 @@ namespace SkinTest
             int layerDelay, bool hasSubSpecial, int halfPixelX, int halfPixelY);
         private delegate void AddUpdateWallFillinDelegate(GameMap gameMap, int objectId, int x, int y,
             float heightAboveGround, int image, int xOffset);
+        private delegate bool TryGetExtenderSpriteMaterials(int spriteId, out Material[] materials, out SpriteMaterialMode mode);
 
         private readonly ManualLogSource log;
         // These dictionaries are private in the real game assembly, despite publicized references.
@@ -68,9 +70,13 @@ namespace SkinTest
         private SetBodySpriteDelegate trampoline;
         private AddUpdateBuildingAnimDelegate buildingAnimTrampoline;
         private AddUpdateWallFillinDelegate wallFillinTrampoline;
+        private TryGetExtenderSpriteMaterials tryGetExtenderSpriteMaterials;
         private Sprite[] castleSprites;
         private Sprite[] castleAnimSprites;
-        private readonly Stack<CastleAnimContext> castleAnimContexts = new Stack<CastleAnimContext>();
+        // Each layer object owns one renderer lease. The pool may reuse the renderer
+        // under another layer object, so the lease must not be keyed by renderer alone.
+        private ConditionalWeakTable<GameSprite, TowerSpriteWrite> towerSpriteWrites =
+            new ConditionalWeakTable<GameSprite, TowerSpriteWrite>();
         private readonly byte[,][] troopHudBytes = new byte[8, 7][];
         private readonly ImageSource[,] troopHudSources = new ImageSource[8, 7];
         private readonly byte[][] towerHudBytes = new byte[2][];
@@ -93,6 +99,7 @@ namespace SkinTest
             try
             {
                 LoadAssets();
+                BindExtenderSpriteCheck();
                 InstallHook();
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualSpawn.Observable.Subscribe(OnUnitVisualSpawn));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(OnUnitVisualInterpolate));
@@ -234,6 +241,11 @@ namespace SkinTest
         {
             try
             {
+                if (!PaintEvents.TryEnableTileGraphicPass(out string previewReason))
+                {
+                    WarnOnce("tower-preview-paint-pass", $"APIShared round-tower tile paint unavailable: {previewReason}");
+                    return;
+                }
                 if (!PaintEvents.TryRegisterTileGraphic(SkinTestPlugin.PluginGuid, "round-tower-tiles",
                     AfterBuildingTilePaint, out string reason, order: -100, files: new[] { (int)ExtenderGM.GM_CASTLES }))
                 {
@@ -357,15 +369,6 @@ namespace SkinTest
                     $"SetBodySprite detour confirmed: file={(ExtenderGM)file}, image={image}, alternate={alternateFrame}, rendererBound={rendererBound}, unitId={(rendererBound ? unitId : 0)}.");
                 if (renderer == null)
                     return;
-                if (file == (int)ExtenderGM.GM_CASTLE_ANIMS)
-                {
-                    CastleAnimContext context = castleAnimContexts.Count == 0 ? null : castleAnimContexts.Peek();
-                    LogOnce("castle-anim-callback",
-                        $"GM_CASTLE_ANIMS callback observed: image={image}, roundTowerContext={context != null}.");
-                    if (context != null && context.Image == image)
-                        TryReplaceRoundTowerAnimation(renderer, image, context);
-                    return;
-                }
                 if (file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
                     return;
 
@@ -387,7 +390,7 @@ namespace SkinTest
                 Sprite expected = frameIndex >= 0
                     ? spriteLoader.instance.GetGMSprite(GameGM.GM_BODY_SWORDSMAN, frameIndex, alternateFrame)
                     : null;
-                bool expectedVanillaSprite = ReferenceEquals(renderer.sprite, expected);
+                bool expectedVanillaSprite = IsUntouchedSprite(renderer.sprite, expected);
                 bool isSwordsman = false;
                 bool unitFound = false;
                 int ownerPlayerId = 0;
@@ -449,59 +452,39 @@ namespace SkinTest
             int tileY, int animLayer, int file, int image, int colour, int transparency, int layerDelay,
             bool hasSubSpecial, int halfPixelX, int halfPixelY)
         {
-            CastleAnimContext context = file == (int)ExtenderGM.GM_CASTLE_ANIMS
-                ? ResolveRoundTowerAnimationContextSafely(gameMap, x, y, image)
-                : null;
-            if (context != null)
-                castleAnimContexts.Push(context);
+            buildingAnimTrampoline(gameMap, objectId, x, y, tileX, tileY, animLayer, file, image,
+                colour, transparency, layerDelay, hasSubSpecial, halfPixelX, halfPixelY);
+            if (file != (int)ExtenderGM.GM_CASTLE_ANIMS || gameMap == null)
+                return;
             try
             {
-                buildingAnimTrampoline(gameMap, objectId, x, y, tileX, tileY, animLayer, file, image,
-                    colour, transparency, layerDelay, hasSubSpecial, halfPixelX, halfPixelY);
-                try
-                {
-                    if (context != null && gameMap != null &&
-                        buildingAnimsField.GetValue(gameMap) is Dictionary<int, BuildingAnim> animations &&
-                        animations.TryGetValue(objectId, out BuildingAnim visual))
-                        TryReplaceRoundTowerAnimation(visual.sprRenderer, image, context);
-                }
-                catch (Exception ex)
-                {
-                    WarnOnce("castle-building-anim-hook-error",
-                        $"Round-tower building animation replacement failed closed: {ex}");
-                }
+                if (buildingAnimsField.GetValue(gameMap) is Dictionary<int, BuildingAnim> animations &&
+                    animations.TryGetValue(objectId, out BuildingAnim visual))
+                    TryReplaceRoundTowerAnimation(visual, visual.sprRenderer, gameMap, x, y, image);
             }
-            finally
+            catch (Exception ex)
             {
-                PopCastleAnimContext(context);
+                WarnOnce("castle-building-anim-hook-error",
+                    $"Round-tower building animation replacement failed closed: {ex}");
             }
         }
 
         private void AddUpdateWallFillinHook(GameMap gameMap, int objectId, int x, int y,
             float heightAboveGround, int image, int xOffset)
         {
-            CastleAnimContext context = ResolveRoundTowerAnimationContextSafely(gameMap, x, y, image);
-            if (context != null)
-                castleAnimContexts.Push(context);
+            wallFillinTrampoline(gameMap, objectId, x, y, heightAboveGround, image, xOffset);
+            if (gameMap == null)
+                return;
             try
             {
-                wallFillinTrampoline(gameMap, objectId, x, y, heightAboveGround, image, xOffset);
-                try
-                {
-                    if (context != null && gameMap != null &&
-                        wallFillinsField.GetValue(gameMap) is Dictionary<int, WallFillin> fillins &&
-                        fillins.TryGetValue(objectId, out WallFillin visual))
-                        TryReplaceRoundTowerAnimation(visual.sprRenderer, image, context);
-                }
-                catch (Exception ex)
-                {
-                    WarnOnce("castle-wall-fillin-hook-error",
-                        $"Round-tower wall-fillin replacement failed closed: {ex}");
-                }
+                if (wallFillinsField.GetValue(gameMap) is Dictionary<int, WallFillin> fillins &&
+                    fillins.TryGetValue(objectId, out WallFillin visual))
+                    TryReplaceRoundTowerAnimation(visual, visual.sprRenderer, gameMap, x, y, image);
             }
-            finally
+            catch (Exception ex)
             {
-                PopCastleAnimContext(context);
+                WarnOnce("castle-wall-fillin-hook-error",
+                    $"Round-tower wall-fillin replacement failed closed: {ex}");
             }
         }
 
@@ -517,19 +500,6 @@ namespace SkinTest
                     $"Round-tower animation context lookup failed closed: {ex}");
                 return null;
             }
-        }
-
-        private void PopCastleAnimContext(CastleAnimContext context)
-        {
-            if (context == null)
-                return;
-            if (castleAnimContexts.Count == 0 || !ReferenceEquals(castleAnimContexts.Peek(), context))
-            {
-                castleAnimContexts.Clear();
-                WarnOnce("castle-anim-context-order", "Round-tower animation context order differed; contexts were cleared fail-closed.");
-                return;
-            }
-            castleAnimContexts.Pop();
         }
 
         private unsafe CastleAnimContext TryResolveRoundTowerAnimationContext(GameMap gameMap, int x, int y, int image)
@@ -555,45 +525,79 @@ namespace SkinTest
                 building->r_BuildingType != eStructs.STRUCT_TOWER5_DESTROYED)
                 return null;
             int ownerPlayerId = building->r_PlayerIdOwner;
+            if (!SkinSelectionPolicy.IsValidPlayerId(ownerPlayerId))
+                return null;
             LordCulture culture = ResolveOwnerCulture(ownerPlayerId, out int lordUnitId,
                 out ExtenderGM lordMaterial, out string source, out int value);
             LogOnce("round-tower-animation-context",
                 $"Round-tower animation context resolved: buildingId={buildingId}, ownerPlayerId={ownerPlayerId}, image={image}, source={source}, value={value}, culture={culture}.");
-            return new CastleAnimContext(buildingId, ownerPlayerId, image, culture, lordUnitId,
+            return new CastleAnimContext(buildingId, ownerPlayerId, culture, lordUnitId,
                 lordMaterial, source, value);
         }
 
-        private void TryReplaceRoundTowerAnimation(SpriteRenderer renderer, int image, CastleAnimContext context)
+        private void TryReplaceRoundTowerAnimation(GameSprite visual, SpriteRenderer renderer, GameMap gameMap, int x, int y, int image)
         {
-            if (renderer == null || context == null || context.Image != image || spriteLoader.instance == null)
+            if (renderer == null)
                 return;
-            if (context.Culture == LordCulture.NonEuropean)
+            towerSpriteWrites.TryGetValue(visual, out TowerSpriteWrite previous);
+            Sprite current = renderer.sprite;
+            Sprite replacement = image > 0 && image < castleAnimSprites.Length ? castleAnimSprites[image] : null;
+            CastleAnimContext context = replacement == null ? null : ResolveRoundTowerAnimationContextSafely(gameMap, x, y, image);
+
+            if (previous != null)
             {
-                LogOnce($"tower-animation-vanilla:{context.Source}:{context.Value}",
-                    $"Vanilla round-tower animation retained for non-European owner: buildingId={context.BuildingId}, ownerPlayerId={context.OwnerPlayerId}, image={image}, source={context.Source}, value={context.Value}.");
-                return;
+                // If Vanilla skipped repainting this layer, only undo our exact write
+                // on the same lease. A newer foreign sprite is never overwritten.
+                if (SkinSelectionPolicy.OwnsSpriteWrite(renderer, current, image, previous.Renderer, previous.Replacement, previous.Image))
+                {
+                    if (context?.Culture == LordCulture.European)
+                        return;
+                    renderer.sprite = previous.Original;
+                }
+                towerSpriteWrites.Remove(visual);
             }
-            if (context.Culture != LordCulture.European)
-                return;
-            if (image <= 0 || image >= castleAnimSprites.Length || castleAnimSprites[image] == null)
-            {
-                LogOnce($"tower-animation-frame-missing:{image}",
-                    $"No SH1DE round-tower animation frame exists for image={image}; Vanilla remains active.");
-                return;
-            }
-            Sprite replacement = castleAnimSprites[image];
-            if (ReferenceEquals(renderer.sprite, replacement))
+
+            if (context?.Culture != LordCulture.European || spriteLoader.instance == null)
                 return;
             Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLE_ANIMS, image, false);
-            if (!ReferenceEquals(renderer.sprite, expected))
+            if (!IsUntouchedSprite(current, expected))
             {
                 WarnOnce($"tower-animation-conflict:{image}",
                     $"An earlier mod replaced the expected castle animation sprite; SkinTest leaves it untouched: image={image}, expected={DescribeSprite(expected)}, actual={DescribeSprite(renderer.sprite)}.");
                 return;
             }
+            towerSpriteWrites.Add(visual, new TowerSpriteWrite(renderer, current, replacement, image));
             renderer.sprite = replacement;
             LogOnce("tower-animation-skin-applied",
                 $"SH1DE round-tower animation applied: buildingId={context.BuildingId}, ownerPlayerId={context.OwnerPlayerId}, lordUnitId={context.LordUnitId}, lordGM={context.LordMaterial}, source={context.Source}, value={context.Value}, image={image}.");
+        }
+
+        private void BindExtenderSpriteCheck()
+        {
+            try
+            {
+                var type = typeof(GameAssetManagerAPI).Assembly.GetType("SHCDESE.API.GameSpriteManagerAPI", true);
+                var instance = type.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
+                var query = type.GetMethod("TryGetCustomMaterials", BindingFlags.Instance | BindingFlags.Public, null,
+                    new[] { typeof(int), typeof(Material[]).MakeByRefType(), typeof(SpriteMaterialMode).MakeByRefType() }, null);
+                if (instance?.GetMethod == null || instance.PropertyType != type || query?.ReturnType != typeof(bool))
+                    throw new MissingMethodException("The Extender's sprite override check changed.");
+                tryGetExtenderSpriteMaterials = (TryGetExtenderSpriteMaterials)query.CreateDelegate(
+                    typeof(TryGetExtenderSpriteMaterials), instance.GetValue(null));
+            }
+            catch (Exception error)
+            {
+                WarnOnce("extender-sprite-check-unavailable", $"SkinTest world sprite ownership check unavailable: {error}");
+            }
+        }
+
+        private bool IsUntouchedSprite(Sprite current, Sprite expected)
+        {
+            // The Extender updates the lookup arrays themselves, so matching the
+            // loader is insufficient when the current sprite is an indexed override.
+            return current != null && ReferenceEquals(current, expected) &&
+                tryGetExtenderSpriteMaterials != null &&
+                !tryGetExtenderSpriteMaterials(current.GetInstanceID(), out _, out _);
         }
 
         private unsafe LordCulture ResolveOwnerCulture(int ownerPlayerId, out int lordUnitId,
@@ -781,14 +785,18 @@ namespace SkinTest
             {
                 GameMapTile tile = paint.Tile;
                 int image = paint.Image;
-                if (paint.IsClaimed || tile == null || image < 0 || spriteLoader.instance == null)
+                if (paint.Pass != TileGraphicPass.VisibleTile ||
+                    paint.IsClaimed || tile == null || image < 0 || spriteLoader.instance == null)
                     return;
+                MainControls controls = MainControls.instance;
+                bool roundTowerPreview = activeMap && controls != null && controls.CurrentAction == 5 &&
+                    controls.CurrentSubAction == (int)Enums.eMappers.MAPPER_TOWER5;
                 Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLES, image);
-                if (TryReplaceRoundTowerTilePreview(ref paint, expected))
+                if (roundTowerPreview && TryReplaceRoundTowerTilePreview(ref paint, expected, controls))
                     return;
                 if (image <= 0 || image >= castleSprites.Length || castleSprites[image] == null)
                     return;
-                if (!ReferenceEquals(tile.tileImage, expected))
+                if (!IsUntouchedSprite(tile.tileImage, expected))
                     return;
                 int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
                 int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(tileId);
@@ -798,6 +806,8 @@ namespace SkinTest
                     building->r_BuildingType != eStructs.STRUCT_TOWER5_DESTROYED)
                     return;
                 int ownerPlayerId = building->r_PlayerIdOwner;
+                if (!SkinSelectionPolicy.IsValidPlayerId(ownerPlayerId))
+                    return;
                 LordCulture culture = ResolveOwnerCulture(ownerPlayerId, out int lordUnitId,
                     out ExtenderGM lordMaterial, out string source, out int value);
                 if (culture == LordCulture.NonEuropean)
@@ -822,14 +832,12 @@ namespace SkinTest
             }
         }
 
-        private bool TryReplaceRoundTowerTilePreview(ref TileGraphicPaint paint, Sprite expected)
+        private bool TryReplaceRoundTowerTilePreview(ref TileGraphicPaint paint, Sprite expected, MainControls controls)
         {
             GameMapTile tile = paint.Tile;
             int image = paint.Image;
-            MainControls controls = MainControls.instance;
             bool hasConstructionOriginal = !ReferenceEquals(tile.constructionOrigImage, null);
-            if (!activeMap || controls == null || controls.CurrentAction != 5 ||
-                controls.CurrentSubAction != (int)Enums.eMappers.MAPPER_TOWER5 || !hasConstructionOriginal)
+            if (!hasConstructionOriginal)
             {
                 return false;
             }
@@ -846,7 +854,7 @@ namespace SkinTest
                 return true;
             }
 
-            bool expectedVanilla = ReferenceEquals(tile.tileImage, expected);
+            bool expectedVanilla = IsUntouchedSprite(tile.tileImage, expected);
             if (!expectedVanilla)
             {
                 if (!ReferenceEquals(tile.tileImage, castleSprites[frameIndex]))
@@ -999,7 +1007,7 @@ namespace SkinTest
             RestoreTowerHud();
             unitByRenderer.Clear();
             cultureByPlayer.Clear();
-            castleAnimContexts.Clear();
+            towerSpriteWrites = new ConditionalWeakTable<GameSprite, TowerSpriteWrite>();
             warnings.Clear();
             LogInfo("Per-map renderer, culture and HUD bindings cleared for map unload.");
         }
@@ -1029,7 +1037,7 @@ namespace SkinTest
             ReleaseHook();
             unitByRenderer.Clear();
             cultureByPlayer.Clear();
-            castleAnimContexts.Clear();
+            towerSpriteWrites = new ConditionalWeakTable<GameSprite, TowerSpriteWrite>();
             DestroyAll(alternateSprites);
             DestroyAll(normalSprites);
             DestroyAll(castleSprites);
@@ -1069,24 +1077,37 @@ namespace SkinTest
         {
             public int BuildingId { get; }
             public int OwnerPlayerId { get; }
-            public int Image { get; }
             public LordCulture Culture { get; }
             public int LordUnitId { get; }
             public ExtenderGM LordMaterial { get; }
             public string Source { get; }
             public int Value { get; }
 
-            public CastleAnimContext(int buildingId, int ownerPlayerId, int image, LordCulture culture,
+            public CastleAnimContext(int buildingId, int ownerPlayerId, LordCulture culture,
                 int lordUnitId, ExtenderGM lordMaterial, string source, int value)
             {
                 BuildingId = buildingId;
                 OwnerPlayerId = ownerPlayerId;
-                Image = image;
                 Culture = culture;
                 LordUnitId = lordUnitId;
                 LordMaterial = lordMaterial;
                 Source = source;
                 Value = value;
+            }
+        }
+
+        private sealed class TowerSpriteWrite
+        {
+            internal readonly SpriteRenderer Renderer;
+            internal readonly Sprite Original, Replacement;
+            internal readonly int Image;
+
+            internal TowerSpriteWrite(SpriteRenderer renderer, Sprite original, Sprite replacement, int image)
+            {
+                Renderer = renderer;
+                Original = original;
+                Replacement = replacement;
+                Image = image;
             }
         }
 
