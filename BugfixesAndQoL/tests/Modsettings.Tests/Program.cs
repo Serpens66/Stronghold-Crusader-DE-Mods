@@ -302,20 +302,39 @@ internal static partial class Program
             }
             finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(treeState); }
             Type lordRuntime = mod.GetType("BugfixesAndQoL.LordTeleportGuard.LordTeleportGuardRuntime", true);
-            IntPtr lordFlag = System.Runtime.InteropServices.Marshal.AllocHGlobal(4);
+            // Construct the real SDK policy handle against private fixture memory, without installing
+            // a native game hook. This observes the production BQoL gate's publication boundary.
+            FieldInfo lordPolicyField = lordRuntime.GetField("policy", All);
+            Assembly relocationApi = lordPolicyField.FieldType.Assembly;
+            Type registryType = relocationApi.GetType("APIShared.Units.UnitRelocationPolicies", true);
+            Type contextType = relocationApi.GetType("APIShared.Units.UnitRelocationContext", true);
+            IntPtr lordInterest = System.Runtime.InteropServices.Marshal.AllocHGlobal(ushort.MaxValue + 1);
             try
             {
+                object registry = Activator.CreateInstance(registryType, All, null,
+                    new object[]{lordInterest, new Action<Exception>(error => { throw new Exception("Unexpected policy fixture fault", error); })}, null);
+                MethodInfo register = registryType.GetMethod("Register", All);
+                Type unitType = Nullable.GetUnderlyingType(register.GetParameters()[2].ParameterType);
+                Type cancelType = typeof(Func<,>).MakeGenericType(contextType, typeof(bool));
+                var cancelMethod = new DynamicMethod("LordSettingsNeverCancel", typeof(bool), new[]{contextType}, typeof(Program), true);
+                ILGenerator cancelIl = cancelMethod.GetILGenerator(); cancelIl.Emit(OpCodes.Ldc_I4_0); cancelIl.Emit(OpCodes.Ret);
+                object[] registration = {"bqol-lord-settings-fixture", "lord", Enum.Parse(unitType,"CHIMP_TYPE_LORD"),
+                    cancelMethod.CreateDelegate(cancelType), 0, null, null};
+                Check((bool)register.Invoke(registry,registration), "isolated real SDK Lord policy registers");
+                object handle = registration[5];
+                object policyState = handle.GetType().GetField("Policy",All).GetValue(handle);
+                FieldInfo logicalEnabled = policyState.GetType().GetField("Enabled",All);
+                Check((int)logicalEnabled.GetValue(policyState)==0,"SDK Lord registration starts disabled");
                 object lord = FormatterServices.GetUninitializedObject(lordRuntime);
-                lordRuntime.GetField("enabled", All).SetValue(lord, lordFlag);
-                foreach(bool ready in new[]{false,true}) foreach(bool main in new[]{false,true}) foreach(bool option in new[]{false,true})
+                lordPolicyField.SetValue(lord, handle);
+                foreach(bool main in new[]{false,true}) foreach(bool option in new[]{false,true})
                 {
-                    lordRuntime.GetField("ready", All).SetValue(lord, ready);
                     lordRuntime.GetMethod("SetEnabled", All).Invoke(lord,new object[]{main,option});
-                    Check(System.Runtime.InteropServices.Marshal.ReadInt32(lordFlag) == (ready && main && option ? 1 : 0),
-                        "integrated Lord native flag follows readiness/main/host option");
+                    Check((int)logicalEnabled.GetValue(policyState)==(main && option ? 1 : 0),
+                        "integrated Lord policy follows main/host option through real SDK handle");
                 }
             }
-            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(lordFlag); }
+            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(lordInterest); }
             Policies();
             object protectedMap=Feature("VanillaMapEditorHook",Model(false,false,"ShowLoadSaveDialogControls",false));
             Check(!Bool(protectedMap,"OriginalMapProtectionEnabled"),"unused map protection has no hidden feature activation");

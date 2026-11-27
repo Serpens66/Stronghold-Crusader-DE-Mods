@@ -73,15 +73,7 @@ internal static class Program
             ["FirstClassifierPattern"] = 0x11EBF5,
             ["SecondClassifierPattern"] = 0x11EF39,
             ["AddClassifierPattern"] = 0xCAEF2,
-            ["ReplaceClassifierPattern"] = 0xD0FF7,
-            ["RunTickProloguePattern"] = 0x86680,
-            ["RunTickNotificationCallPattern"] = 0x86A91,
-            ["UpdateProloguePattern"] = 0xFE570,
-            ["CompletionTailPattern"] = 0xFE5C9,
-            ["FinalizeProloguePattern"] = 0x102A70,
-            ["PromotionPattern"] = 0x102AB5,
-            ["StartProloguePattern"] = 0xFEE50,
-            ["StartPendingFlagPattern"] = 0xFEEB1
+            ["ReplaceClassifierPattern"] = 0xD0FF7
         };
 
     private static readonly FunctionContract[] Functions =
@@ -418,31 +410,34 @@ internal static class Program
                 contract.Key + " unique executable match");
         }
 
-        string notificationContract = File.ReadAllText(
-            Path.Combine(sourceDirectory, "Notifications/NotificationQueueNativeContract.cs"));
-        Match callOffsetMatch = Regex.Match(
-            notificationContract,
-            @"const\s+int\s+CompletionCallOffset\s*=\s*(?<value>\d+)\s*;");
-        Match callLengthMatch = Regex.Match(
-            notificationContract,
-            @"const\s+int\s+CompletionCallLength\s*=\s*(?<value>\d+)\s*;");
-        Check(callOffsetMatch.Success, "notification production completion-call offset constant");
-        Check(callLengthMatch.Success, "notification production completion-call length constant");
-        int callOffset = int.Parse(callOffsetMatch.Groups["value"].Value);
-        int callLength = int.Parse(callLengthMatch.Groups["value"].Value);
-        Check(callOffset == 62, "notification production completion-call offset is 62");
-        Check(callLength == 5, "notification production near-call length is five bytes");
-        Check(notificationContract.Contains("callOpcodeOffset + 1") &&
-              notificationContract.Contains("callOpcodeOffset + CompletionCallLength"),
-            "notification production resolver reads displacement at +1 and return address at +5");
-        int callRva = PatternRvas["CompletionTailPattern"] + callOffset;
-        Check(callRva == 0xFE607, "notification production completion call resolves to RVA 0xFE607");
-        Check(pe.Image[callRva] == 0xE8, "notification production completion-call opcode is E8");
-        CheckCallTarget(
-            pe.Image,
-            callRva,
-            PatternRvas["FinalizeProloguePattern"],
-            "notification production resolver displacement begins at call opcode +1");
+        // Queue identity/completion ownership moved to APIShared. Keep the canonical
+        // Vanilla flow assertions in CheckCriticalSpans, and exercise BQoL's remaining
+        // production age-branch contract directly instead of retired resolver wording.
+        int ageRva = NotificationQueueNativeContract.ValidateAgeBranch(pe.Image);
+        Check(ageRva == 0xFE5C9, "notification production age-branch reference RVA");
+        Check(NotificationQueueNativeContract.AgeBranchLength == 14,
+            "notification production age-branch complete displaced span");
+        Check(pe.IsExecutable(ageRva, NotificationQueueNativeContract.AgeBranchLength),
+            "notification production age branch is executable");
+        foreach (int offset in new[] { 0, NotificationQueueNativeContract.AgeBranchLength })
+        {
+            int at = ageRva + offset;
+            byte original = pe.Image[at];
+            bool rejected = false;
+            try
+            {
+                pe.Image[at] ^= 1;
+                try { NotificationQueueNativeContract.ValidateAgeBranch(pe.Image); }
+                catch (InvalidOperationException) { rejected = true; }
+            }
+            finally { pe.Image[at] = original; }
+            Check(rejected, "notification production rejects a changed age branch/continuation at +" + offset);
+        }
+        bool truncatedRejected = false;
+        try { NotificationQueueNativeContract.ValidateAgeBranch(pe.Image.AsSpan(0, ageRva + NotificationQueueNativeContract.AgeBranchLength)); }
+        catch (InvalidOperationException) { truncatedRejected = true; }
+        Check(truncatedRejected, "notification production requires the validated continuation beyond its hook span");
+
     }
 
     private static void CheckCriticalSpans(byte[] image)

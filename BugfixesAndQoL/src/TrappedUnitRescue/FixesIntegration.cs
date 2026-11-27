@@ -75,13 +75,18 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             if (activation != IntPtr.Zero) Volatile.Write(ref *(int*)activation, ready && enabled ? 1 : 0);
         }
 
+        private Func<bool> workerGuardIntact;
+        private readonly RescueNativeIntegrity integrity = new RescueNativeIntegrity();
+
         internal void RecheckPublishedHooks()
         {
-            // Includes editor starts. Never repair a published span; keep the replacement
-            // dormant permanently if a later writer invalidates its native contract.
-            if (Shared.NativePatchGuard.Recheck() == 0) return;
+            // Recheck only reports NEW deviations. Its diagnostic counter cannot
+            // establish health after another mission subscriber has reported one.
+            Shared.NativePatchGuard.Recheck();
+            if (!ready || integrity.Check(() => native.RelocationAvailable, workerGuardIntact)) return;
             ready = false;
             SetEnabled(false);
+            log.LogError("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] FIXES_INTEGRATION_INACTIVE: a required relocation or worker-guard contract was lost; recovery remains disabled.");
         }
 
         internal void Initialize(CrusaderLibraryLoadContext context)
@@ -261,6 +266,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 CheckInlineEntry(image + WorkerGuardRva, Address(candidate.StubAddress), WorkerGuardLength);
                 if (!candidate.IsInstalled) throw new InvalidOperationException("Worker guard was not published.");
                 Shared.NativePatchGuard.Watch(candidate, SiteName);
+                workerGuardIntact = Shared.NativePatchGuard.CaptureIntegrity(new[] { candidate }, SiteName);
                 Log("Worker guard installed at RVA 0x196342, displaced 16 bytes, resumes at the validated adjacent Fixes hook.");
             }
             catch

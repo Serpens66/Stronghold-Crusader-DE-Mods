@@ -34,6 +34,7 @@
     <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\ControlGroupDisbandCleanupPolicy.cs"><Link>ControlGroupDisbandCleanupPolicy.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\ControlGroupNativeDefinition.cs"><Link>ControlGroupNativeDefinition.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\LordAndControlGroups\LordControlGroupNativeDefinition.cs"><Link>LordControlGroupNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\Notifications\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="Program.cs" />
     <Compile Include="EmergencyDemolitionTests.cs" />
     <Compile Include="..\..\BugfixesAndQoL\src\AI\Economy\AIEmergencyDemolitionDispatch.cs"><Link>AIEmergencyDemolitionDispatch.cs</Link></Compile>

@@ -10,6 +10,7 @@ internal static class Program
             if(args.Length!=1)throw new ArgumentException("Pass the explicitly selected absolute APIShared plugin package directory.");
             BugfixesAndQoL.TrappedUnitRescue.Tests.MountedScannerGatedFixture.Run(args[0]);
             Console.WriteLine("PASS: production native worker guard checks="+TrappedUnitRescueTest.WorkerGuardFixture.Run());
+            RescueNativeIntegrityFixture.Run();
             CandidateOwnerGateFixture.Run();
             CandidateQueueFixture.Run();
             CivilianRemovalPolicyFixture.Run();

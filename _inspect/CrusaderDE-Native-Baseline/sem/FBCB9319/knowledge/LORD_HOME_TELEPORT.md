@@ -168,3 +168,13 @@ initialization failure explaining that the feature is unavailable. No gameplay/s
 change is made. Normal emitter/restore equivalence and existing normal/diagnostic machine tests
 are recorded separately under .work/a/lord-clean/001. Normal and /devdiag builds now use the same
 Lord predicate; other BugfixesAndQoL diagnostic features retain their own compile-time gates.
+
+## Shared relocation ownership migration, 2026-11-27 [mod integration]
+
+The original private BQoL native owner/emitter is replaced by APIShared0.79 `Units.Relocation`. BQoL keeps the human-Lord/home predicate as a typed read-only policy registered for the exact Lord type, with explicit master/option activation. The SDK captures the original caller before managed wrappers and exposes the audited183014 path as `InvalidStandingTerrainRecovery`; BQoL retains that exemption. No whole-unit polling or managed callback for uninterested types is introduced. The ordinary native Life2 predicate is retained for observations; explicit API mutation admission independently excludes the death marker.
+
+The shared owner validates the entry16bytes, generated backend stub, remaining265bytes of the281-byte helper and standing-call anchor. Lost integrity is irreversible and independent of deduplicated error counts. SDK metadata preparation now publishes a completed transaction last; missing monitor/allocation/lifecycle prerequisites cannot publish a native hook. This latter failure path was found and independently rechecked during the new implementation's review.
+
+Native closure was freshly rechecked against the canonical installed hash:35 direct CALL sites in34 functions, no direct target in the open displaced interval. Detailed position/occupancy facts remain in this audit and `TRAPPED_UNIT_RESCUE_AUDIT.md`; a common call is not general job normalization. The isolated native tests execute the installed inline backend and check argument five, original caller, flags, stack, volatile registers/XMM, demand bypass and veto/pass. Final build/game qualifications for this ownership migration belong in [BQoL acceptance](../../../../../BugfixesAndQoL/docs/TrappedUnitRescue.Acceptance.md), separately from older game reports above.
+
+Controlled migration acceptance `28e12433c18d4b8d962e2018637c0537` passed19/19 with normal BQoL1.0.250/APIShared0.79: real explicit Lord-away succeeds, home ON vetoes and home OFF succeeds in separately configured missions; loaded-world freshness and ordinary soldier relocation also pass. This does not add an ingame native-origin183014 exemption or multiplayer/editor qualification. Exact artifact identities and restored-layout evidence are in the linked acceptance report.

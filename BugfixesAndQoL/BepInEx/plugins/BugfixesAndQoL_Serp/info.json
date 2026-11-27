@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.249",
+  "Version": "1.0.250",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.78.0"
+      "MinimumVersion": "0.79.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.250",
+      "Changes": [
+        "Keep Lord home-teleport protection and trapped-unit recovery working together through shared unit relocation.",
+        "Disable recovery safely when one of its required native hooks changes, including changes already reported by another check."
+      ]
+    },
     {
       "Version": "1.0.249",
       "Changes": [

@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.249.0</AssemblyVersion>
-    <FileVersion>1.0.249.0</FileVersion>
+    <AssemblyVersion>1.0.250.0</AssemblyVersion>
+    <FileVersion>1.0.250.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -453,7 +453,7 @@
   </ItemGroup>
   <ItemGroup><Compile Include="src\Core\Native\PermanentNativeSwitch.cs"/><Compile Include="src\Core\Native\NativeSwitchCatalog.cs"/></ItemGroup>
   <ItemGroup>
-    <Compile Include="src\LordTeleportGuard\LordTeleportNative.cs" />
+    <Compile Include="src\LordTeleportGuard\LordTeleportPolicy.cs" />
     <Compile Include="src\LordTeleportGuard\LordTeleportGuardRuntime.cs" />
     <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.LordTeleport.cs" />
   </ItemGroup>

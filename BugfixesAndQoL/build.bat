@@ -557,7 +557,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-Modse
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 call :step_start "tests" "LordTeleportGuard.Tests build"
-"%MSBUILD%" "%PROJECT_DIR%tests\LordTeleportGuard.Tests\LordTeleportGuard.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API%
+"%MSBUILD%" "%PROJECT_DIR%tests\LordTeleportGuard.Tests\LordTeleportGuard.Tests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" %SHCDE_BRANCH_MSBUILD_API% "/p:ApiSharedDir=%API_SHARED_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed
 call :step_start "tests" "LordTeleportGuard.Tests execution"

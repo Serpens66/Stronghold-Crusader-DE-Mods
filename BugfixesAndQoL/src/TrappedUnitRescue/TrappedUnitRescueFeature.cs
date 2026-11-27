@@ -43,8 +43,8 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         internal RescueRuntime Runtime=>runtime;
         internal WorkerRecoveryService Recovery=>workers;
 
-        // The host must publish Lord.HomeTeleportGuard before this call. This
-        // adapter only borrows that audited entry; it installs no relocation hook.
+        // APIShared owns the shared relocation entry independently of the Lord
+        // policy. This consumer installs no relocation hook.
         internal void Initialize(CrusaderLibraryLoadContext context)
         {
             if(Interlocked.Exchange(ref attempted,1)!=0)return;

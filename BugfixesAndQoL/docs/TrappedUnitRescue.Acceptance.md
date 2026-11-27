@@ -4,12 +4,24 @@
 
 Stand:27.11.2026, nach Lauf215. Der vereinbarte Singleplayer-/Editor-Umfang N0–N8 ist abgeschlossen. Dies ist keine Multiplayer- oder Veröffentlichungsfreigabe.
 
+## Gemeinsamer Versetzungsdienst: Nachprüfung vom 27.11.2026
+
+Der aktuelle Arbeitsstand BQoL1.0.250 benötigt APIShared0.79.0. APIShared besitzt jetzt den gemeinsamen nativen Versetzungsdienst; der Lord-Schutz ist eine typgefilterte BQoL-Vetoregel. Die Rettung sowie ihre indirekten IdleEscape-/Worker-Verbraucher nutzen geprüfte öffentliche Versetzungsanfragen mit Welt- und Originalidentität. Der frühere private Lord-Hook und dessen geliehene Anbindung sind entfernt. Gebäudeversetzung und der unterschiedliche Fixes-Reiterhelfer sind ausdrücklich keine Verbraucher dieses Dienstes.
+
+Der Integritätsfehler ist korrigiert: Der Zähler neu gemeldeter Fremdpatches ist kein Gesundheitsnachweis mehr. Die Rettung prüft ihre eigenen veröffentlichten Abhängigkeiten und bleibt nach einem Integritätsverlust deaktiviert; bereits protokollierte Fehler oder später wiederhergestellte Bytes aktivieren sie nicht erneut. Unbeteiligte Hooks beeinflussen diese Entscheidung nicht.
+
+Der Plan wurde vor der Umsetzung unabhängig geprüft. Die unabhängige Abschlussprüfung fand einen Fehler bei teilweise fehlgeschlagener Metadateninitialisierung; dessen Korrektur und Gegenproben wurden erneut unabhängig geprüft. Anschließend blieben keine bestätigten Befunde offen. Der vollständige offizielle SDK-Build ohne Installation bestand mit2584 erfolgreichen Tests und einer bestehenden optionalen Auslassung;43 öffentliche API-Zeilen wurden ergänzt, keine entfernt. BQoL-Lordtests82, Settingsprüfung einschließlich968985 nativer Gegenproben und die Rettungsprüfungen einschließlich9 neuer Integritätsgegenproben bestanden. Der vollständige normale BQoL-Build mit ausgewähltem SDK-Paket und ohne Installation bestand abschließend ebenfalls (19:26:18 CET). Zwei bereits veraltete Testannahmen wurden nach Prüfung aktualisiert: der verbliebene Notification-Age-Vertrag wird direkt ausgeführt, und das AIV-Leserinventar enthält den bestehenden geprüften Rettungs-Footprintadapter. Die zusätzliche unabhängige Prüfung bestätigte, dass weiterhin geltende Garantien erhalten bleiben.
+
+Der kontrollierte Spieltest `28e12433c18d4b8d962e2018637c0537` bestand19/19 Prüfungen mit normalen Artefakten und0 Error/Fatal-Logeinträgen: tatsächliche Versetzung mit ursprünglicher Identität/Gesundheit/Verband und kohärenter Belegung, Ablehnung unsicherer/veralteter Anfragen, typgefiltertes Veto, Lord-Schutz an/aus in getrennten Missionen sowie Save/Load-Weltwechsel. Eine echte, ununterdrückte KI-AIV-Zugbrückenplatzierung schloss den ursprünglichen Soldaten ein; ausschließlich die Produktionsrettung befreite ihn. Ein anschließend neu erteilter gewöhnlicher Bewegungsbefehl erreichte sein Ziel. Das ist kein zusätzlicher Nachweis zur Wiederaufnahme eines schon vorher bestehenden Befehls.
+
+Die Spieltransaktion stellte Installation, Einstellungen und Nutzerdaten wieder her; der unsichtbare Testdesktop wurde geschlossen, der Eingabedesktop blieb Default. Der temporäre Testmod wurde nach gesicherter Quellarchivierung entfernt. Kompakte Quellen, genaue Artefaktidentitäten und Ergebnisgrenzen: [Spielnachweis](../../.work/a/relocation-game/001/acceptance.md), [SDK-Nachweis](../../.work/a/relocation-sdk/001/result.json), [Arbeits- und Prüfplan](../../.work/a/unit-relocate/001/plan.json). Diese gezielte Migration wiederholt nicht die gesamte historische Editor-/Arbeiter-/Keepmatrix und erteilt keine Multiplayer-Freigabe. Die ursprüngliche Abnahme unten bleibt als datierter Nachweis erhalten.
+
 ## Verhalten und Besitz
 
 - Eine standardmäßig aktive Hostoption `EnableTrappedUnitRescue`; wirksam mit `EnableMod`. Der Clientmaster steuert diese Hostregel nicht. Die separat entfernbare Fixes-Reiterkorrektur folgt demselben Schalter und wird im Tooltip erwähnt.
 - Nachweislich durch beobachtete Bau-/Geländeänderungen feststeckende gewöhnliche Bauern und menschliche Wirtschaftsarbeiter werden regulär entfernt. Waren/Inputs werden nicht erstattet; natürliche Neubesetzung bleibt bedingt und zeitversetzt.
 - Soldaten sowie ursprüngliche Geräte/Besatzungen bleiben erhalten; sichere lokale Befreiung und weiterhin gültige Befehlsabsicht werden geprüft. Gesunde/CurrentSafe-/Transient-/Rekrutierungs-/fremde Identitätszustände erhalten keine blinde Entfernung.
-- APIShared besitzt gemeinsame Ereignisse/Hooks. Rescue leiht den bestehenden BQoL-Lord-Relocationguard; kein zweiter Relocationhook und kein dauernder Scan aller Einheiten pro Tick. Ereignis-/Queue-/Aktionsbudgets bleiben verbindlich.
+- APIShared besitzt gemeinsame Ereignisse/Hooks und jetzt den gemeinsamen Versetzungsdienst; Lord-Schutz und Rescue nutzen denselben Besitzer ohne zweiten Relocationhook und kein dauernder Scan aller Einheiten pro Tick. Ereignis-/Queue-/Aktionsbudgets bleiben verbindlich.
 - Der ursprüngliche Testmodkern, dessen Einstellungen und EarlyProvider sind entfernt. Nach abgeschlossener Integration wurde auch die separate Ingame-Automation auf Nutzerauftrag entfernt; die produktiven Offlinefixtures und die Performance-Logprüfung liegen bei BQoL. Nativerkenntnisse stehen in der Baseline.
 
 ## Verifizierte Abnahme
@@ -37,7 +49,7 @@ OFF/ON-Median der beiden Fenstermittel: Ruhe5.011/4.8025ms, Bewegung5.3465/5.339
 
 ## Quellen, Pakete und verbleibende Grenzen
 
-BQoL-Version1.0.249 benötigt mindestens APIShared0.78. Der geprüfte SDK-Quellstand ist jetzt im kanonischen Checkout `APIShared/` auf `dev/Serpens66` integriert (Commit und gesicherte Buildnachweise siehe Integrationsvermerk oben). Die folgenden Paketidentitäten gehören zur ursprünglichen Spielabnahme.
+Die ursprüngliche Abnahme prüfte BQoL-Version1.0.249 mit mindestens APIShared0.78; der aktuelle Versetzungsdienst benötigt BQoL1.0.250/APIShared0.79.0. Der geprüfte SDK-Quellstand ist jetzt im kanonischen Checkout `APIShared/` auf `dev/Serpens66` integriert (Commit und gesicherte Buildnachweise siehe Integrationsvermerk oben). Die folgenden Paketidentitäten gehören zur ursprünglichen Spielabnahme.
 
 Normale DLL-Identitäten (vollständige SHA256/Paketpfade im [Endnachweis](../../.work/a/rescue-sp/001/n8-final-normal-summary.json)):
 

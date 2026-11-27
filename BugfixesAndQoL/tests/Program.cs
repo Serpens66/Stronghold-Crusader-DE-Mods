@@ -4523,6 +4523,9 @@ namespace BugfixesAndQoL
                         "AIPreplacedBuildingFixRuntime.cs",
                         "AiStoneReserveFix.cs",
                         "MultiplayerAivSyncRuntime.cs",
+                        // The audited rescue footprint reader checks manager/player/frame identity,
+                        // copies only the bounded typed tile view and never imports or mutates AIV.
+                        "NativeMutationFootprints.cs",
                         // Typed, bounds-checked village/build-step accessors only; every call runs
                         // inside the capture or tick try/catch, so failures leave Vanilla active.
                         "PrebuiltAiStorageFixRuntime.cs"

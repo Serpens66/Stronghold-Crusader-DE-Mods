@@ -233,6 +233,7 @@
     <Compile Include="Fixtures/WorkerTravelFixture.cs">
       <Link>Fixtures/WorkerTravelFixture.cs</Link>
     </Compile>
+    <Compile Include="Fixtures/RescueNativeIntegrityFixture.cs" />
     <Compile Include="Program.cs" />
   </ItemGroup>
 </Project>
