@@ -1398,7 +1398,7 @@ checked. A foreign patch or unsupported layout disables this feature. The
 known Fixes AI stair hook at 0x6CCC8 and the moat replacement hook ending at
 0x5D783 lie outside the deposit spans. Check the whole span and its incoming
 branches when auditing an update. See the native baseline's
-[wall deposit audit](../_inspect/CrusaderDE-Native-Baseline/CURRENT.md#vanilla-behavior-audits).
+[wall deposit audit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/WALL_DEPOSIT_RESTORATION.md).
 
 ## AI market pending-demand correction
 

@@ -7,6 +7,7 @@
 - Vor jedem PowerShell-Aufruf den vollständigen Befehl auf Syntax-, Quoting- und Pipelinefallen prüfen.
 - PowerShell-Variablen nie `$HOME`, `$home` oder `$CODEX_HOME` nennen bzw. diese Systemvariablen zweckentfremden.
 - Windows PowerShell 5.1: `@($liste)` einer **leeren** `List[object]` innerhalb eines `[ordered]@{...}`-Literals wirft „Die Argumenttypen stimmen nicht überein“ (24.11.2026 im Paarlauf-Runner beobachtet). Für solche Listen `.ToArray()` verwenden; `List[string]` ist nicht betroffen.
+- Textdateien immer ausdrücklich als UTF-8 lesen und schreiben (`Get-Content -Encoding utf8`, `[IO.File]::ReadAllText(p, [Text.Encoding]::UTF8)`, Python `encoding="utf-8"`). Windows PowerShell 5.1 und Python ohne Angabe lesen ANSI/cp1252. Jeder solche Lese-Schreib-Zyklus kodiert Nicht-ASCII-Zeichen erneut; so wuchs eine Zeile von `DRAWBRIDGE_AI_DECISIONS.md` vom 07. bis 11.10.2026 auf 14 Mio. Zeichen. Prüfen und reparieren mit `_inspect\CrusaderDE-Native-Baseline\tools\semantic\repair_mojibake.py check|repair <Pfade>`.
 - Einen anweisungsbasierten `foreach (...) { ... }`-Block nie direkt mit `|` weiterleiten; erst sammeln (`$rows = @(foreach (...) { ... })`), dann `$rows | Sort-Object ...` bzw. `$rows | Format-Table ...`. Einen wegen `An empty pipe element is not allowed` gescheiterten Befehl nicht in derselben Pipelineform wiederholen.
 
 ## Treiber starten

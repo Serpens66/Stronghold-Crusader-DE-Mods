@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Maps every audit document in this directory to exactly one game-system topic. Curated Vanilla summaries live in vanilla/<topic>.md, mod knowledge in mods/INDEX.md. Checked by tools/semantic/knowledge_lint.py.",
+  "topics": [
+    {
+      "id": "pathing",
+      "title": "Pathfinding, routes and unit movement",
+      "docs": ["ASSASSIN_ATTACK_CONTROL_TEST.md", "ASSASSIN_DIRECT_GATEHOUSE_CLIMB.md", "ASSASSIN_RECONSTRUCTION_REPAIR.md", "ASSASSIN_STOCKPILE_CLIMB.md", "ASSASSIN_WEIGHTED_SEARCH_COST.md", "DRAWBRIDGE_REGION_CLOSURE.md", "ENEMY_BRIDGE_COUNT_INPUTS.md", "ENEMY_BRIDGE_ENTRY_CAPTURE.md", "ENEMY_BRIDGE_GENERAL_DIAGNOSIS.md", "ENEMY_BRIDGE_PAIR_INPUTS.md", "ENEMY_GATE_ASSASSINS.md", "ENEMY_GATE_BUILDING_CONTEXT.md", "ENEMY_GATE_CAPTURE_ADAPTERS.md", "ENEMY_GATE_DRAWBRIDGE_POLICY.md", "ENEMY_GATE_VANILLA_EVIDENCE.md", "FORMATION_MOVEMENT_PERMISSION.md", "GATE_ROUTING_MIGRATION.md", "GROUND_ROUTE_BUILDERS.md", "GROUP_MOVE_EXCLUSION_MARK.md", "MANUAL_GROUP_ADMISSION.md", "MANUAL_GROUP_REGION_RECOVERY.md", "MOAT_TRAVERSAL_ALL_UNITS.md", "MOVEMENT_SURFACE_PROFILES.md", "PATHFINDING_MIGRATION.md", "PATHFINDING_TABLE_REPLACEMENTS.md", "PORTAL_TABLE.md", "RALLY_TERRAIN_SLOWDOWN.md", "SIM_TICK_SPIKE_PATHING.md", "TEMP_GATE_ROUTE_ACCEPTANCE.md", "TRAPPED_UNIT_RESCUE_AUDIT.md", "UNIT_COMMAND_PROBE_SCRATCH.md", "UNIT_LOAD_PLACEMENT_CONTRACTS.md"]
+    },
+    {
+      "id": "fortifications",
+      "title": "Buildings, walls, gatehouses, drawbridges and construction",
+      "docs": ["AREA_DEMOLITION.md", "BUILDING_PAUSE_UI.md", "BUILDING_REPAIR.md", "BUILDING_SLEEP_SELECTION.md", "CONSTRUCTION_COST_TABLES.md", "CRENELATED_WALLS.md", "DRAWBRIDGES.md", "DRAWBRIDGE_DESTRUCTION.md", "ENEMY_BUILD_PROXIMITY.md", "FARM_BUILD_PREVIEW.md", "GATEHOUSE_LIVING_CAPTURE.md", "GATEHOUSE_QUERY_PASS.md", "GATE_BRIDGE_AUTOMATION.md", "KEEP_CAMPGROUND_GROUND.md", "KEEP_DIRECTION.md", "MOAT_TERRAIN_RESTORATION.md", "PITCH_STAIRS_HEIGHT.md", "WALL_DEPOSIT_RESTORATION.md"]
+    },
+    {
+      "id": "units",
+      "title": "Units, combat, siege engines, fire, disease and unit audio",
+      "docs": ["BEDOUIN_HEALER_TARGETS.md", "ENEMY_HP_MULTIPLIER.md", "EXTREME_TROOPS.md", "FIREMAN_TARGETING.md", "FIRE_EFFECTS.md", "KNIGHT_SELECTION_TRANSFERS.md", "LINE_OF_SIGHT.md", "LORD_HOME_TELEPORT.md", "PLAGUE_HEIGHT.md", "RECRUIT_TRANSFORMATION.md", "SIEGE_AMMUNITION_SIGNEDNESS.md", "SIEGE_ENGINEER_CREW_TIMEOUT.md", "SITUATIONAL_UNIT_AUDIO.md", "UNIT_VOICES.md"]
+    },
+    {
+      "id": "economy",
+      "title": "Workers, production, resources, trees, markets, gold and popularity",
+      "docs": ["ALLY_GOODS_TRANSFERS.md", "DEFEAT_LOOT.md", "EXTRAFEATURES_SESSION_CALLBACKS.md", "FIXES_WHEAT_STARTUP.md", "HUNTER_PREY_RULES.md", "KILL_REWARD_PERCENT.md", "MARKET_PRICE_QUERIES.md", "PERIODIC_GOLD.md", "PLAGUE_POPULARITY.md", "POPULARITY_PARAMETERS.md", "TREE_BLIGHT_DECAY.md", "TREE_RESPAWN.md", "WEAPON_WORKSHOP_FIELDS.md", "WOODCUTTER_TREE_MATURITY.md", "WORKER_PAUSES.md", "WORKER_PRODUCTION_BONUS.md", "WORKSHOP_IDLE_DELAY.md"]
+    },
+    {
+      "id": "ai",
+      "title": "AI lords: economy, castle building (AIV), military, sieges, raids and outposts",
+      "docs": ["AIV_BUILD_RANGE.md", "AIV_LOBBY_SELECTION.md", "AI_ECONOMY_OBSERVATION.md", "AI_EMERGENCY_DEMOLITION.md", "AI_MARKET_LIFECYCLE.md", "AI_MILITARY_ADMISSION.md", "AI_RESOURCE_RESERVE.md", "AI_SELL_THRESHOLDS.md", "AI_SIEGE_START.md", "AI_WOODCUTTER_BUILD.md", "AI_WOODCUTTER_RETIREMENT.md", "CUSTOM_LORD_AIV_SELECTION.md", "DRAWBRIDGE_AI_DECISIONS.md", "OUTPOSTS.md", "OUTPOST_ATTACK_RETARGET.md", "PREBUILT_WORKSHOP_BOTH.md", "RAID_RETARGET.md"]
+    },
+    {
+      "id": "session",
+      "title": "Missions, editor, saves, lobby, Trails, Lord slots, peace time and defeat",
+      "docs": ["COOP_PACKAGE_MAP_READINESS.md", "COOP_TRAIL_CUSTOMIZE_PRESENTATION.md", "EDITOR_MAP_LIFECYCLE.md", "EDITOR_REGION_REFRESH.md", "FIXES_COMPATIBILITY.md", "LOBBY_CHAT_LAYOUT.md", "LOBBY_SAVE_LOADING.md", "LORD_MEDIA_LOOKUP.md", "LORD_SLOT_REMAP.md", "MISSION_LIFECYCLE.md", "MODSETTINGS_ACTIVATION.md", "PLAYER_DEFEAT.md", "SAVEGAME_MISSING_MAP_METADATA.md", "SAVEGAME_MODSETTINGS_LOAD.md", "SAVE_WRITER_ROUTES.md", "SURRENDER_SELECTION.md", "TRAIL_CUSTOM_AIC_EXPORT.md", "TRAIL_IMPORT_DELETION.md", "UU_IMGUI_SHUTDOWN.md", "VANILLA_PEACE_TIME.md"]
+    },
+    {
+      "id": "presentation",
+      "title": "HUD, rendering, minimap, markers, input and unit commands",
+      "docs": ["AUTOMATION_PAUSE_ZOOM.md", "CASTLE_VISUAL_OBSERVATION.md", "ENGINE_PRESENTATION_BRIDGE.md", "FOREIGN_TROOP_PLAYER_COLORS.md", "FOREIGN_TROOP_SKINS.md", "GATEHOUSE_TARGET_MARKER_HEIGHT.md", "HEALTH_BAR_RENDERING.md", "HUD_PRESENTATION.md", "KEEP_FLAG_ROTATION.md", "LINEUP_MARKERS.md", "MOVE_COMMAND_RELEASE.md", "NOTIFICATION_LAST_FRAME.md", "RADAR_PASS_F5A40.md", "SIDE_HUD_VISIBILITY.md", "TANNER_ALPHA.md", "UNITY_ASSET_PIPELINE.md", "UNIT_COMMAND_CURSOR_BOUNDARY.md"]
+    },
+    {
+      "id": "network",
+      "title": "Chores, multiplayer synchronization, desync, player control and spectating",
+      "docs": ["CHORE_SYSTEM.md", "DESYNC_CAPTURE.md", "GAMEACTION_OBSERVER_CLASSES.md", "PLAYER_CONTROL_CONTEXT.md", "SPECTATOR_BUILD_PLACEMENT.md", "SPECTATOR_REPORTS.md", "SPECTATOR_TEST_TOOLS.md"]
+    },
+    {
+      "id": "memory",
+      "title": "Manager globals, record layouts, field catalog and Script Extender interop",
+      "docs": ["MOVE_STAGER_DATA_ANCHORS.md", "RUNTIME_STATE_ACCESS.md", "SE210_RANGE_HOOKS.md", "SE_2_11_SPEECH_PATH.md", "SE_2_14_1_ENGAGE_RANGE.md", "SE_2_14_3_INTEROP_ADDITIONS.md"]
+    }
+  ]
+}

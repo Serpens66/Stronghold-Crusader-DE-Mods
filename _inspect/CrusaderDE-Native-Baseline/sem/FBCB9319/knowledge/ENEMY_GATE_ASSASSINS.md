@@ -62,7 +62,7 @@ Interop provenance caveat for this update: the compiled `GameBuilding.r_GateStat
 
 Confirmed return paths: when `[imageBase + 0x379D0D0 + playerId * 0x583C] == 0`, the function returns without native calls or writes, leaving `EAX = playerId * 0x583C`. When that field is nonzero but the tribe WORD at `0x379F686 + playerId * 0x583C` is zero, the same no-command return value remains. Execution of the original, unchanged 163 bytes in an isolated zero-initialized image reproduced both paths for player IDs 1..8: raw results 0x583C through 0x2C1E0, each marshalled as true. This was a Windows standalone native-instruction test, not an in-game Mono test.
 
-Usage rule: **RÃ¼ckgabewert nicht als ErfolgsbestÃ¤tigung auswerten.** The API does not document Boolean semantics, and no resulting gameplay failure is established. Fixes 1.24.0's known caller ignores this result. This is a usage limitation, not a reportable gameplay bug; no author report or dedicated game reproduction is required. The neighboring `TryOrderTribeToNearestEnemyGatehouse` delegate wraps a different native function and must not inherit this conclusion.
+Usage rule: **Rückgabewert nicht als Erfolgsbestätigung auswerten.** The API does not document Boolean semantics, and no resulting gameplay failure is established. Fixes 1.24.0's known caller ignores this result. This is a usage limitation, not a reportable gameplay bug; no author report or dedicated game reproduction is required. The neighboring `TryOrderTribeToNearestEnemyGatehouse` delegate wraps a different native function and must not inherit this conclusion.
 
 ## Gate ground/climb separation (2026-10-07)
 

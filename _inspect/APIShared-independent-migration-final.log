@@ -1,7 +1,0 @@
-Recovery backup: C:\Users\Serpens66\AppData\Local\Temp\APIShared independent 1573acb9e89246d5bceff806f8bcfa78\rollback\.inspect\APISharedIndependent-20261014-230336-e62c5858
-Migration failed; restoring original links: Simulated interruption after worktree repair.
-
-Recovery backup: C:\Users\Serpens66\AppData\Local\Temp\APIShared independent 1573acb9e89246d5bceff806f8bcfa78\success\.inspect\APISharedIndependent-20261014-230342-0681f0a6
-PASS: independent APIShared repository; all worktree states and refs preserved. No commit or push performed.
-
-PASS: migration, rollback, unpublished commits, independent metadata, linked worktree, open/staged files and unrelated parent staging. Fixtures: C:\Users\Serpens66\AppData\Local\Temp\APIShared independent 1573acb9e89246d5bceff806f8bcfa78

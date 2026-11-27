@@ -1,5 +1,7 @@
 # Einheitenrettung testen
 
+**Vorrang27.11.2026:** Vor einer Wiederaufnahme zuerst den aktiven [RESCUE-PLAN.md](RESCUE-PLAN.md) lesen. Ziel und Spieltests sind pausiert; der vorhandene Build enthält noch den alten Worker-Fortsetzungscode. Seine Szenarien nicht unverändert als neue Abschlussliste ausführen. Nach Umstellung gilt für Bauern/Arbeiter endgültige native Entfernung statt gleicher Identität/Fracht und fortgesetzter Produktion; Soldaten-/Crew-Erhalt und gemeinsame Negativ-/Lifecycle-/Kompatibilitätsprüfungen bleiben maßgeblich. Historische Befehle und Ergebnisse unten belegen nur ihren ausdrücklich dokumentierten Stand.
+
 Fortlaufender Plan: [RESCUE-PLAN.md](RESCUE-PLAN.md). Aktueller Entwicklungsstand: [IMPLEMENTATION.md](IMPLEMENTATION.md). Vollständige offene Spielabnahme: [INGAME-PENDING.md](INGAME-PENDING.md).
 
 Der Testmod bleibt ein isolierter Versuchsstand; die experimentelle Einstellung ist standardmäßig aus. Die Quellen vom 25.11.2026 erweitern den älteren AIV-Brückenpiloten auf gemeinsame Bau-/Geländeereignisse, lokale Current-/Next-Erkennung, qualifizierte Arbeiter-/Befehlsfortsetzung und einen getrennten neuen Fluchtauftrag für untätige Einheiten auf frischem Moat. Sie brauchen das gemeinsam geprüfte Entwicklungs-SDK APIShared 0.74.0. Der aktuelle Singleplayerstand samt verbleibenden Grenzen steht in [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md); ältere Spielversuche des früheren Prototyps sind keine pauschale Abnahme des neuen Systems.

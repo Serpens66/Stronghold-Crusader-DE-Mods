@@ -1,5 +1,7 @@
 # Singleplayer-Abnahme und Abschluss der Einheitenrettung
 
+**Aktueller Auftrag ab 27.11.2026:** Die Gesamtaufgabe bleibt pausiert; die frühere Wartebedingung auf „Mehrfachplatzierung erweitern“ ist erfüllt. Maßgeblich ist der aktive Teil von [RESCUE-PLAN.md](RESCUE-PLAN.md). Nach der Codeumstellung prüfen neue Fälle native Entfernung feststeckender Bauern/Arbeiter und deren Belegungs-/Slotbereinigung statt Fortsetzung des alten Jobs. Originale Soldaten, Spezialisten, Geräte und Mannschaften bleiben zu erhalten. Akzeptierte Warenverluste und fehlender Sofortersatz sind keine Testfehler. Die folgenden datierten Listen und Ergebnisse dokumentieren den bisherigen Code; dessen Worker-Zweichargenpflicht und vollständige Phasen-/Produktfortsetzung sind kein aktiver Arbeitsauftrag mehr. Lauf164 wurde mit USER_PAUSED_PARTIAL restauriert, nicht als Gesamt-PASS abgeschlossen. Neue Abnahmen eindeutig dem neuen Maßnahmenmodell zuordnen.
+
 Auftrag vom 26.11.2026. Aktuelle Zielintegration: **BugfixesAndQoL**. Die frühere Planung einer Übernahme nach Pathfinding ist für die Zielintegration überholt; Pathfinding bleibt ein ausdrücklich zu prüfender Kompatibilitätspartner. Historische Belege und native Audits bleiben gültig innerhalb ihres jeweils dokumentierten Umfangs.
 
 ## Startfreigabe und Schutz der laufenden Arbeit

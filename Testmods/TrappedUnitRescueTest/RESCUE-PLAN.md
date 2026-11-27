@@ -1,8 +1,94 @@
-# Plan: allgemeine Einheitenrettung und spätere Integration in Pathfinding
+# Arbeitsplan: feststeckende Bauern entfernen und Soldaten befreien
+
+Verbindlicher Planstand: 27.11.2026. Zielintegration: **BugfixesAndQoL**. Ausführung: **pausiert**. Dieser Dokumentationsauftrag startet weder Implementierung noch Spieltests.
+
+## Vorrang und Ziel
+
+Dieser aktive Teil ersetzt die früheren Vorgaben zur identitätserhaltenden Arbeiter-Fortsetzung und zur Migration nach Pathfinding. Der unten abgegrenzte Archivteil und ältere Checklisten dienen als Nachweise und technische Quellen; ihre offenen Aufgaben sind keine zusätzliche Abschlussbedingung. Bei jeder Fortsetzung zuerst diesen aktiven Teil und den tatsächlichen Quell-/SDK-Zustand prüfen.
+
+Der gespeicherte übergeordnete Chat-Zieltext bleibt grundsätzlich geeignet: den Rettungsmod effizient finalisieren, in Singleplayer prüfen und anschließend in BugfixesAndQoL integrieren. Seine Ausführung richtet sich nach den nachfolgenden aktualisierten Regeln. Über die verfügbaren Zielwerkzeuge lässt sich der vorhandene objective-Text nicht umschreiben; kein neues paralleles Ziel anlegen und das bestehende Ziel nicht als erledigt markieren.
+
+## Verbindlicher Zieltext für die weitere Bearbeitung
+
+> Finalisiere den Testmod nach diesem aktuellen Arbeitsplan: Nachweislich durch Bau- oder Geländeänderungen feststeckende Bauern und Wirtschaftsarbeiter regulär vollständig entfernen; Vanilla übernimmt Bevölkerungsausgleich und Jobneuvergabe. Das umfasst arbeitslose Lagerfeuerbauern und landwirtschaftliche Arbeiter. Transportierte Waren, bereits verbrauchte Inputs und verzögerte oder ausbleibende Neubesetzung sind als Nachteile akzeptiert; keine Warenkompensation oder künstlichen Ersatzbauern einführen. Soldaten erhalten, auf ein geprüftes nahes Feld befreien und ihren weiterhin gültigen Bewegungsauftrag fortsetzen. Rekrutierte Spezialisten, Belagerungsgeräte und Mannschaften separat erhalten und absichern. Erkennung ereignisbasiert über APIShared, mit festen Budgets und ohne dauernde Vollscans. Vorhandenen Code auf diesen einfacheren Ansatz umstellen und überflüssige Arbeiter-Fortsetzung samt ausschließlich dafür benötigten Tests entfernen. Erforderliche Singleplayer-, Editor-, Save-/Lifecycle-, Kompatibilitäts- und Effizienzprüfungen deterministisch durchführen, sobald das Ziel fortgesetzt wird: feste geeignete Karte, kontrollierte Testfälle, Friedenszeit, RandomEvents aus, DoNothing für nicht kämpfende Gegenproben, geprüfter Hintergrunddesktop ohne globale Eingaben. Aktuellen Fixes-Mod und die relevanten eigenen Mods einschließlich Pathfinding und CastlePlanner berücksichtigen; gemeinsame Hookbesitzer in APIShared erhalten. Nach bestandener Abnahme in BugfixesAndQoL integrieren, dort erneut prüfen und den ursprünglichen Runtime-Testmod entfernen; eigenständige Automation und notwendige Nachweise erhalten. Keine echte Multiplayerfreigabe. Bei einer zwingenden neuen Produktentscheidung zuerst alle unabhängigen Arbeiten abschließen, dann die Entscheidung vorlegen; die bereits akzeptierten Nachteile nicht erneut zur Freigabe stellen.
+
+## Festgelegtes Verhalten und Grenzen
+
+| Einheit / Zustand | Gewolltes Ergebnis | Entscheidender Schutz |
+|---|---|---|
+| Gewöhnlicher Bauer / Peasant, auch arbeitslos | Bei bewiesenem Feststecken native vollständige Entfernung | Keine Verwechslung mit laufender Soldaten-/Spezialistenrekrutierung anhand des vorübergehenden Peasant-Typs |
+| Wirtschaftsarbeiter einschließlich sämtlicher Farmer | Native Entfernung, spätere natürliche Slotfreigabe und gegebenenfalls Neubesetzung | Alte ID/Global nicht nach Wiederverwendung anfassen; kein Arbeits-/Cargo-Replay |
+| Gewöhnlicher Soldat | Dieselbe Einheit lokal befreien und gültige aktuelle Befehlsabsicht fortsetzen | HP/Owner/Verband/Belegung erhalten; neuer Auftrag und legitimer AI-Wechsel gewinnen |
+| Ingenieur, Gerät und Mannschaft | Eigenen bestehenden Verbundvertrag erhalten | Kein Löschen aufgrund einer pauschalen Nicht-Soldaten-Regel; kein Crew-Neuspawn |
+| Ox, arbeitsgebundene Tiere und sonstige Hilfseinheiten | Explizit geprüfte fachliche Behandlung | Ihre Erzeugung erfolgt nicht pauschal über Peasant-Zuzug; keine unbewiesene Ersatzgarantie |
+| Gesunde Idle-/Hidden-/Arbeitsanimation, legaler Sonderweg | Keine eigene Aktion | Stillstand, fehlende sichtbare Belegung oder ein unerreichbares Ziel allein beweisen keine Falle |
+| Tod, absichtliche Editorlöschung, Transientzustand oder unbekannte Identität | Keine Wiederbelebung oder blinde Entfernung | Native Lebens- und Ownershipgrenzen beibehalten |
+
+Warenverlust und fehlende sofortige Neubesetzung sind **entschieden und akzeptiert**. Daraus folgt keine Freigabe für beschädigte Tilechains, dauerhaft falsche Mitarbeiterbindungen oder versehentlich gelöschte Soldaten. Menschen und KI erhalten dieselbe fachliche Behandlung innerhalb der bereits belegten Besitzer-/Ereignisgrenzen. Alte Saves ohne kausale Vorherdaten und fremde Besitzer werden nicht beiläufig durch neue Scans freigegeben.
+
+## Aktive Arbeitspakete in Reihenfolge
+
+| ID | Aufgabe | Abschlusskriterium | Status |
+|---|---|---|---|
+| N0 | Tatsächlichen Code-/SDK-/Paketstand und vorhandene Belege prüfen; veraltete Aufgaben außer Kraft setzen | Zuständigkeiten und Quellen eindeutig; alte 20-Rollen-Produktionsfortsetzung kein Freigabeziel | Plan umgestellt; Codeabgleich bei Wiederaufnahme offen |
+| N1 | Entfernungspfad für Bauern/Arbeiter samt Klassifizierung und sicherem Simulationseinstieg schließen | Native Markierung bis endgültiger Entfernung, Belegung, Mitarbeiter-/Aktivslots, Weltwechsel und Originalaufrufbesitz geprüft; Rekrutierung geschützt | Native Grundlagen in Baseline; Implementierungsvertrag offen |
+| N2 | Ereignisbasierte Erkennung mit getrennten Maßnahmen verbinden | Qualifizierte Bauern/Arbeiter werden entfernt, Soldaten verwenden die erhaltene sichere Befreiung; OFF verursacht keine eigene Maßnahme | Offen |
+| N3 | Alten Arbeiter-Fortsetzungscode und ausschließlich zugehörige Tests ablösen | Keine Worker-Jobwiederherstellung, Crop730-Korrektur, Grunt-Wegpostprozessor-Nachbildung oder Rollenproduktions-Fortsetzung mehr nötig; weiterhin benötigte Command-/Crew-/Geometriebausteine erhalten | Offen |
+| N4 | Neue funktionale Abnahme und negative Gegenproben | Entfernung/Belegung/Jobfreigabe statt gleicher Workeridentität und zwei geretteten Produktionschargen; Soldaten-/Gerätegarantien unverändert | Offen |
+| N5 | Lifecycle, Save/Load, Einstellungen und Fixes-Kompatibilität abnehmen | Kein doppelter Löschauftrag, kein alter Worker-Receipt-Replay, kein zurückgelassener eigener Flags5-Parkzustand; keine Hookkollision | Offen |
+| N6 | Relevante Last-/Bursts-/Normalbetriebsmessung abschließen | Ereignisarbeit und Queues begrenzt; keine leere Dauerarbeit/Vollscans; reale Messungen mit belegten Testwelten | Teilbelege des alten Capturekerns vorhanden; neuer Stand offen |
+| N7 | In BugfixesAndQoL integrieren und dort abnehmen | Eine Runtime, eine neue gemeinsame Hosteinstellung unter EnableMod, konsistente UI/Defaults/Locales und SDK-Paarung; echte MP-Rettung aus | Offen |
+| N8 | Ersetzten Prototyp und entbehrliche Entwicklungsreste entfernen | Automation separat, notwendige Audits/Fehlerbelege erhalten, normale Releaseartefakte ohne Entwicklungsdiagnose | Offen |
+
+**Erster Schritt nach Wiederaufnahme:** N0 abschließen und N1/N2 im Testmod umsetzen; nicht die unterbrochene Farmer-/Pitch-Serie164 oder unintegrierte Miner2-/Tanner-/Crop-Stages nach dem alten Produktionsziel weiterführen. Der vorhandene Quellcode implementiert noch den alten Ansatz; diese Planänderung ist keine Behauptung einer fertigen Runtimeumstellung.
+
+## Entfernung und Wegfall alter Komplexität
+
+Gemeinsame Ereignisbesitzer, tatsächliche Vorher-/Nachhergeometrie, Current-/akzeptierte-Next-Erfassung, Lebensidentität, Deduplizierung und feste Budgets weiterverwenden. Einen Bauern nicht schon wegen eines einzigen fehlgeschlagenen Wegauftrags entfernen; es braucht den bestätigten zur Änderung gehörenden Feststeckfall. Maßnahmen erst nach dem vollständigen äußeren Bauvorgang am erlaubten Simulationspunkt durchführen.
+
+Den Arbeiterzweig so früh trennen, dass seine Entfernung nicht mehr von erfolgreichem Job-/Feld-/Vegetationssnapshot, einer eigenen Bewegungsprobe, einer Bankkachelsuche oder alter Worker-Reissue-Policy abhängt. Erforderliche Typ-/Lebens-/Belegungs- und Wirkungskontrollen bleiben bestehen. Insbesondere nicht dieselbe vollständige Workerfortsetzung als Aufnahmebedingung behalten und nur am Ende die Maßnahme austauschen. Für allgemeine Beobachtung/Entfernung einen belegten bestehenden APIShared-/Extenderpfad nutzen; keine unnötigen neuen nativen Detours.
+
+WorkerTravelPolicy/Job-/Journey- und NativeWorkerResumeWorld-/Supervisor-/Save-Anteile nach tatsächlichen Verbrauchern prüfen. Gemeinsame Command-/Crew-Funktionen zuerst sauber lösen; anschließend ausschließlich überholten Code, Worker-Fortsetzungsfixtures und Buildaufrufe entfernen. Bestehende relevante Tests aktualisieren; alte Erwartungen nicht nur auf Erfolg umbiegen. Bereits gespeicherte experimentelle Pending-/Parkzustände erhalten vor einem etwaigen Verwerfen einen sicheren belegten Übergang, damit kein eigener Parkzustand dauerhaft zurückbleibt. Keine automatische Übernahme alter Prototyp-Saves in den Hauptmod erfinden.
+
+Entfernung ist keine Produktionskompensation: Waren, Yield, AI, Tierreservierungen und Jobstadien nicht künstlich nachspielen. Bei Cow-/Tanner- und Mine-/Millerfällen die tatsächliche native Bereinigung der Bindungen beobachten; ein normaler nativer Tier-Timeout ist von einer neu verursachten dauerhaften Fehlbindung zu unterscheiden.
+
+## Neue Abnahmekriterien
+
+- Bauern/Arbeiter: echter reproduzierbarer Trap, eigene Aktion nur ON, ursprüngliche Identität endgültig entfernt, keine restliche Current-/Next-Belegung und keine Aktion auf eine wiederverwendete ID. Arbeitsplatzslots werden nach dem nativen Vertrag freigegeben; unter kontrolliert zulässigen Bedingungen wird natürliche Neubesetzung mit neuer Identität nachgewiesen. Keine sofortige Ersetzung verlangen.
+- Auch arbeitslose Bauern, Landwirtschaft, normale Input-/Outputreisen und unterschiedliche tatsächliche Mengen/Fracht prüfen. Repräsentative Sonderbindungen gezielt absichern: Tanner/Cow, aktive Mine-/Millerplätze sowie die gesonderte Ox-/Hilfseinheitenpolitik. Die Klassifizierung muss alle gewollten Familien erfassen; das ist keine erneute Forderung, jeden Arbeitsweg/Produktionszyklus wieder aufnehmen zu können.
+- Negative Fälle: OFF, No-op, abgelehnter Writer, legaler Ausgang, bloß unerreichbares Ziel, regulär Hidden/Idle, Rekrutierung, Tod, Slotreuse, Weltwechsel und bereits erfolgte Vanilla-/Fixes-Entfernung. Unzureichende Vorbedingungen bleiben fehlgeschlagene Tests, kein Zufalls-PASS.
+- Soldaten: Identität/HP/Verband erhalten, tatsächlich zulässige lokale Zielkachel und Bewegung nach der Befreiung; KI-Leader/-Mitglied, neue Befehle, stehende/begonnene Schritte, Angriffs-/Kletter-/Sondergrenzen und fehlender sicherer Zielort gezielt prüfen. Geräte und originale Ingenieure unverändert erhalten.
+- Lifecycle/Save: vor/nach einer Maßnahme, ausstehende Kandidaten, Tod/Slotreuse, Laden/Editor/Ende und eigene überholte Worker-Parkfälle. Keine halb abgeschlossenen nativen Aktionen serialisieren oder wiederholen.
+- Performance: vorhandene verwertbare Capture-Messungen als datierte Teilbelege erhalten. Belastungen und tatsächlich erforderliche Grenzwerte vor dem jeweiligen Lauf festlegen; historisch vorbereitete Varianten nicht ungeprüft vollständig abarbeiten. Funktionale Tests und passive Messungen getrennt qualifizieren.
+
+Die bisherigen **13/20 Workerrollen** und Zweichargenbelege beschreiben den alten Erhaltungsansatz. Sie sind keine Pflichtquote und kein Abnahmenachweis für den neuen Entfernungspfad. Neue Belege ausdrücklich mit Maßnahme und erwartetem Resultat kennzeichnen.
+
+## Kompatibilität, Migration und Abschluss
+
+APIShared bleibt Besitzer gemeinsamer WorldMutation-/UnitMove-/SimulationTick-/Lifecycle-/Save-Verträge. Fixes darf reguläre eigene Entfernungen weiter ausführen; seine Unterdrückung für die entfallende Workerfortsetzung überprüfen und entfernen beziehungsweise auf nachweislich weiterhin nötige eigene Soldatenaktionen begrenzen. Keine fremden Einstellungen verändern. Die getrennte entfernbare Mounted-Scanner-Korrektur bleibt an ihren relevanten Upstreamvertrag gebunden und wird durch allgemeine Rettung OFF nicht abgeschaltet. Ihre BQoL-Master-OFF-Produktfrage bleibt gesondert offen, bis sie tatsächlich benötigt wird.
+
+BQoL-Migration anhand des dann vorhandenen vereinfachten Kerns neu zuordnen. Die alte Migrationskarte unten ist keine Anweisung, WorkerRecoveryService samt alten Worker-Savedaten und Feldkorrekturen blind zu übernehmen. Lord-/Relocation- und andere native Hookbesitzer erhalten; keine zweiten Hooks oder Broker. Genau eine neue Hosteinstellung mit Masterbindung, vollständiger UI/Locale-/Resetverdrahtung, geprüftem Default und konsistenter SDK-Version. Prototyp-Testsettings sind keine bereits festgelegten Produktionsdefaults.
+
+Abgeschlossen ist das Ziel erst mit umgestelltem und ausreichend geprüftem Mod, abgenommener Integration in BugfixesAndQoL und entfernter ersetzter Runtime. Keine Ingame-Testlogik in Produktionsmods. Kein Commit/Push/Release ohne eigenen Auftrag. Bei notwendiger Nutzerentscheidung zuerst unabhängig mögliche Arbeit fertigstellen und den konkreten verbleibenden Punkt nennen; keine erneute Grundsatzdiskussion über akzeptierte Warenverluste oder Neubesetzungsverzögerung.
+
+## Nachweise und Fortsetzungseinstiege
+
+- [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md): historischer Laufnachweis und künftige ausdrücklich neue Abnahmeergebnisse.
+- [INGAME-PENDING.md](INGAME-PENDING.md): historische Restlisten; für neue Läufe gelten die Kriterien oben.
+- [WORKER-GAME-MATRIX.md](WORKER-GAME-MATRIX.md): alte Worker-Fortsetzungsabdeckung; kein aktiver Arbeitsvorrat.
+- [IMPLEMENTATION.md](IMPLEMENTATION.md), [API-HANDOFF.md](API-HANDOFF.md), [TESTING.md](TESTING.md): vorhandene technische Quellen und überprüfbare Build-/SDK-/Testwege; ihre Zustandsangaben vor Nutzung erneut prüfen.
+- Baseline über [CURRENT.md](../../_inspect/CrusaderDE-Native-Baseline/CURRENT.md): bestätigte native Entfernung, Migration/Jobvergabe, Belegung, Command- und Produktionsgrenzen.
+- `.work/a/rescue-sp/001/PAUSED.md` und `.work/INDEX.json`: Fortsetzungsstand. Lauf164 ist USER_PAUSED_PARTIAL und restauriert; keine automatische Fortsetzung seiner alten Liste.
+
+## Archiv: früherer Arbeitsplan und datierte Nachweise
+
+**Der gesamte folgende Teil ist Historie.** Aussagen wie „nächster Schritt“, offene P0–P10-Kästchen, Worker-Identitätserhalt und Pathfinding-Zielmigration gelten nur für ihren damaligen Stand. Der aktive Plan oben ersetzt diese Handlungsanweisungen; Vanilla-Audits, Quellen und ehrlich begrenzte historische Testergebnisse bleiben erhalten.
+
+## Plan: allgemeine Einheitenrettung und spätere Integration in Pathfinding
 
 Erstellt: 17.11.2026. Fortschritt aktualisiert: 26.11.2026. Arbeitsplan und fortlaufendes Abnahmeprotokoll.
 
-## Neubewertung und akzeptierte Nachteile, 27.11.2026
+### Neubewertung und akzeptierte Nachteile, 27.11.2026
 
 Die laufende Gesamtaufgabe und Spieltests wurden vom Nutzer pausiert. Lauf164 ist unterbrochen und vollständig wiederhergestellt; abgeschlossene Einzelschritte sind kein Gesamt-PASS. Die nachfolgenden Fortsetzungs- und Abnahmepläne dokumentieren den bisherigen Ansatz und sind noch keine Freigabe seiner unveränderten Weiterführung.
 
@@ -16,13 +102,13 @@ Vor einer Umsetzung ist der gemeinsame Entfernungseinstieg mit Simulationstiming
 
 Die zugehörigen gesicherten Vanilla-Erkenntnisse sind in der Baseline ergänzt: `RECRUIT_TRANSFORMATION.md` (Entfernung/Recount/Migration/Jobvergabe), `WORKER_PRODUCTION_BONUS.md`, `WEAPON_WORKSHOP_FIELDS.md`, `HUNTER_PREY_RULES.md` und `TRAPPED_UNIT_RESCUE_AUDIT.md`. Offene alternative Disband-/Recyclingpfade und der genaue KeepDoor-zu-Lagerfeuer-Weg bleiben als solche gekennzeichnet.
 
-## Aktueller Auftrag vom 26.11.2026
+### Aktueller Auftrag vom 26.11.2026
 
 Der Nutzer autorisiert jetzt die erforderlichen **Singleplayer-Ingame-Tests**, weitere Fehlerkorrekturen und Effizienzprüfung. Die anfängliche Wartebedingung auf den Chat „Mehrfachplatzierung erweitern“ wurde erfüllt; die inzwischen ausgeführten Läufe und ihre Wiederherstellung sind im Abnahmeprotokoll belegt. Die Testfälle werden kontrolliert erzeugt, mit Friedenszeit, festgelegter geeigneter Karte und deaktivierten RandomEvents. Ausführungs- und Abnahmeplan: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md).
 
 **Neue Zielentscheidung:** Nach erfolgreicher Finalisierung erfolgt die Übernahme in **BugfixesAndQoL** und die Entfernung des ursprünglichen Testmods. Die nachfolgenden älteren Pathfinding-Migrationsabschnitte beschreiben die frühere Planung; ihre technischen Kompatibilitäts- und Ownershipanforderungen bleiben relevant, der Zielmod ist durch diesen neuen Auftrag ersetzt. Reale Multiplayerfreigabe gehört nicht zu diesem Auftrag.
 
-## Abnahmefortschritt am 26.11.2026, 23:34 Uhr
+### Abnahmefortschritt am 26.11.2026, 23:34 Uhr
 
 - [x] Vorhandenen DoNothing-Lord über normale Lobbybefehle einbinden und tatsächliche geladene native Identität sowie AIC-/AIV-Fingerprints prüfen; gezielt für die neuen Arbeiterfälle, keine Nullaktivitätsgarantie.
 - [x] Natürlicher Fletcher-R7-Bowfall OFF/ON einschließlich beider vollständiger Waffenlieferungen und neuem Produktionszyklus: Lauf159 PASS.
@@ -34,7 +120,7 @@ Der Nutzer autorisiert jetzt die erforderlichen **Singleplayer-Ingame-Tests**, w
 
 Alle Läufe159–162 wurden auf dem getrennten Desktop ausgeführt und vollständig wiederhergestellt. Vollständige Belege und Grenzen: [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md), aktuelle Rollenübersicht: [WORKER-GAME-MATRIX.md](WORKER-GAME-MATRIX.md). Dies ersetzt keine noch offene Gesamtfreigabe.
 
-## Konkrete BQoL-Migrationskarte (26.11.2026)
+### Konkrete BQoL-Migrationskarte (26.11.2026)
 
 Dies ist die vorbereitete Quellzuordnung für die bereits festgelegte Zielintegration in **BugfixesAndQoL**, keine durchgeführte Migration oder abgeschlossene Gesamtfreigabe. Erst nach der verbleibenden Singleplayer-/Effizienzabnahme wird integriert und anschließend der Prototyp entfernt. Die älteren Pathfinding-Zielabschnitte unten bleiben historische Planung. Durchführung und Grenzen stehen in [SP-ACCEPTANCE.md](SP-ACCEPTANCE.md), SDK-Verträge in [API-HANDOFF.md](API-HANDOFF.md).
 
@@ -63,7 +149,7 @@ Ein featureeigener Bereich `BugfixesAndQoL/src/TrappedUnitRescue` genügt. Thema
 
 **Ausdrücklich noch offener Produktpunkt:** Soll die separate Fixes-Scannerkorrektur auch bei **BQoL-Master-OFF** wirken? Das ist bisher nicht entschieden und wird bei der Migration nicht stillschweigend festgelegt. Davon getrennt ist bereits verbindlich: **General-Rescue-OFF darf die originale Fixes-Reiterrettung bzw. deren Scannerkorrektur nicht abschalten.** Dafür wird keine zusätzliche Modsetting eingeführt.
 
-## 1. Ziel, Auftrag und Zuständigkeit
+### 1. Ziel, Auftrag und Zuständigkeit
 
 Einheiten sollen nach einer Bau- oder Geländeänderung zuverlässig erkannt werden, wenn sie ihren Standort nicht mehr regulär verlassen können. Die Rettung erhält dieselbe Einheit, Gesundheit, Waren, Arbeitsplatz, Besatzung und die weiterhin gültige Befehlsabsicht. Ein unerreichbares Ziel oder längeres Stillstehen allein berechtigt zu keiner Versetzung.
 
@@ -71,7 +157,7 @@ Der Testmod bleibt bis zur fachlichen Abnahme der Entwicklungs- und Testort. Das
 
 Dieser Auftrag erstellt den Plan auf Grundlage des aktuellen Arbeitsstands. Er installiert oder veröffentlicht nichts und beginnt noch keine Migration in den Hauptmod. Produktionscode, fremde Quellen und vorhandene Nutzeränderungen bleiben dabei erhalten. Die vorhandenen Änderungen an `Pathfinding/src/TODO.md` und `Pathfinding/UpdateToNewDLL.md` sind kein Auftrag, sie umzuschreiben.
 
-### Was „allgemein“ hier bedeutet
+#### Was „allgemein“ hier bedeutet
 
 - Menschen und KI werden anhand derselben fachlichen Rettungsregeln behandelt. Die aktuell vom Menschen ausgewählte Einheit ist keine Voraussetzung.
 - Bau- und Bewegungsquellen sowie Einheitenfamilien werden über eine ausdrückliche Abdeckungsmatrix erschlossen. Ein erfolgreicher Speerträgertest gibt keine Arbeiterzustände frei.
@@ -79,7 +165,7 @@ Dieser Auftrag erstellt den Plan auf Grundlage des aktuellen Arbeitsstands. Er i
 - Fehlt ein sicherer Zielort oder ein belegter Zustandsvertrag, bleibt die Einheit unverändert und der Fall wird als nicht gerettet ausgewiesen. Unbekannte Speicherbeschädigung wird nicht durch blindes Teleportieren behandelt.
 - Neue Fehler verhindern und vorhandene Fehler aus alten Saves reparieren sind unterschiedliche Aufgaben. Ohne Vorherdaten darf der zweite Fall nicht die Beweisregeln des ersten übernehmen.
 
-## 2. Fortschritt und Arbeitsweise
+### 2. Fortschritt und Arbeitsweise
 
 Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. Ein Kästchen wird erst mit benanntem Nachweis abgeschlossen. „Nicht ausgeführt“ und „nicht unterstützt“ sind kein PASS.
 
@@ -99,7 +185,7 @@ Statuswerte: **offen**, **in Arbeit**, **teilweise geprüft**, **abgenommen**. E
 
 **Nächster konkreter Arbeitsschritt:** Gesondert autorisierte Spielabnahme nach INGAME-PENDING.md vorbereiten. Der Offlineauftrag einschließlich überschneidender Folgegeometrie, vollständigem Paketbuild und SDK-Übergabenachweis ist abgeschlossen;64101 Testmodprüfungen sowie1787 SDK-Tests bestanden. Finale UnitMove-Argumente, native Rückgaben, Common-Owner-Anbindung, Save-/Ordergrenzen sowie gewöhnliche und untätige Moat-Fortsetzung sind implementiert und integriert offline geprüft. Fortschritt und noch ausstehende Spielprüfungen stehen in [IMPLEMENTATION.md](IMPLEMENTATION.md) und [INGAME-PENDING.md](INGAME-PENDING.md).
 
-### Offline-Fortschritt vom 25.11.2026
+#### Offline-Fortschritt vom 25.11.2026
 
 Die relevanten ausführbaren Offline-Prüfungen des vorhandenen Prototyps und des aktuellen Pathfinding-Arbeitsstands bestehen. Einzelheiten, Quellidentitäten, verworfene Laufversuche, Vertragsmatrix und offene Grenzen stehen in [OFFLINE-CHECKS.md](OFFLINE-CHECKS.md). Geprüft wurden der Testmod-Build mit 1.807 Einzelprüfungen plus Fixes-Verträgen, NativePatchGuard, 105 ausgewählte APIShared-Tests, 62 Bauzustandsprüfungen, Quell-/XAML-/Locale-Prüfungen und sämtliche vom normalen Pathfinding-Build ausgewählten Offline-Suiten. Eine fehlende explizite Tooltip-Stilzuweisung wurde im Testmod korrigiert; die betroffenen Prüfungen und sein Build wurden erfolgreich wiederholt.
 
@@ -107,7 +193,7 @@ Es wurde nichts installiert und kein Spiel gestartet. Die Abnahme vom 17.11. ble
 
 P1 ist durch die dokumentierten AIV-/Bau-/Spiegel-/Editor-/Bewegungsverträge vorangekommen, aber noch nicht geschlossen. P2–P10 erhalten durch erfolgreiche Tests des bestehenden Codes keine pauschale Freigabe. Weiter offen sind insbesondere zusätzliche endgültige Änderungsabschlüsse, alte Ausweichbereiche, Next-/Schrittzustände, automatische Arbeiter-/Besatzungspfade und die spätere echte Spiel-/MP-/Lastabnahme. Bis zur nächsten Umsetzung zuerst diese P1-Lücken für die ausgewählte Quelle schließen.
 
-### Anschließender vollständiger statischer Audit vom 25.11.2026
+#### Anschließender vollständiger statischer Audit vom 25.11.2026
 
 Der spätere ausdrückliche Auditauftrag schließt die zuvor genannten statischen P1-Lücken. Einstieg und verbindliche Teilberichte: [Audits/AUDIT.md](Audits/AUDIT.md). Untersucht wurden sämtliche 23 Creator-Dispatchfamilien des gemeinsamen Baupfads, AIV/Prebuild, Menschen-/KI-Mauern, finale Original-/Mirroraufrufe, terminales Dig/Fill, alle sieben äußeren Editorwriter, terminaler Abriss, gewöhnliche und besondere Current-/Next-/Belegungsfolgen, Tunnel/Assassinen/Portal-/Ladderzustände, alle 20 Wirtschaftsrollen, Geräte/Crew sowie Lifecycle, Save, Resync und aktuelle Hookbesitzer. Sichere Nichtfreigaben sind mit konkreten legitimen beziehungsweise schädlichen Folgezuständen begründet; nicht durch pauschales „unbekannt“ ersetzt.
 
@@ -117,7 +203,7 @@ Der Audit beschreibt den additiven Brokervertrag einschließlich eines äußeren
 
 Native/Managed-Hashes wurden erneut geprüft; die Extenderstände von Dataset, installierter Referenz und aktuellem Quellbaum2.14.6 wurden getrennt abgeglichen. Keine Installation, kein Spielstart, keine Runtimequellenänderung. Die wiederverwendbaren neuen nativen Fakten stehen zusätzlich im bestehenden Baseline-Dossier `TRAPPED_UNIT_RESCUE_AUDIT.md`. P2–P10 bleiben Implementierungs-/Abnahmearbeit; Altsave-/Besitzer-/Persistenzentscheidungen bleiben ausdrücklich offen.
 
-### Aktueller Implementierungsauftrag nach dem Audit
+#### Aktueller Implementierungsauftrag nach dem Audit
 
 Der anschließende Auftrag umfasst sämtliche sinnvoll ausführbaren Offline-Schritte im Testmod und einer isolierten APIShared-Arbeitskopie. Kandidatenkern, lokale Current/Next-Erkennung, automatische Brücken-/weitere Bau-/Geländequellen, gewöhnliche Soldaten, qualifizierte Arbeiterreisen, Besatzungen und kausaler Replan sind implementiert. Die F1-Korrektur aus dem anderen Chat ist vollständig übernommen. Aktuelle Quellen und Nachweise: [IMPLEMENTATION.md](IMPLEMENTATION.md), [API-HANDOFF.md](API-HANDOFF.md).
 
@@ -125,7 +211,7 @@ Die folgenden P0–P10-Checklisten sind die vollständige Funktionsabnahme einsc
 
 Nicht Bestandteil des Offlineabschlusses sind Installation, reale Spiel-/Editor-/Save-/Last-/MP-Abnahme, Reparatur historischer Fälle ohne Vorherdaten, eine neue Politik für fremde Besitzer und die spätere Migration nach Pathfinding. Die vorhandene Besitzerpolitik wird ausdrücklich beibehalten; ein enger Beleg wird nicht als allgemeine Freigabe weiterer Zustände ausgegeben.
 
-### Bei jeder Fortsetzung
+#### Bei jeder Fortsetzung
 
 1. Diesen Plan, `TESTING.md`, relevante Updateverträge und `.work/INDEX.json` lesen; Branch, HEAD, Arbeitsstand und referenzierte Nachweise erneut prüfen.
 2. Ein Arbeitspaket auswählen und als „in Arbeit“ markieren. Geänderte Annahmen und Entscheidungen im Änderungsprotokoll festhalten.
@@ -134,7 +220,7 @@ Nicht Bestandteil des Offlineabschlusses sind Installation, reale Spiel-/Editor-
 5. Relevante Offline-, Integrations- und Spielprüfungen durchführen. Erst dann Status, Abdeckung, Grenzen und Belegpfade aktualisieren.
 6. Historische Fehlerbelege nicht überschreiben. Reproduzierbare temporäre Kopien aufräumen, Originalinstallation verifiziert wiederherstellen. Keine Commits oder Veröffentlichungen ohne Auftrag.
 
-## 3. Geprüfter Ausgangsstand von Pathfinding
+### 3. Geprüfter Ausgangsstand von Pathfinding
 
 Die folgende Tabelle ist eine Momentaufnahme des lokalen Quellstands, kein dauerhafter Vertrag über Dateinamen oder Versionen. Ausgangs-HEAD des Mod-Repositories: `9dcd28b4384b8ff7efb5b2852a38832993cfc9db`, Branch `develop`, einschließlich vorhandener uncommitteter Änderungen. `Pathfinding/info.json` bezeichnet den Quellstand als Version `0.1.10`, mit APIShared-Mindestversion `0.53.0`.
 
@@ -157,13 +243,13 @@ Vor späterer Adressverwendung erneut gegen den dann aktuellen Baseline-Verweis 
 | [SoldierTribeMoves.cs](../../Pathfinding/src/Engine/SoldierTribeMoves.cs) | Kontrollierte temporäre Einzelverbände und Rückkehr zu Gruppen | Befehlssemantik studieren; nicht blind für KI, Arbeiter oder Rettung übernehmen. Bevorzugt ursprünglichen Verband unverändert lassen. |
 | [MovementCaseSave.cs](../../Pathfinding/src/Engine/MovementCaseSave.cs), [EngineHost.cs](../../Pathfinding/src/Engine/EngineHost.cs) | Versionierte Bewegungsfälle, Wiederherstellung, prozessweit verwurzelter Host und Missionsoptionen | Spätere Integrationsorte. Ausstehende Rettung ist keine gespeicherte native Pointeransicht und darf beim Laden nicht blind wiederholt werden. |
 
-### Bestehende Kostenmodelle richtig einordnen
+#### Bestehende Kostenmodelle richtig einordnen
 
 Pathfinding ist nicht vollständig ereignisbasiert. `RouteReplanWatch` verteilt unter Bedarf Prüfungen über ungefähr ein Vierzigstel der IDs je Tick, kurzzeitig ein Achtel, plus eine Kandidatenliste und begrenzte Routenvorschau. Die Gefahrenflucht kann bei aktiven Gefahren alle IDs in ihrem Acht-Tick-Takt prüfen. Anchor-Spielererfassung und Oberflächenaktualisierung besitzen weitere verteilte Prüfungen.
 
 Das sind vorhandene, bedingte Verfahren. Der Rettungsmod soll nicht noch einen unabhängigen permanenten Einheitenscan hinzufügen. Ebenso wenig werden diese bestehenden Verfahren ohne gesonderten Nachweis als Teil der Rettungsarbeit umgebaut. Neue Budgets werden am zusätzlichen Aufwand und am gesamten Simulationstakt gemessen.
 
-### Öffentliche API ist nicht mit interner Engine gleichzusetzen
+#### Öffentliche API ist nicht mit interner Engine gleichzusetzen
 
 - Die wesentlichen Pathfinding-Runtimeklassen und `UnitCommandPathAPI` sind intern. Der eigenständige Testmod verlinkt oder kopiert nicht die gesamte Engine. Notwendige Zusammenarbeit erhält einen kleinen belegten Vertrag; Tests dürfen interne Ergebnisse gezielt per Reflection prüfen.
 - [RouteSearchEvents](../../APIShared/src/Pathfinding/Routes/RouteSearchEvents.cs) beobachten zusätzliche gewichtete Suchen teilnehmender Herausgeber. Sie sind kein allgemeiner nativer Fehlerkanal. Ihr Callback-Vertrag verbietet Befehle und Weltmutationen. Der Kontext enthält keine allgemeine stabile Einheitenidentität; alleinige Zuordnung über Endpunkte reicht nicht.
@@ -172,7 +258,7 @@ Das sind vorhandene, bedingte Verfahren. Der Rettungsmod soll nicht noch einen u
 - [PathReachability](../../APIShared/src/Pathfinding/Reachability/PathReachability.cs) ist ein grober spieler-/modusabhängiger Komponentenfilter. `Connected` beweist keinen ausführbaren Detailweg; ein unerreichbares Ziel beweist keinen feststeckenden Start. Die Abfrage verändert native Suchbuchhaltung und ist nicht beliebig nebenwirkungsfrei verschachtelbar.
 - Der gelesene API-Katalog führt `PathReachability` ab APIShared `0.54.0`; Pathfinding deklariert derzeit mindestens `0.53.0`. Eine spätere Nutzung muss SDK, Laufzeitverfügbarkeit und Mindestversion tatsächlich klären, statt Quellpräsenz mit installierter API gleichzusetzen.
 
-## 4. Bereits vorhandene Rettungsbelege und ihre Grenzen
+### 4. Bereits vorhandene Rettungsbelege und ihre Grenzen
 
 Verbindlicher Ausgangsnachweis: [TESTING.md](TESTING.md), [AIV-Observer-Audit.md](AIV-Observer-Audit.md), [UpdateToNewDLL.md](UpdateToNewDLL.md), [zusammengefasste Laufdaten](../../.work/a/rescue-next/001/result.json).
 
@@ -184,7 +270,7 @@ Verbindlicher Ausgangsnachweis: [TESTING.md](TESTING.md), [AIV-Observer-Audit.md
 - Ein zusätzlicher belegter Aux-Belegungszustand wurde nicht natürlich erreicht. Seine Bereinigung darf nicht als geprüft ausgegeben oder durch künstliche Unitfelder hergestellt werden.
 - Letzter festgehaltener Offline-Stand:1538 Regel-/Zustandsprüfungen,263 native Guard-Prüfungen, sechs Produktions-Receipt-Verträge sowie relevante Managed-/Cecil-Verträge. Das ist keine aktuelle Vollabnahme aller Pathfinding-Funktionen.
 
-### Fixes-Korrektur getrennt halten
+#### Fixes-Korrektur getrennt halten
 
 Der Fehler des geprüften Fixes1.30.0 und seine Korrektur sind unabhängig vom allgemeinen Rettungsalgorithmus belegt: ursprüngliche Läufe046/047 mit aufgestellten echten Reitern scheitern; korrigierte Läufe073/074 bestehen auch bei ausgeschalteter eigener Rettung. Der Fehler betrifft den verzögert ausgewerteten veränderlichen Scanner.
 
@@ -194,7 +280,7 @@ Die 66 regulären Offline-Prüfungen verlinken die vier aktiven Quellen und prü
 
 Nach einem Upstream-Update den unveränderten Mod und die tatsächlichen Aufrufziele erneut prüfen; eigene Rettung OFF schaltet diese Kompatibilitätskorrektur nicht aus. Bekannte skalare Captures werden übersprungen, unbekannte relevante Verträge nicht verändert. Erst bei bestätigter Upstream-Korrektur die vierteilige Insel samt gewöhnlicher Testverdrahtung vollständig entfernen. Keine pauschale Fixes-DLL-Hash-/Versionssperre; vollständige relevante IL-/Helper-/Feldzugriffe und echte installierte Stubs prüfen. Die Native-Hash-Bindung bleibt davon getrennt.
 
-## 5. Zielarchitektur und unveränderliche Sicherheitsregeln
+### 5. Zielarchitektur und unveränderliche Sicherheitsregeln
 
 Die folgenden Namen beschreiben geplante Verantwortlichkeiten, keine bereits veröffentlichte API.
 
@@ -206,13 +292,13 @@ Die folgenden Namen beschreiben geplante Verantwortlichkeiten, keine bereits ver
         -> native Rettung und zulässige Befehlsfortsetzung
         -> physischer Erfolgsnachweis oder ausdrückliches Fehlerergebnis
 
-### Kandidat und kausaler Nachweis
+#### Kandidat und kausaler Nachweis
 
 Ein Kandidat enthält nur benötigte Werte: Sitzung, Unit-ID und Global-ID, Besitzer, Typ/Bewegungsprofil, Quellort und aktuelle/Next-Belegung, Änderungsursache, relevante Befehls-/Arbeitsidentität und zuvor belegte lokale Erreichbarkeit. Keine nativen Pointer, Spans oder unveränderlich angenommenen Objektreferenzen über verzögerte Arbeit hinweg.
 
 Die Ursache braucht eine eigene Bedeutung und Gültigkeit. Eine Cacheinvalidierung oder lokale Suchrevision ist nicht automatisch ein bestätigter Weltumbau. Verschachtelte Änderungen, Teilkonstruktion und mehrere Quellen derselben Änderung müssen koalesziert werden. Bei weiteren Änderungen darf ein alter Nachweis nicht unbemerkt durch eine nachträglich berechnete Erreichbarkeit ersetzt werden.
 
-### Nachbeobachtung und Grenzen
+#### Nachbeobachtung und Grenzen
 
 - Nur konkrete Kandidaten nachbeobachten; kein dauerhaftes Fortschrittsregister aller Einheiten.
 - Kandidaten anhand Sitzung und stabiler Identität deduplizieren; neue Ereignisse kontrolliert zusammenführen. Tod, ID-Wiederverwendung, Kartenwechsel und ungültiger Nachweis beenden den Fall.
@@ -220,7 +306,7 @@ Die Ursache braucht eine eigene Bedeutung und Gültigkeit. Eine Cacheinvalidieru
 - Begrenzte Wiederholungen mit deterministischer Verteilung. Obergrenzen für Kandidaten, Kachel-/Kantenbesuche, Zielsuche und Versuche festlegen und messen. Keine Laufzeit-Millisekunden als MP-entscheidendes Abbruchkriterium.
 - Neue Befehle respektieren: keine alte Bewegung, Warteschlange oder Arbeitsabsicht gegen einen inzwischen gültigen neueren Auftrag wiederherstellen.
 
-### Eingriff und Erfolgsbegriff
+#### Eingriff und Erfolgsbegriff
 
 - Zuerst belegen, ob die Einheit ihren Standort im tatsächlichen Modus regulär verlassen kann. Boden-Komponenten, Kachelflags und Routenfehler sind jeweils nur Teile dieses Nachweises.
 - Die Rettung erweitert keine Bewegungsrechte und erlaubt kein Überspringen unverwandter Mauern, geschlossener Tore oder fremder Sperren. Zielorte müssen für die konkrete Einheit aktuell legal und sicher belegbar sein.
@@ -231,15 +317,15 @@ Die Ursache braucht eine eigene Bedeutung und Gültigkeit. Eine Cacheinvalidieru
 - Nicht nur Rückgabewert oder Zielkoordinaten prüfen: aktuelle Position, alte/neue Belegung, stabile Identität und tatsächliche weitere Bewegung beziehungsweise Arbeit messen.
 - Fehler nach einer bereits ausgeführten Versetzung ausdrücklich von Ablehnung vor jedem Eingriff unterscheiden. Keine atomare Rückrollbarkeit behaupten: fehlgeschlagene Auftragsfortsetzung kann eine bereits bewegte Einheit hinterlassen. Nicht blind an den ungültigen Quellort zurücksetzen oder denselben Rettungsaufruf wiederholen.
 
-### Ein Besitzer je Eingriff
+#### Ein Besitzer je Eingriff
 
 Der Testmod und Pathfinding dürfen niemals dieselben nativen Spannen konkurrierend belegen. Vorhandene Pathfinding- und APIShared-Besitzer bleiben maßgeblich. Eine notwendige öffentliche Beobachtung wird dort additiv und fehlerisoliert angeboten, nicht über kopierte Hooks oder funktionale Nutzung einer Diagnose-API.
 
 Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch andere Teilnehmer verhindern. Funktionale Eingriffe erfolgen erst an einem dafür auditierten sicheren Punkt. Fixes bleibt überall aktiv, wo unser System den Fall nicht vollständig übernimmt. Bloße Kandidateneignung vor dem Bau ist kein Beleg, dass die spätere eigene Rettung gelingt.
 
-## 6. Arbeitspakete mit Abnahmekriterien
+### 6. Arbeitspakete mit Abnahmekriterien
 
-### P1 — Erzeuger- und Vertragsmatrix
+#### P1 — Erzeuger- und Vertragsmatrix
 
 - [x] Alle relevanten Quellen aufführen: KI-AIV-Brücke, KI-Mauer-/Gebäudebau, menschlicher Bau einschließlich Spiegel-/Serienpfaden, Editorbau/-gelände, Grabenfortschritt und tatsächlicher Abschluss, Rückbau/Zerstörung sowie externe Bau-APIs. Siehe vier Teilaudits.
 - [x] Je Quelle native/verwaltete Erzeuger, effektive Parameter, Footprint, betroffene Nachbarschaft, Thread, Reihenfolge, Abbrüche, Ausnahmen und stabilen Abschluss bis zur späteren Bewegung auditieren; nicht allgemein rettbare Zustände mit konkretem Vertrag abgrenzen.
@@ -252,7 +338,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Für jeden anzubindenden Pfad ist belegt, wie betroffene Einheiten vor der Änderung erfasst und nach dem vollständigen Umbau geprüft werden. Nicht belegte Pfade stehen sichtbar als offen in der Abdeckungsmatrix. Ein getesteter Pfad darf dabei bereits inkrementell weitergehen.
 
-### P2 — Kandidatenkern und begrenzte Verarbeitung
+#### P2 — Kandidatenkern und begrenzte Verarbeitung
 
 - [x] Bestehende Testmod-Snapshots/Ergebnisse so strukturieren, dass Erkennung, Nachweis, Planung, native Ausführung und Beobachtung getrennte Fehlerpfade besitzen.
 - [x] Kandidatenliste mit Identität, Ursache, Sitzung, Deduplizierung, Ablauf und begrenzten Wiedervorlagen implementieren. Vorherdaten nur so lange wie fachlich nötig halten.
@@ -262,7 +348,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Ohne Ereignisse keine Einheiten-/Wegprüfungen; ein Verdachtsfall verursacht begrenzte Arbeit; abgelaufene oder ersetzte Fälle können keine Mutation mehr auslösen.
 
-### P3 — Weitere automatische Bau-/Geländepfade
+#### P3 — Weitere automatische Bau-/Geländepfade
 
 - [x] Vorhandenen echten KI-AIV-Zugbrückenpilot und dessen No-op-/Off-/On-Belege als Ausgangspunkt dokumentiert.
 - [ ] Den Pilot in den gemeinsamen Kandidatenpfad überführen, ohne ursprüngliche Bauaktionen zu unterdrücken oder die bestehende Gegenprobe zu verlieren.
@@ -273,7 +359,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Echte normale Bauvorgänge lösen die Erkennung aus, ohne dass die Fixture ausdrücklich `BeginMutation` oder die Rettung aufrufen muss. Kontrollierte native Bauaufrufe und autonome KI-Abläufe werden im Nachweis getrennt.
 
-### P4 — Soldaten, Besitzer und KI-Gruppen
+#### P4 — Soldaten, Besitzer und KI-Gruppen
 
 - [ ] Stehende gewöhnliche Soldaten zuerst über neue automatische Quellen abnehmen: Einzelunit, mehrere Betroffene, tatsächlicher Gruppenführer und anderes Mitglied.
 - [ ] KI-Gruppen mit regulärem Marsch-, Angriffs- und gegebenenfalls Patrouillenauftrag prüfen; gesunde Mitglieder müssen weiter funktionieren. Keine universelle Gruppenblockade voraussetzen.
@@ -284,7 +370,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Physische Rettung und tatsächliche sinnvolle Auftragsfortsetzung bei Mensch und KI belegt sind; das übrige Gruppenverhalten und nicht betroffene Einheiten bleiben erhalten.
 
-### P5 — Begonnene Schritte und Sonderflächen
+#### P5 — Begonnene Schritte und Sonderflächen
 
 - [ ] Vollständige Writer-/Consumer-Kette für Current, Next, Interpolation, Verbindungs-/Portalzustand und Belegungslisten je freizugebender Bewegungsfamilie auditieren.
 - [ ] Beide Hauptfälle reproduzieren: aktueller Standort wird ungültig; nur das bereits angenommene nächste Feld wird ungültig. Auch Änderung um die Mittelpunktübernahme herum prüfen.
@@ -295,7 +381,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Der ursprüngliche „Einheit läuft während des Baus über das Feld“-Fehler über automatische Quellen zuverlässig behoben wird; weder doppelte Belegung noch zweite Versetzung oder Wiederaufnahme des alten ungültigen Schritts entstehen.
 
-### P6 — Arbeiter, Grabenmodus und Besatzungen
+#### P6 — Arbeiter, Grabenmodus und Besatzungen
 
 - [ ] Die getesteten Apple-/Ox-/Besatzungsabläufe in dieselben automatischen Quellen integrieren; erfolgreiche direkte Fixture-Aufrufe nicht als automatische Abnahme zählen.
 - [ ] Apple-AI5 ohne Ladung als Regression erhalten; beladenen Apple-AI7-Grabenfall und vollständigen anschließenden Ernte-/Lieferzyklus hinzufügen.
@@ -306,7 +392,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Für jede freigegebene Familie der konkrete Job beziehungsweise die Gerätefunktion nach echter Rettung weiterläuft und Identität, Ladung, Arbeitsplatz und Besatzung erhalten bleiben. Nicht qualifizierte Zustände bleiben sichtbar außerhalb der Freigabe.
 
-### P7 — Bewegungsfehler und fehlende Bauereignisse
+#### P7 — Bewegungsfehler und fehlende Bauereignisse
 
 - [ ] Abdeckung von `OnUnitMoveHere`, vorhandenen Builder-/Recovery-Besitzern und tatsächlichen Schrittablehnungen vollständig unterscheiden und auditieren. Globale Auftragsbeobachtung ist kein vollständiger Bewegungssensor.
 - [ ] Verlässliche Unit-ID/Global-ID, tatsächlichen Besitzer, effektiven Ziel-/Moduskontext und nativen Ausgang einem Aufruf zuordnen. Endpunktgleichheit oder aktuelle UI-Auswahl sind keine Identität.
@@ -317,7 +403,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Ein Fehler außerhalb der bereits beobachteten Bauquellen erkannt werden kann, ohne dass ein unerreichbares Ziel, Warten oder fremde Routenregeln unerlaubte Teleports auslösen. Ein nicht identifizierbarer Fehler bleibt ohne Eingriff.
 
-### P8 — Sitzungen, Save-Laden, Editor und MP
+#### P8 — Sitzungen, Save-Laden, Editor und MP
 
 - [ ] Zentrale Missions-/Editor-Lifecycle-Verträge verwenden; aktive Fälle auf Ende, Ersetzung und Fehlstart ungültig machen. Startup-Cleanup darf die Runtime nicht zerstören.
 - [ ] Kartenwechsel, Neustart, Save-Laden und Laden desselben Saves mit wiederkehrenden IDs prüfen. Native Pointer/alte Beweissnapshots nicht über die Sitzung retten.
@@ -330,7 +416,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Keine veraltete/doppelte Rettung über Lifecyclegrenzen und identisches Verhalten in den ausdrücklich freigegebenen Modi belegt ist. Ein lokaler Zweispieler-Ersatz ist keine echte MP-Abnahme.
 
-### P9 — Last, Fehlertoleranz und Kompatibilität
+#### P9 — Last, Fehlertoleranz und Kompatibilität
 
 - [ ] Auf großer Karte mit annähernd10.000 Einheiten Leerlauf, wenige Änderungen und Massenbau/gleichzeitige Betroffene vergleichen. Keine Pflicht, hierfür alle Kacheln pro Tick zu betrachten.
 - [ ] Zusatzkosten messen: native→verwaltete Übergänge, Kandidaten/Versuche, Kanten-/Kachelbesuche, Queue-Spitze, Allokationen, gesamter Sim-Tick und Lags. Durchschnitt allein reicht nicht.
@@ -341,7 +427,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Keine zusätzliche permanente Vollprüfung aller Einheiten entsteht, Lastspitzen begrenzt sind und Ablehnung/Überlast weder Vanilla noch bestehende Features beschädigen. Release-Diagnose ist klein; temporäre Entwicklungsdiagnose läuft ausschließlich über `Shared.DevDiag`.
 
-### P10 — Überführung nach Pathfinding
+#### P10 — Überführung nach Pathfinding
 
 - [ ] Abdeckungsmatrix und offene Fälle gemeinsam bewerten. Einen begrenzten MVP nicht als vollständig allgemeine Rettung umbenennen.
 - [ ] Rettungskern, native Ausführung, modinterne Policy und nötige allgemeine Beobachtungsschnittstellen mit eindeutigen Besitzern zuordnen. APIShared bleibt unabhängig von Pathfinding-Interna und fremden GUIDs nutzbar.
@@ -355,7 +441,7 @@ Originale laufen genau einmal. Beobachtungsfehler dürfen weder Vanilla noch and
 
 **Abgenommen wenn:** Pathfinding enthält genau eine getestete Rettungsruntime, der Testmod nur die Tests dafür, und die freigegebenen Modi/Familien/Quellen stimmen mit der Dokumentation überein.
 
-## 7. Verbindliche Abnahmematrix
+### 7. Verbindliche Abnahmematrix
 
 Für jede relevante Kombination einen Eintrag mit Status, Quelle, tatsächlichem Zustand, Trigger, Originalverhalten, eigenem Verhalten und Beleg führen. Keine bloße Aufzählung potenziell vorhandener Tests.
 
@@ -372,7 +458,7 @@ Für jede relevante Kombination einen Eintrag mit Status, Quelle, tatsächlichem
 
 Ein positiver Test umfasst: dieselbe globale Identität und Gesundheit, korrekte Belegung und keine zweite Versetzung, gültigen Zielort und tatsächliche Bewegung/Arbeit danach. Bei Arbeit zusätzlich reale Waren-/Arbeitsplatzbelege; bei Gruppen Befehls- und Mitgliedschaftsbelege. Negative Tests umfassen No-op, legalen Ausgang, nicht eingeschlossenen Start, unerreichbares Ziel, fehlenden Zielort und unbekannten Zustand.
 
-## 8. Offene Entscheidungen, ohne stille Vorannahmen
+### 8. Offene Entscheidungen, ohne stille Vorannahmen
 
 | ID | Entscheidung | Bis zur Klärung |
 |---|---|---|
@@ -385,7 +471,7 @@ Ein positiver Test umfasst: dieselbe globale Identität und Gesundheit, korrekte
 
 Technische Details können innerhalb belegter Verträge entschieden werden. Mehrere wesentlich verschiedene Verhaltensoptionen werden vor ihrer Umsetzung konkret mit Folgen und Nachweisen zur Entscheidung vorgelegt; fehlende Antwort ist keine Freigabe.
 
-## 9. Änderungs- und Abnahmeprotokoll
+### 9. Änderungs- und Abnahmeprotokoll
 
 | Datum | Paket | Ergebnis / nächste Arbeit | Nachweise |
 |---|---|---|---|
