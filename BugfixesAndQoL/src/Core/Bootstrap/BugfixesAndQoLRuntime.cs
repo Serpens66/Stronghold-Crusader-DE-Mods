@@ -249,6 +249,7 @@ namespace BugfixesAndQoL
             assassinCapturedGateProtectionRuntime.EndMap();
             plagueTargetReservationFix?.ResetForMap();
             siegeAmmoRestockFeature.ResetForMap();
+            TryApplyFeature("trapped-unit rescue session end", () => trappedUnitRescueFeature?.EndSession());
             multiplayerFeatureGate.Reset();
         }
 
@@ -261,6 +262,8 @@ namespace BugfixesAndQoL
             if (!context.IsEditor)
                 TrailCustomizationLaunchOriginApi.MarkMapStarted();
             assassinCapturedGateProtectionRuntime.BeginMap();
+            TryApplyFeature("trapped-unit rescue session start", () =>
+                EnsureTrappedUnitRescueFeature().BeginSession(context.Notification.Context));
             TryApplyFeature("single-building pause save restore", () => RestoreSingleBuildingPauseSaveState(context));
             multiplayerGameSpeedRuntime.ApplySetting();
             APIShared.Presentation.TroopActionHud.RefreshCurrentPanel();
@@ -391,6 +394,7 @@ namespace BugfixesAndQoL
                 processMoatTerrainRuntime.Install(context, isFixedLayoutHashValidated);
             });
             TryInitializePersistentFeature("human Lord return teleport guard", () => InitializeLordTeleportGuard(context));
+            TryInitializePersistentFeature("trapped-unit rescue", () => InitializeTrappedUnitRescue(context));
             TryInitializePersistentFeature("pitch/stairs height fix", () => InitializePitchStairs(context, isFixedLayoutHashValidated));
             TryInitializePersistentFeature("tree-blight decay fix", () =>
             {
@@ -492,6 +496,7 @@ namespace BugfixesAndQoL
 
         public void ApplySettings()
         {
+            TryApplyFeature("trapped-unit rescue", () => EnsureTrappedUnitRescueFeature().ApplySettings());
             TryApplyFeature("AI market pending demand", () => AI.Market.MarketDemandFeature.ApplySettings(settings));
             TryApplyFeature("AI sell threshold safety", ApplyAiSellThresholdFix);
             processGatehouseLivingCaptureRuntime?.SetEnabled(settings.EnableMod, settings.EnableGatehouseLivingCaptureFix);

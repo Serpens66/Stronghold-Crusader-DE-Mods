@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using APIShared.Automation;
@@ -80,7 +82,7 @@ namespace TrappedUnitRescueTest
             {
                 var f=naturalFillFixture;var p=f?.naturalFill?.Identity;
                 if(f!=null && !f.stopped && p!=null && p.Active && context!=null &&
-                    context.SessionId==p.Session && context.UnitId==p.Actor.Id && context.OriginOwnerGuid==Plugin.Guid)p.OwnMoves++;
+                    context.SessionId==p.Session && context.UnitId==p.Actor.Id && context.OriginOwnerGuid==Plugin.RescueOwnerGuid)p.OwnMoves++;
                 return null;
             }
         }

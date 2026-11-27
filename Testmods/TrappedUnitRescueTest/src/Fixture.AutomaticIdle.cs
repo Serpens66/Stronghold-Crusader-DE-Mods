@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -35,7 +37,7 @@ namespace TrappedUnitRescueTest
             {
                 var proof=automaticIdleProof;
                 if(proof==null || !proof.Active || proof.Fixture.stopped || context==null ||
-                    context.SessionId!=proof.Fixture.session || context.UnitId!=proof.Actor.Id || context.OriginOwnerGuid!=Plugin.Guid)return null;
+                    context.SessionId!=proof.Fixture.session || context.UnitId!=proof.Actor.Id || context.OriginOwnerGuid!=Plugin.RescueOwnerGuid)return null;
                 proof.Calls++;
                 if(proof.Calls!=1){proof.Fault="Idle escape made more than one owned move call";return null;}
                 proof.GoalX=context.X;proof.GoalY=context.Y;

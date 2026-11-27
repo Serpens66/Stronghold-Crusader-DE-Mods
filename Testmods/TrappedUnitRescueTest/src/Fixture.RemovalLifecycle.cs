@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using APIShared;
@@ -45,7 +47,7 @@ namespace TrappedUnitRescueTest
             public unsafe IUnitMoveInvocation TryBegin(UnitMoveContext c)
             {
                 var p=removalLifecycle;var a=p?.Fixture.civilianRemoval?.Actor;
-                if(p==null || !p.Active || a==null || c==null || c.OriginOwnerGuid!=Plugin.Guid)return null;
+                if(p==null || !p.Active || a==null || c==null || c.OriginOwnerGuid!=Plugin.RescueOwnerGuid)return null;
                 // There are no own commands in the fresh control world: count all of them,
                 // rather than confusing a naturally reused ID/global with the old lifetime.
                 if(p.Started && c.SessionId==p.NewSession){p.OwnMoves++;return null;}

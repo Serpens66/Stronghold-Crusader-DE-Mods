@@ -6,14 +6,14 @@ using SHCDESE.API.LowLevel;
 namespace SkinTest
 {
     [BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]
-    [BepInDependency(ApiSharedGuid, "0.49.0")]
+    [BepInDependency(ApiSharedGuid, ApiSharedVersion)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SkinTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string ScriptExtenderVersion = "2.14.0";
         private const string ApiSharedGuid = "APIShared_Serp";
-        private const string ApiSharedVersion = "0.49.0";
+        private const string ApiSharedVersion = "0.75.0";
         public const string PluginGuid = "SkinTest_Serp";
         public const string PluginName = "SkinTest";
         public const string PluginVersion = "0.1.2";
@@ -56,6 +56,7 @@ namespace SkinTest
             }
             // APIShared registrations are process-lifetime publications. They happen only after
             // the successfully initialized runtime has been rooted and can no longer be rolled back.
+            runtime.RegisterBuildingTilePaint();
             runtime.RegisterTroopHudWithApiShared();
         }
 

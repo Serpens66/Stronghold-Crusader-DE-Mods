@@ -1,4 +1,5 @@
 using APIShared;
+using APIShared.Presentation;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -31,7 +32,6 @@ namespace SkinTest
         private const string UiAssetRoot = "Assets/CrusaderUI/";
         private delegate void SetBodySpriteDelegate(SpriteRenderer renderer, int file, int image, int colour,
             bool alternateFrame, int chopFeet, int transparency);
-        private delegate void SetBuildingTileSpriteDelegate(GameMapTile tile, int file, int image, int light);
         private delegate void AddUpdateBuildingAnimDelegate(GameMap gameMap, int objectId, int x, int y,
             int tileX, int tileY, int animLayer, int file, int image, int colour, int transparency,
             int layerDelay, bool hasSubSpecial, int halfPixelX, int halfPixelY);
@@ -63,11 +63,9 @@ namespace SkinTest
         private Texture2D castleTexture;
         private Texture2D castleAnimTexture;
         private Hook hook;
-        private Hook buildingHook;
         private Hook buildingAnimHook;
         private Hook wallFillinHook;
         private SetBodySpriteDelegate trampoline;
-        private SetBuildingTileSpriteDelegate buildingTrampoline;
         private AddUpdateBuildingAnimDelegate buildingAnimTrampoline;
         private AddUpdateWallFillinDelegate wallFillinTrampoline;
         private Sprite[] castleSprites;
@@ -216,12 +214,6 @@ namespace SkinTest
                 ?? throw new MissingMethodException(nameof(SpriteMapping), nameof(SpriteMapping.SetBodySprite));
             hook = new Hook(method, (SetBodySpriteDelegate)SetBodySpriteHook);
             trampoline = hook.GenerateTrampoline<SetBodySpriteDelegate>();
-            MethodInfo buildingMethod = typeof(SpriteMapping).GetMethod(nameof(SpriteMapping.setGenericBuildingTileGraphic),
-                BindingFlags.Public | BindingFlags.Static, null,
-                new[] { typeof(GameMapTile), typeof(int), typeof(int), typeof(int) }, null)
-                ?? throw new MissingMethodException(nameof(SpriteMapping), nameof(SpriteMapping.setGenericBuildingTileGraphic));
-            buildingHook = new Hook(buildingMethod, (SetBuildingTileSpriteDelegate)SetBuildingTileSpriteHook);
-            buildingTrampoline = buildingHook.GenerateTrampoline<SetBuildingTileSpriteDelegate>();
             MethodInfo buildingAnimMethod = typeof(GameMap).GetMethod(nameof(GameMap.addUpdateBuildingAnim),
                 BindingFlags.Public | BindingFlags.Instance, null,
                 new[] { typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int),
@@ -235,7 +227,25 @@ namespace SkinTest
                 ?? throw new MissingMethodException(nameof(GameMap), nameof(GameMap.addUpdateWallFillin));
             wallFillinHook = new Hook(wallFillinMethod, (AddUpdateWallFillinDelegate)AddUpdateWallFillinHook);
             wallFillinTrampoline = wallFillinHook.GenerateTrampoline<AddUpdateWallFillinDelegate>();
-            LogInfo("Managed swordsman, round-tower tile and castle-animation hooks installed after the existing hook chains.");
+            LogInfo("Managed swordsman, castle-animation and wall-fillin hooks installed after the existing hook chains.");
+        }
+
+        public void RegisterBuildingTilePaint()
+        {
+            try
+            {
+                if (!PaintEvents.TryRegisterTileGraphic(SkinTestPlugin.PluginGuid, "round-tower-tiles",
+                    AfterBuildingTilePaint, out string reason, order: -100, files: new[] { (int)ExtenderGM.GM_CASTLES }))
+                {
+                    WarnOnce("tower-paint-registration", $"APIShared round-tower tile paint unavailable: {reason}");
+                    return;
+                }
+                LogInfo("Round-tower tiles and construction preview registered with APIShared PaintEvents.");
+            }
+            catch (Exception error)
+            {
+                WarnOnce("tower-paint-registration", $"APIShared round-tower tile paint unavailable: {error}");
+            }
         }
 
         public void RegisterTroopHudWithApiShared()
@@ -765,15 +775,16 @@ namespace SkinTest
             }
         }
 
-        private unsafe void SetBuildingTileSpriteHook(GameMapTile tile, int file, int image, int light)
+        private unsafe void AfterBuildingTilePaint(ref TileGraphicPaint paint)
         {
-            buildingTrampoline(tile, file, image, light);
             try
             {
-                if (tile == null || file != (int)ExtenderGM.GM_CASTLES || image < 0 || spriteLoader.instance == null)
+                GameMapTile tile = paint.Tile;
+                int image = paint.Image;
+                if (paint.IsClaimed || tile == null || image < 0 || spriteLoader.instance == null)
                     return;
                 Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLES, image);
-                if (TryReplaceRoundTowerTilePreview(tile, image, expected))
+                if (TryReplaceRoundTowerTilePreview(ref paint, expected))
                     return;
                 if (image <= 0 || image >= castleSprites.Length || castleSprites[image] == null)
                     return;
@@ -799,6 +810,8 @@ namespace SkinTest
                     building->r_BuildingType == eStructs.STRUCT_TOWER5_DESTROYED;
                 if (!SkinSelectionPolicy.CanReplaceBuilding(true, isRoundTower, ownerPlayerId, culture, castleSprites[image] != null))
                     return;
+                if (!paint.TryClaim())
+                    return;
                 tile.tileImage = castleSprites[image];
                 LogOnce("tower-skin-applied",
                     $"SH1DE round-tower skin applied: buildingId={buildingId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, source={source}, value={value}, image={image}, light={tile.light}.");
@@ -809,8 +822,10 @@ namespace SkinTest
             }
         }
 
-        private bool TryReplaceRoundTowerTilePreview(GameMapTile tile, int image, Sprite expected)
+        private bool TryReplaceRoundTowerTilePreview(ref TileGraphicPaint paint, Sprite expected)
         {
+            GameMapTile tile = paint.Tile;
+            int image = paint.Image;
             MainControls controls = MainControls.instance;
             bool hasConstructionOriginal = !ReferenceEquals(tile.constructionOrigImage, null);
             if (!activeMap || controls == null || controls.CurrentAction != 5 ||
@@ -861,6 +876,8 @@ namespace SkinTest
                 return true;
             }
 
+            if (!paint.TryClaim())
+                return true;
             tile.tileImage = castleSprites[frameIndex];
             LogOnce("tower-tile-preview-applied",
                 $"SH1DE round-tower tile preview applied: tile=({tile.gameMapX},{tile.gameMapY}), localPlayerId={localPlayerId}, source={source}, value={value}, image={image}, atlasIndex={frameIndex}.");
@@ -1079,8 +1096,6 @@ namespace SkinTest
             wallFillinTrampoline = null;
             ReleaseSingleHook(ref buildingAnimHook);
             buildingAnimTrampoline = null;
-            ReleaseSingleHook(ref buildingHook);
-            buildingTrampoline = null;
             ReleaseSingleHook(ref hook);
             trampoline = null;
         }

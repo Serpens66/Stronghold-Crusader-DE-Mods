@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -89,7 +91,7 @@ namespace TrappedUnitRescueTest
             {
                 var proof=performanceProof;
                 if(proof!=null && proof.Active && proof.ObserveArmyMoves && context!=null && context.SessionId==proof.Fixture.session &&
-                    context.OriginOwnerGuid==Plugin.Guid && proof.ActorIds.Contains(context.UnitId))
+                    context.OriginOwnerGuid==Plugin.RescueOwnerGuid && proof.ActorIds.Contains(context.UnitId))
                     Interlocked.Increment(ref proof.OwnArmyMoves);
                 return null;
             }

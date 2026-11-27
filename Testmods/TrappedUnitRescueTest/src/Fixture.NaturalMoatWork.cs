@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using APIShared;
@@ -95,7 +97,7 @@ namespace TrappedUnitRescueTest
             {
                 var f=naturalMoatFixture;var p=f?.naturalMoat;
                 if(f==null || f.stopped || p==null || !p.Active || context==null || context.UnitId!=p.Actor.Id)return null;
-                if(context.OriginOwnerGuid==Plugin.Guid){p.OwnMoves++;return null;}
+                if(context.OriginOwnerGuid==Plugin.RescueOwnerGuid){p.OwnMoves++;return null;}
                 if(!p.FollowMoveArmed)return null;
                 try
                 {

@@ -91,6 +91,8 @@
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.AutoSend.cs" />
     <Compile Include="PeaceTimeProximityPresetTests.cs" />
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PeaceTime.cs" />
+    <Compile Include="TrappedUnitRescuePresetTests.cs" />
+    <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.TrappedUnitRescue.cs" />
     <Compile Include="PitchStairsPresetTests.cs" />
     <Compile Include="..\..\BugfixesAndQoL\src\Settings\BugfixesAndQoLViewModel.PitchStairs.cs" />
     <Compile Include="CrenelOwnerPresetTests.cs" />

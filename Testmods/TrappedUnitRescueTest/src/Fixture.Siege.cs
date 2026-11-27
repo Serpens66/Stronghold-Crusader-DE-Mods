@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -53,7 +55,7 @@ namespace TrappedUnitRescueTest
                 // Mounted engineers are intentionally absent from occupancy and must not be handled as independent roots.
                 foreach(var engineer in crew)actors.Remove(engineer);
                 VerifyLiveAndRemember();
-                var scope=runtime.BeginMutation("synthetic-wall-under-natively-manned-"+type,device.X,device.Y,1);
+                var scope=BeginMutation("synthetic-wall-under-natively-manned-"+type,device.X,device.Y,1);
                 try
                 {
                     PaintSyntheticTrap(device.X,device.Y);

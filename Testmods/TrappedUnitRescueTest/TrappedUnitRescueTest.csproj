@@ -9,6 +9,8 @@
     <GameDir Condition="'$(GameDir)' == ''">E:/ProgrammeE/Steam/steamapps/common/Stronghold Crusader Definitive Edition</GameDir>
     <GameManaged>$(GameDir)/Stronghold Crusader Definitive Edition_Data/Managed</GameManaged>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)/BepInEx/plugins/000shcdese</ExtenderDir>
+    <BugfixesDir Condition="'$(BugfixesDir)' == '' and '$(SHCDE_ACCEPTANCE_BQOL_DIR)' != ''">$(SHCDE_ACCEPTANCE_BQOL_DIR)</BugfixesDir>
+    <BugfixesDir Condition="'$(BugfixesDir)' == ''">../../BugfixesAndQoL/BepInEx/plugins/BugfixesAndQoL_Serp</BugfixesDir>
     <ApiSharedDir Condition="'$(ApiSharedDir)' == ''">$(GameDir)/BepInEx/plugins/APIShared_Serp</ApiSharedDir>
     <ImportDirectoryBuildTargets>false</ImportDirectoryBuildTargets>
   </PropertyGroup>
@@ -16,6 +18,7 @@
     <Compile Include="../../Shared/Runtime/Diagnostics/DevDiag.cs"><Link>Shared/DevDiag.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="BugfixesAndQoL"><HintPath>$(BugfixesDir)/BugfixesAndQoL.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System"/><Reference Include="System.Core"/>
     <Reference Include="BepInEx"><HintPath>$(GameDir)/BepInEx/core/BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)/BepInEx/core/MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
@@ -45,18 +48,13 @@
     <Reference Include="System.Runtime.CompilerServices.Unsafe"><HintPath>$(ExtenderDir)/System.Runtime.CompilerServices.Unsafe.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src/*.cs"/>
-    <ProjectReference Include="LoadCacheAsset/LoadCacheAsset.csproj">
-      <Project>{9D372E28-939E-4B93-ACBD-772AF261E4A4}</Project><Name>LoadCacheAsset</Name>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly><Private>false</Private>
-    </ProjectReference>
-    <Compile Include="../../Shared/Runtime/Native/NativePatchGuard.cs"><Link>Shared/NativePatchGuard.cs</Link></Compile>
+    <Compile Include="src/Plugin.cs"/>
+    <Compile Include="src/AcceptanceHost.cs"/>
+    <Compile Include="src/Fixture*.cs" Exclude="src/Fixture.EarlyProvider.cs;src/Fixture.AssemblyLoadCache.cs"/>
+    <Compile Include="src/EditorBrush.cs"/><Compile Include="src/EditorAcceptanceBrushes.cs"/>
+    <Compile Include="src/NoJestersState.DevDiag.cs"/>
     <Compile Include="../../Shared/Runtime/Native/CommittedMemory.cs"><Link>Shared/CommittedMemory.cs</Link></Compile>
-    <Compile Include="../../Shared/Runtime/Localization/SerpLocalization.cs"><Link>Shared/SerpLocalization.cs</Link></Compile>
-    <Compile Include="../../Shared/Runtime/Diagnostics/DebugLogHelper.cs"><Link>Shared/DebugLogHelper.cs</Link></Compile>
     <Content Include="info.json"><CopyToOutputDirectory>Always</CopyToOutputDirectory></Content>
-    <Content Include="Override/**/*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
-    <Content Include="Locales/*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
   <Import Project="../../Directory.Build.targets" />

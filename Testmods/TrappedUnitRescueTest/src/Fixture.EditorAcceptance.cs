@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -71,7 +73,7 @@ namespace TrappedUnitRescueTest
             public unsafe IUnitMoveInvocation TryBegin(UnitMoveContext context)
             {
                 var p=editorSourceProof;
-                if(p==null || !p.WatchActor || context.SessionId!=p.Session || context.UnitId!=p.Actor.Id || context.OriginOwnerGuid!=Plugin.Guid)return null;
+                if(p==null || !p.WatchActor || context.SessionId!=p.Session || context.UnitId!=p.Actor.Id || context.OriginOwnerGuid!=Plugin.RescueOwnerGuid)return null;
                 if(UnitAccess.TryGetById(p.Actor.Id,out GameUnit* unit,out _) && unit!=null && unit->r_GlobalId==p.Actor.Global)p.OwnMoves++;
                 return null;
             }

@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -56,6 +58,7 @@ namespace TrappedUnitRescueTest
             value == "rescue-burst-single600-on" || value == "rescue-burst-single600-off" ||
             value == "rescue-burst-multi600-on" || value == "rescue-burst-multi600-off" ||
             value == "rescue-legacy-civilian-off" ||
+            value == "rescue-legacy-civilian-master-off" ||
             value == "rescue-removal-miller-off" ||
             value == "rescue-removal-miller-on" ||
             value == "rescue-removal-miner1-off" ||
@@ -80,8 +83,6 @@ namespace TrappedUnitRescueTest
             value == "rescue-editor-new-on" ||
             value == "rescue-editor-load-off" ||
             value == "rescue-editor-load-on" ||
-            value == "rescue-loadcache" ||
-            value == "rescue-early-provider" ||
             value == "rescue-on" ||
             value == "rescue-off" ||
             value == "rescue-group-on" ||
@@ -98,6 +99,9 @@ namespace TrappedUnitRescueTest
             value == "rescue-mountedkeep-off" ||
             value == "rescue-aivbridge-on" ||
             value == "rescue-aivbridge-off" ||
+            value == "rescue-aivbridge-hostmaster-off" ||
+            value == "rescue-aivbridge-clientoff-on" ||
+            value == "rescue-aivbridge-default-on" ||
             value == "rescue-auto-ox-on" ||
             value == "rescue-auto-ox-off" ||
             value == "rescue-auto-bridge-on" ||
@@ -159,16 +163,6 @@ namespace TrappedUnitRescueTest
                 foreach(var step in EditorAcceptanceSteps())yield return step;
                 yield break;
             }
-            if (scenario == "rescue-early-provider")
-            {
-                foreach(var step in EarlyProviderSteps())yield return step;
-                yield break;
-            }
-            if (scenario == "rescue-loadcache")
-            {
-                foreach (var step in AssemblyLoadCacheSteps()) yield return step;
-                yield break;
-            }
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
             yield return new AutomationStep("prepare", TimeSpan.FromSeconds(90), Prepare, true);
             if(scenario=="rescue-burst-persistence600-on")
@@ -181,7 +175,7 @@ namespace TrappedUnitRescueTest
                 foreach(var step in BurstSteps())yield return step;
                 yield break;
             }
-            if(scenario=="rescue-legacy-civilian-off")
+            if(scenario=="rescue-legacy-civilian-off" || scenario=="rescue-legacy-civilian-master-off")
             {
                 foreach(var step in LegacyCivilianSteps())yield return step;
                 yield break;
@@ -439,7 +433,7 @@ namespace TrappedUnitRescueTest
             foreach (var wait in run.SetPause(run.CurrentMission, true)) yield return wait;
             Execute(run, () => {
                 VerifyLiveAndRemember();
-                var scope = runtime.BeginMutation("no-op-control", cx, cy, 1);
+                var scope = BeginMutation("no-op-control", cx, cy, 1);
                 try { scope.Complete(false); }
                 finally { scope.Dispose(); }
                 foreach (var actor in actors) { CheckActor(actor, true); Require(AtSource(actor), "No-op moved an actor"); }
@@ -460,7 +454,7 @@ namespace TrappedUnitRescueTest
                 int source = tiles.GetTileId(cx, cy);
                 uint beforeFlags = (uint)tiles.GetTilePropertyFlag(source);
                 byte beforeHeight = tiles.GetTileHeight(source);
-                var scope = runtime.BeginMutation("synthetic-valid-ground-enclosure", cx, cy, 2);
+                var scope = BeginMutation("synthetic-valid-ground-enclosure", cx, cy, 2);
                 try
                 {
                     // Explicit synthetic negative: only the neighbours change. The legal source is never painted.

@@ -283,3 +283,71 @@ must not match merely because the text index names one of these Lords.
 These are source/static integration contracts. Original table reads and isolated
 managed fixtures do not prove audible speech, video decoding, subtitle appearance,
 queue transitions or actual host/client acceptance in a running game.
+
+## Queued Lord subtitles (2026-11-27) [Vanilla facts]
+
+The installed native and managed SHA-256 values and the native function-query
+binary identities still match the hashes above. With the presentation occupied,
+RVA 0x103290 stores each pending text section/index, player and media references
+in its own queue slot. RVA 0x102A70 clears the current presentation, promotes
+slot zero and shifts the remaining slots. RVA 0xFEE50 emits the promoted text
+selector through 0x1A2850 before the media. With no pending entry, the finalizer
+only clears the current presentation. The semantic names remain candidates.
+
+Managed case 20 ignores section zero (the preliminary announcement) and submits
+the signed text selector and message index to addOSTEntry. OnScreenText resolves
+positive selectors through Translate and negative selectors through the
+indicated player slot and GetCustomLordText, with a generic translation fallback.
+addOSTEntry writes the latest presented selector and extends expiry but sets the
+changed flag only when the message-bar slot is inactive. updateOST rewrites the
+displayed text only when getOST reports that flag. A presentation arriving while
+the previous bar is still active can therefore retain the earlier visible text.
+This is a separate static path from displaying a future queued clip's subtitle.
+
+## Extender and packaged subtitle lookup (2026-11-27) [mod integration]
+
+The local Extender v2.14.6 at 81a7a94 and the installed SHCDESE.dll both use
+a subtitle cache indexed by internal Lord name. BulkAIDetours resolves a clip
+and updates this cache before calling Vanilla enqueue. The updateOST IL hook
+uses the last speaker cached by CopyPlayStateStruct and uses the OST text index
+only to validate that it maps to a message category. TryGetCurrentSpeechText
+then returns the cached string for that Lord. It has no per-message selector.
+
+For two accepted pending lines A and B with distinct nonempty localized text
+from the same Lord, resolving B before rendering A replaces A's cached text.
+On a subsequent message-bar refresh for A, the hook displays B's text while
+the native queue presents A's media. A full native queue can reject the media
+after the subtitle cache has already been updated. For an active packaged
+Lord claim, APIShared's PackagedLordPresentation.TryResolveMedia and Speech
+use the same last-text-per-name policy even though cache access is locked.
+The separate APIShared LordMessageEvents replacement binds text only when a
+registered consumer supplies a replacement.
+
+Evidence: managed Vanilla IL and decompilation, semantic function queries for
+0x103290, 0x102A70 and 0xFEE50, installed Extender decompilation and the local
+Extender and APIShared sources. The reported session and its installed mods
+were not reproduced or identified.
+
+## Further packaged subtitle cases (2026-11-27) [mod integration]
+
+In the packaged resolver, an existing Lord claim with no clip for the requested
+category returns before updating `spoken`. This also happens on the registered
+Extender path with no clips for that category. A previous localized text can
+therefore replace the normal fallback text of the new message. A selected clip
+with an empty subtitle removes the previous cache entry even while an earlier
+clip is still queued. A resolver update before a full native queue rejects its
+request can also affect older accepted messages. These are consequences of
+updating a shared per-Lord cache before presentation and admission.
+
+`PackagedLordPresentation.Refresh` clears all cached subtitles when any owner
+publishes a new entries snapshot. It can discard the text of an already queued
+clip. ExtendedData's digest check avoids repeat publication of the same
+snapshot on its normal path. ExtendedData publishes metadata and verified asset
+providers through the APIShared registration; title, portrait and other
+presentation routes do not participate in the queue-to-subtitle lookup.
+
+`LordMessageRuntime` binds explicit replacements to a managed message-bar
+assignment and retires them at the next assignment. Its normal refresh override
+is scoped to retirement of an API-owned text binding. The native message-group
+matcher requires both audio and video; it cannot be the sole gate for carrying
+the original subtitle of a message that has only one or neither.

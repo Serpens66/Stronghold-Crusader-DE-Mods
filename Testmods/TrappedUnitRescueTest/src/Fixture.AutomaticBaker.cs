@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -190,7 +192,7 @@ namespace TrappedUnitRescueTest
                 if(f==null || p?.Actor==null || context==null || context.SessionId!=f.session || context.UnitId!=p.Actor.Id)return null;
                 try
                 {
-                    f.ValidateBaker(p.Actor);var u=f.Resolve(p.Actor);bool own=context.OriginOwnerGuid==Plugin.Guid;
+                    f.ValidateBaker(p.Actor);var u=f.Resolve(p.Actor);bool own=context.OriginOwnerGuid==Plugin.RescueOwnerGuid;
                     Require(u->r_AIState==6 && u->r_CarryGoodAmount==p.Remaining && context.Extra==0,
                         "Baker output move changed phase/cargo");
                     int store=f.runtime.Native.Word(u,0x98E);uint global=f.runtime.Native.JobDword(u,0x6F8);

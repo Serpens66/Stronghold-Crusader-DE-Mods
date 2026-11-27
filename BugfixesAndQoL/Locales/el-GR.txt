@@ -705,3 +705,6 @@ BugfixesAndQoL.MultiplayerLoad.WaitPeers=Αναμονή για ενεργοπο�
 BugfixesAndQoL.MultiplayerLoad.Transition=Οι παίκτες μεταφέρονται στο λόμπι φόρτωσης πολλών παικτών.
 BugfixesAndQoL.MultiplayerLoad.Failed=Δεν ήταν δυνατό το άνοιγμα του λόμπι φόρτωσης. Δείτε το αρχείο καταγραφής.
 BugfixesAndQoL.MultiplayerLoad.NotReady=Η φόρτωση πολλών παικτών δεν είναι ακόμη διαθέσιμη.
+BugfixesAndQoL.EnableTrappedUnitRescue=Rescue units trapped by construction
+BugfixesAndQoL.EnableTrappedUnitRescueHelp=In singleplayer and the map editor, helps soldiers and siege engines trapped by newly impassable tiles, such as after moat, wall or drawbridge construction. Peasants and human economic workers are instead removed through normal game cleanup; carried goods and invested resources are lost, and a replacement is not guaranteed. Also includes the temporary Fixes correction for mounted units stuck on keep roofs. Not active in real multiplayer.
+BugfixesAndQoL.SettingsRework.Reason.EnableTrappedUnitRescue=Helps units blocked by construction; normal removal of affected workers can cost carried goods and resources.

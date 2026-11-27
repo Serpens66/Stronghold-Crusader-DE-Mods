@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -160,7 +162,7 @@ namespace TrappedUnitRescueTest
             {
                 var fixture=commandMoatFixture;var proof=fixture?.commandMoat;
                 if(fixture==null || fixture.stopped || proof==null || !proof.Active || !proof.Written || context==null ||
-                    context.SessionId!=fixture.session || context.UnitId!=proof.Actor.Id || context.OriginOwnerGuid!=Plugin.Guid)return null;
+                    context.SessionId!=fixture.session || context.UnitId!=proof.Actor.Id || context.OriginOwnerGuid!=Plugin.RescueOwnerGuid)return null;
                 try
                 {
                     Require(proof.DrainSeen,"Owned command continuation preceded the observed normal next-tick drain");

@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,9 +35,9 @@ namespace TrappedUnitRescueTest
         private void CheckRemovalPersistenceSettings()
         {
             var field=typeof(Plugin).GetField("settings",BindingFlags.Static|BindingFlags.NonPublic);
-            Require(field!=null && field.FieldType==typeof(Settings),"Removal persistence settings read contract changed");
-            var value=(Settings)field.GetValue(null);
-            Require(value!=null && value.EnableMod && value.EnableExperimentalRescue==expectedEnabled && Plugin.GeneralObserver.IsActive==expectedEnabled,
+            Require(field!=null && field.FieldType==typeof(BugfixesAndQoLViewModel),"Removal persistence settings read contract changed");
+            var value=(BugfixesAndQoLViewModel)field.GetValue(null);
+            Require(value!=null && value.EnableMod && value.EnableTrappedUnitRescue==expectedEnabled && Plugin.GeneralObserver.IsActive==expectedEnabled,
                 "Removal persistence restored a different actual feature setting");
         }
         private void ArmRemovalPersistence(RemovalPersistenceProof p)
@@ -57,7 +59,7 @@ namespace TrappedUnitRescueTest
             public unsafe IUnitMoveInvocation TryBegin(UnitMoveContext c)
             {
                 var p=removalPersistence;var f=p?.Fixture;var actor=f?.civilianRemoval?.Actor;
-                if(p==null || !p.Active || c==null || actor==null || c.UnitId!=actor.Id || c.OriginOwnerGuid!=Plugin.Guid)return null;
+                if(p==null || !p.Active || c==null || actor==null || c.UnitId!=actor.Id || c.OriginOwnerGuid!=Plugin.RescueOwnerGuid)return null;
                 if(WorldMutationEvents.TryGetCurrentWorld(out long sid,out long world) && sid==c.SessionId && world==c.WorldGeneration &&
                     UnitAccess.TryGetById(actor.Id,out GameUnit* u,out _) && u!=null && u->r_GlobalId==actor.Global)p.OwnMoves++;
                 return null;
@@ -192,7 +194,7 @@ namespace TrappedUnitRescueTest
         private static void CheckRemovalSavedArchive(RemovalPersistenceProof p,bool enabled)
         {
             Require(MapArchive.TryLoad(p.Path,out var archive) && archive!=null,"Saved native file has no readable real mod archive");
-            byte[] raw;using(archive)raw=archive.TryReadBinaryFile("_SE_ModData_TrappedUnitRescueOwnedWorkers.msgpack",true);
+            byte[] raw;using(archive)raw=archive.TryReadBinaryFile("_SE_ModData_BugfixesAndQoLTrappedUnitRescue.msgpack",true);
             Require(raw!=null && raw.Length>0,"Actual native save omitted the registered rescue archive");
             // Invoke the actual selected SDK's bounded CRC-validating decoder.
             // No copied envelope parser, raw ZIP rewrite or second registration.

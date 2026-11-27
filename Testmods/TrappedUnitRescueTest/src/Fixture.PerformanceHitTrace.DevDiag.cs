@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 #if SERP_DEVDIAG
 using System;
 using System.Collections.Generic;

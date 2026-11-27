@@ -174,6 +174,7 @@ internal static class Program
             }
             if (args != null && args.Length == 1 && args[0] == "ai-sell-threshold") { AiSellThresholdPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "lord-teleport") { LordReturnTeleportPresetTests.Run(); return 0; }
+            if (args != null && args.Length == 1 && args[0] == "trapped-unit-rescue") { TrappedUnitRescuePresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "pitch-stairs") { PitchStairsPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "crenel-owners") { CrenelOwnerPresetTests.Run(); return 0; }
             if (args != null && args.Length == 1 && args[0] == "settings-opacity")
@@ -257,6 +258,7 @@ internal static class Program
             }
 
             PeaceTimeProximityPresetTests.Run();
+            TrappedUnitRescuePresetTests.Run();
             PitchStairsPresetTests.Run();
             CrenelOwnerPresetTests.Run();
             FearFactorPresetTests.Run();

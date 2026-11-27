@@ -101,6 +101,7 @@ namespace BugfixesAndQoL
         public SettingsOptionPresentation RemoveAIKeepRangeLimit => options["RemoveAIKeepRangeLimit"];
         public SettingsOptionPresentation EnableAiSellThresholdFix => options["EnableAiSellThresholdFix"];
         public SettingsOptionPresentation EnableHealerAttackCommandFix => options["EnableHealerAttackCommandFix"];
+        public SettingsOptionPresentation EnableTrappedUnitRescue => options["EnableTrappedUnitRescue"];
         public SettingsOptionPresentation EnableLordReturnTeleportFix => options["EnableLordReturnTeleportFix"];
         public SettingsOptionPresentation EnableLordUnitControls => options["EnableLordUnitControls"];
         public SettingsOptionPresentation EnableKeepFlagRotationFix => options["EnableKeepFlagRotationFix"];
@@ -234,6 +235,7 @@ namespace BugfixesAndQoL
             HostTroops = AddTopic("HostTroops", "bugfixes.topic.host-troops", true);
             AddOption("EnableHealerAttackCommandFix", "bugfixes.enable-healer-attack-command-fix", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordReturnTeleportFix", "bugfixes.lord-return-teleport-fix", SettingsCategory.Fixes, HostTroops);
+            AddOption("EnableTrappedUnitRescue", "bugfixes.trapped-unit-rescue", SettingsCategory.Fixes, HostTroops);
             AddOption("EnableLordUnitControls", "bugfixes.enable-lord-unit-controls", SettingsCategory.Qol, HostTroops);
             AddOption("ReplaceStandardProjectileAfterimages", "bugfixes.replace-standard-projectile-afterimages", SettingsCategory.Qol, HostTroops);
             HostEconomy = AddTopic("HostEconomy", "bugfixes.topic.host-economy", true);

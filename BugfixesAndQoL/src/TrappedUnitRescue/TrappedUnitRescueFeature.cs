@@ -104,6 +104,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             }
             catch(Exception error)
             {
+                MountedScannerEarlyProvider.SetEnabled(false);
                 Volatile.Write(ref ready,0);fixes?.SetEnabled(false);generalObserver?.SetSession(0);idleEscapes?.Clear();
                 ReportError("UNAVAILABLE "+error);
                 // Published registrations/hooks remain rooted and logically inactive.
@@ -117,12 +118,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             if(!Ready)return;
             if(boundSession==context.SessionId){RefreshSession();return;}
             idleEscapes.Clear();fixes.RecheckPublishedHooks();
+            MountedScannerEarlyProvider.RecheckPublishedContracts();
             RefreshSession();
             workers.BeginSession(context.SessionId,LocalModeAllowed(context));
             boundSession=context.SessionId;
         }
         internal void EndSession()
         {
+            MountedScannerEarlyProvider.SetEnabled(false);
             Volatile.Write(ref current,null);boundSession=0;
             fixes?.SetEnabled(false);idleEscapes?.Clear();generalObserver?.SetSession(0);generalObserver?.ClearPending();workers?.EndSession();
             Volatile.Write(ref civilianRemovalTick,0);
@@ -145,6 +148,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         {
             var mission=Volatile.Read(ref current);
             bool enabled=Ready && Configured() && fixes.Ready && LocalModeAllowed(mission);
+            MountedScannerEarlyProvider.SetEnabled(enabled);
             fixes?.SetEnabled(false);
             if(!enabled)idleEscapes?.Clear();
             generalObserver?.SetSession(enabled?mission.SessionId:0);
@@ -169,11 +173,16 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         {
             if(!Ready || generalObserver.HasOpenExternalCalls)return;
             generalObserver.ExpireInactivePending();
-            bool enabled=Configured();
-            if(!enabled)idleEscapes.Clear();
+            bool enabled=Configured() && LocalModeAllowed(Volatile.Read(ref current));
+            if(!enabled)
+            {
+                // OFF retains legacy ownership records, but performs no cleanup or native action.
+                MountedScannerEarlyProvider.SetEnabled(false);
+                fixes.SetEnabled(false);idleEscapes.Clear();return;
+            }
             if((generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0 && idleEscapes.Count==0) || !workers.AdmitTick(tick))return;
             if(!UnitMoveEvents.IsAvailable)idleEscapes.Clear();
-            workers.AdvanceLegacyTick(tick); // Historical owned civilian barriers, including OFF:32visits/4writes.
+            workers.AdvanceLegacyTick(tick); // Historical owned civilian barriers:32visits/4writes; enabled local sessions only.
 #if SERP_DEVDIAG
             long diagnosticStarted=0;
             Shared.DevDiag.BeginBatch();Shared.DevDiag.Start(ref diagnosticStarted);

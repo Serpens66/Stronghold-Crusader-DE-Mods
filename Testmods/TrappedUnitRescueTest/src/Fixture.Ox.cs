@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -152,7 +154,7 @@ namespace TrappedUnitRescueTest
                 int cargo = OxCargo(ox);
                 Require(cargo > 0, "Natural Ox cargo disappeared before mutation");
                 BeginOxObservation(ox, tether, cargo);
-                var scope = runtime.BeginMutation("synthetic-wall-under-naturally-loaded-ox", ox.X, ox.Y, 1);
+                var scope = BeginMutation("synthetic-wall-under-naturally-loaded-ox", ox.X, ox.Y, 1);
                 try
                 {
                     PaintSyntheticTrap(ox.X, ox.Y);

@@ -705,3 +705,6 @@ BugfixesAndQoL.MultiplayerLoad.WaitPeers=Warte, bis alle Spieler das Laden im Me
 BugfixesAndQoL.MultiplayerLoad.Transition=Die Spieler wechseln in die Mehrspieler-Ladelobby.
 BugfixesAndQoL.MultiplayerLoad.Failed=Die Mehrspieler-Ladelobby konnte nicht geöffnet werden. Einzelheiten stehen im Log.
 BugfixesAndQoL.MultiplayerLoad.NotReady=Das Laden im Mehrspieler ist noch nicht verfügbar.
+BugfixesAndQoL.EnableTrappedUnitRescue=Nach Bauarbeiten feststeckende Einheiten retten
+BugfixesAndQoL.EnableTrappedUnitRescueHelp=Hilft im Einzelspielermodus und Karteneditor Soldaten und Belagerungsgeräten, die durch neue unpassierbare Felder feststecken, etwa nach Graben-, Mauer- oder Zugbrückenbau. Bauern und menschliche Wirtschaftsarbeiter werden stattdessen regulär entfernt; ihre Fracht und bereits eingesetzte Ressourcen gehen verloren, ein Ersatz ist nicht garantiert. Enthält auch die vorläufige Fixes-Korrektur für berittene Einheiten auf Bergfried-Dächern. In echtem Multiplayer nicht aktiv.
+BugfixesAndQoL.SettingsRework.Reason.EnableTrappedUnitRescue=Hilft gegen durch Bauarbeiten blockierte Einheiten; das reguläre Entfernen betroffener Arbeiter kann Fracht und Ressourcen kosten.

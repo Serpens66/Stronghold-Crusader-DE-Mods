@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -81,7 +83,7 @@ namespace TrappedUnitRescueTest
 
         private List<int> BuildBridgeAndCheck(eChimps type)
         {
-            var scope = runtime.BeginMutation("controlled-native-drawbridge-" + type, cx + 2, cy + 2, 5);
+            var scope = BeginMutation("controlled-native-drawbridge-" + type, cx + 2, cy + 2, 5);
             List<int> trapped;
             try
             {

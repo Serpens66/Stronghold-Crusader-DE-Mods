@@ -534,3 +534,19 @@ Peasant, Apple-Farmer und Tanner/Cow bestanden den regulären Entfernungspfad; A
 Mittelwerte über jeweils zwei Fenster (nativer run-Abschnitt, Diagnosepakete): Leerlauf OFF4,140→ON4,2015ms, Differenz0,0615ms;1000Walking OFF4,4545→ON4,6040ms, Differenz0,1495ms. NativeThread-CPU: Leerlauf3,3105→3,4320ms (+0,1215); Walking3,5445→3,7660ms (+0,2215). Das sind qualifizierte Beobachtungen dieses künstlichen Profils, keine statistisch abgesicherte reineRelease- oder allgemeineOverheadgarantie. Ein ON-Walking-Aufruf lag bei57,257ms; aus dieser Einzelspitze wird keine Verursachung durch den Rettungscode abgeleitet. Prozess-GC-Zähler sind keine GC-Dauern; Threadallokationen waren nicht verfügbar.
 
 Über alle Fenster2474 Ereigniscaptures, aber0 eigene Rettungsversuche,0 Rettungen und0 Entfernungsanforderungen. Damit ist keine Löschkosten- oder maximale Capture-/Saveburstlatenz gemessen. Offizielle Qualifikation: `.work/a/rescue-game/205/performance-validation.json`; kompakte Werte: `.work/a/rescue-sp/001/backlog-nearcap-summary.json`. Layout, normale und PerfProbe-Einstellungen bytegetreu restauriert, Testdesktop geschlossen, Eingabedesktop Default. Nach Abschluss wieder normaler Build ohne Entwicklungsdiagnose erstellt und Binärsperre bestanden; dessen alleinige neue Testprofil-/Routingänderungen betreffen nicht den geretteten Runtimekern.
+
+
+## 27.11.2026 — N7: actual BQoL activation/source acceptance206
+
+Normal integrated production build and separate acceptance package, Planner layout with original Fixes1.31, Pathfinding and CastlePlanner; isolated APIShared0.74 pair. Run206/dee4d388bbbc is terminal PASS. One layout transaction/game process ran five actual AIV drawbridge cases: defaultON without writing the new option, HostmasterOFF with optionTRUE, ClientmasterOFF with Host/optionTRUE, optionOFF with HostmasterTRUE, and ordinaryON. All settings were selected before each mission. Actual mission callbacks already reported the correct production activation before acceptance staging.
+
+Native mounted-dispatch gates were1/0/1/0/1 respectively. Three ON cases each rescued both original trapped units and reached their physical target with identity/HP/tribe/occupancy intact. Both OFF cases retained the actual Vanilla trap and performed no own rescue. This verifies activation and the actual source path, not the complete mounted-Keep matrix or remaining N7 save/burst/editor/removal cases.
+
+Evidence: `.work/a/rescue-game/206/dee4d388bbbc/LogOutput.log`, `desktop.json`, outer `config-recovery.json`, and `.work/a/rescue-sp/001/n7-gates-summary.json`. Restored=true/Pending=false, test desktop closed, final input desktopDefault. No global inputs. Existing Debug/All logging retained/restored by the config transaction.
+
+
+## 27.11.2026 — N7 run207 stopped by obsolete mounted-stub assertion
+
+207/71d5b9757976 ended FAIL in the first mounted prerequisite, before spawning riders. The actual published stub contains both the corrected187110 CALL and the preserved originalOFF CALL (observedE2610). The inherited assertion still required exactly one traversal CALL and rejected the second branch. This is a test-contract failure, not a completed mounted/game regression. A replacement must validate the real activation-cell branch, both targets, register/flag restoration and common continuation; merely permitting two arbitrary calls is insufficient. The remaining63 cases did not run and are not counted as passes.
+
+Original settings/plugins restored (Restored=true/Pending=false); the test desktop was closed. Evidence: `.work/a/rescue-game/207/71d5b9757976/LogOutput.log`, `desktop.json` and outer `config-recovery.json`. Separately, the acceptance startup error path now completes a validated owned public automation request as FAIL instead of leaving it to the outer timeout; foreign/invalid requests remain untouched. That new error path is not claimed game-tested by207.

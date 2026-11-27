@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -174,7 +176,7 @@ namespace TrappedUnitRescueTest
         }
         private bool UsesPassiveWorkerOpponent()
         {
-            return scenario=="rescue-legacy-civilian-off" || scenario.StartsWith("rescue-removal-",StringComparison.Ordinal) ||
+            return scenario=="rescue-legacy-civilian-off" || scenario=="rescue-legacy-civilian-master-off" || scenario.StartsWith("rescue-removal-",StringComparison.Ordinal) ||
                 scenario.StartsWith("rescue-burst-",StringComparison.Ordinal);
         }
         private Platform_Multiplayer.MPLobbyMember ReplaceFixtureRatWithPassiveLord(FRONT_Multiplayer view,

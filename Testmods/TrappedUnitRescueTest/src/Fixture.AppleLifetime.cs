@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using APIShared;
@@ -79,7 +81,7 @@ namespace TrappedUnitRescueTest
                     if(f.workerCycle!=null && ReferenceEquals(f.workerCycle.Actor,actor))f.workerCycle.Active=false;
                     return null;
                 }
-                if(context.OriginOwnerGuid==Plugin.Guid)p.ExactOriginalOwnPublications++;
+                if(context.OriginOwnerGuid==Plugin.RescueOwnerGuid)p.ExactOriginalOwnPublications++;
                 return null;
             }
         }

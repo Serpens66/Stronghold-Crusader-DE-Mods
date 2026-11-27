@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -344,7 +346,7 @@ namespace TrappedUnitRescueTest
                 if(!f.FarmerOriginalAvailable())return null;
                 try
                 {
-                    bool own=c.OriginOwnerGuid==Plugin.Guid;
+                    bool own=c.OriginOwnerGuid==Plugin.RescueOwnerGuid;
                     // Native OFF failure/retirement may already have changed phase,
                     // cargo or its next command. Only own ON continuation is strict.
                     if(!own && !f.expectedEnabled)return null;

@@ -1,3 +1,4 @@
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Reflection;

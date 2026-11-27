@@ -54,6 +54,8 @@
     <Compile Include="src\Core\Native\BfqolNativeCache.cs" />
     <Compile Include="src\Core\Native\EngineThreadLock.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.PitchStairs.cs" />
+    <Compile Include="src\Settings\BugfixesAndQoLViewModel.TrappedUnitRescue.cs" />
+    <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.TrappedUnitRescue.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.Crenels.cs" />
     <Compile Include="src\Settings\BugfixesAndQoLViewModel.MarketGoods.cs" />
     <Compile Include="src\Core\Bootstrap\BugfixesAndQoLRuntime.PitchStairs.cs" />
@@ -103,6 +105,7 @@
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="0Harmony"><HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="APIShared.DependencyBootstrap"><HintPath>$(ApiSharedDir)\..\..\patchers\APIShared.DependencyBootstrap.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>

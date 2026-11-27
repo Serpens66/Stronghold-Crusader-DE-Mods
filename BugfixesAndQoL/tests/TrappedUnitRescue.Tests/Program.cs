@@ -3,10 +3,12 @@ using System;
 using TrappedUnitRescueTest.Tests;
 internal static class Program
 {
-    private static int Main()
+    private static int Main(string[] args)
     {
         try
         {
+            if(args.Length!=1)throw new ArgumentException("Pass the explicitly selected absolute APIShared plugin package directory.");
+            BugfixesAndQoL.TrappedUnitRescue.Tests.MountedScannerGatedFixture.Run(args[0]);
             CandidateOwnerGateFixture.Run();
             CandidateQueueFixture.Run();
             CivilianRemovalPolicyFixture.Run();

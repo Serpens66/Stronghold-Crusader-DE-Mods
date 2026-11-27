@@ -23,7 +23,6 @@
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../../Shared/Runtime/Diagnostics/DevDiag.cs"><Link>Shared/DevDiag.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -134,48 +133,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="*.cs" />
-    <Compile Include="../src/FixesMountedScanner.Native.cs" />
-    <Compile Include="../src/FixesMountedScanner.Contract.cs" />
-    <Compile Include="../src/FixesMountedScanner.Helpers.cs" />
-    <Compile Include="../src/FixesMountedScannerCorrection.cs" />
-    <Compile Include="../src/FixesIntegration.cs" />
-    <Compile Include="../src/FixesManagedContract.cs" />
-    <Compile Include="../../../Shared/Runtime/Native/NativePatchGuard.cs" />
-    <Compile Include="../../../Shared/Runtime/Native/CommittedMemory.cs" />
-    <Compile Include="../../../Shared/Runtime/Diagnostics/DebugLogHelper.cs" />
-    <Compile Include="../src/NativeRelocation.cs" />
-    <Compile Include="../src/RescueRuntime.cs" />
-    <Compile Include="../src/RescueLocalField.cs" />
-    <Compile Include="../src/CivilianRemovalPolicy.cs" />
-    <Compile Include="../src/IdleEscapeOwner.cs" />
-    <Compile Include="../src/NativeIdleEscapeWorld.cs" />
-    <Compile Include="../src/Fixture.Series.cs" />
-    <Compile Include="../src/GeneralRescueObserver.cs" />
-    <Compile Include="../src/GeneralRescueObserver.Replans.cs" />
-    <Compile Include="../src/RescueGeometryWitness.cs" />
-    <Compile Include="../src/RescueGeometryCodec.cs" />
-    <Compile Include="../src/RescueReplanIntent.cs" />
-    <Compile Include="../src/RescueOrderObserver.cs" />
-    <Compile Include="../src/RescueCandidateQueue.cs" />
-    <Compile Include="../src/RescueCleanupProjection.cs" />
-    <Compile Include="../src/RescuePendingCodec.cs" />
-    <Compile Include="../src/RescueCompactArchiveCodec.cs" />
-    <Compile Include="../src/RescueDiscovery.cs" />
-    <Compile Include="../src/WorkerTravelPolicy.cs" />
-    <Compile Include="../src/CommandResumePolicy.cs" />
-    <Compile Include="../src/CommandJourneySnapshot.cs" />
-    <Compile Include="../src/WorkerResumeLedger.cs" />
-    <Compile Include="../src/WorkerBindingSnapshot.cs" />
-    <Compile Include="../src/NativeMutationFootprints.cs" />
-    <Compile Include="../src/WorkerResumeSupervisor.cs" />
-    <Compile Include="../src/NativeWorkerResumeWorld.cs" />
-    <Compile Include="../src/NativeVegetationAccess.cs" />
-    <Compile Include="../src/WorkerRecoveryService.cs" />
-    <Compile Include="../src/RescueMutationFootprints.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(SerpDevDiagnostics)' == 'true' or '$(SHCDE_DEVDIAG)' == '1'">
-    <Compile Include="../src/RescueCaptureDiagnostics.DevDiag.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AcceptanceProgram.cs"/><Compile Include="SeriesFixture.cs"/><Compile Include="../src/Fixture.Series.cs"/>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)/Microsoft.CSharp.targets" />
   <Import Project="../../../Directory.Build.targets" />

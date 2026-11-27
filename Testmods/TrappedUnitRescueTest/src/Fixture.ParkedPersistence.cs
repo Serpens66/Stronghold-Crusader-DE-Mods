@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -85,7 +87,7 @@ namespace TrappedUnitRescueTest
                 var frame=stateFrame.GetValue(state);if(frame==null || frameParent.GetValue(frame)!=null)return false;
                 var run=frameRun.GetValue(frame);
                 if(run==null || !ReferenceEquals(run,stateRun.GetValue(state)) || runParent.GetValue(run)!=null ||
-                    (string)runOwner.GetValue(run)!=Plugin.Guid || (int)runUnit.GetValue(run)!=proof.Actor.Id ||
+                    (string)runOwner.GetValue(run)!=Plugin.RescueOwnerGuid || (int)runUnit.GetValue(run)!=proof.Actor.Id ||
                     (int)runX.GetValue(run)!=proof.Before.RequestedX || (int)runY.GetValue(run)!=proof.Before.RequestedY ||
                     (int)runExtra.GetValue(run)!=0 || args.UnitId!=proof.Actor.Id || args.TileX!=proof.Before.RequestedX ||
                     args.TileY!=proof.Before.RequestedY || args.Unknown!=0 || (int)runWrappers.GetValue(run)!=1 ||

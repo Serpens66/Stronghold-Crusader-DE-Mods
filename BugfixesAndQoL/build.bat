@@ -148,6 +148,15 @@ dotnet build "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\Shared.NativeP
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%PROJECT_DIR%..\Shared\Tests\NativePatchGuard.Tests\bin\Release\net481\Shared.NativePatchGuard.Tests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Rescue kernel and mounted dispatch contracts run against the explicitly selected SDK pair.
+call :step_start "tests" "TrappedUnitRescue.Tests build"
+"%MSBUILD%" "%PROJECT_DIR%tests\TrappedUnitRescue.Tests\TrappedUnitRescue.Tests.csproj" /p:Configuration=Release /nologo /verbosity:minimal "/p:GameDir=%GAME_DIR%" "/p:ExtenderDir=%EXTENDER_DIR%" "/p:ApiSharedDir=%API_SHARED_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+call :step_start "tests" "TrappedUnitRescue.Tests execution"
+"%PROJECT_DIR%tests\TrappedUnitRescue.Tests\bin\BugfixesAndQoL.TrappedUnitRescue.Tests.exe" "%API_SHARED_DIR%"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Source-aware AI demand contracts use production sources and the installed native backend.
 call :step_start "tests" "AiMarket.Logic.Tests"
 dotnet run --project "%PROJECT_DIR%tests\AiMarket.Tests\Logic\AiMarket.Logic.Tests.csproj" --configuration Release

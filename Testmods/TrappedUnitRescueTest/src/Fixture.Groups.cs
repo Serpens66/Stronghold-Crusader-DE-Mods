@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +31,7 @@ namespace TrappedUnitRescueTest
                 VerifyLiveAndRemember();
                 leaderBefore=ValidateSharedGroup(tribe);
                 trapped=trapLeader?actors.Single(a=>a.Id==leaderBefore):actors.First(a=>a.Id!=leaderBefore);
-                var scope=runtime.BeginMutation("synthetic-shared-group-"+(trapLeader?"leader":"nonleader"),trapped.X,trapped.Y,1);
+                var scope=BeginMutation("synthetic-shared-group-"+(trapLeader?"leader":"nonleader"),trapped.X,trapped.Y,1);
                 try
                 {
                     PaintSyntheticTrap(trapped.X,trapped.Y);

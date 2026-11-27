@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -52,7 +54,7 @@ namespace TrappedUnitRescueTest
             public unsafe IUnitMoveInvocation TryBegin(UnitMoveContext c)
             {
                 var p=burstPersistence;var f=p?.Fixture;
-                if(p==null || !p.Active || f==null || f.burst==null || !f.burst.Written || c==null || c.OriginOwnerGuid!=Plugin.Guid ||
+                if(p==null || !p.Active || f==null || f.burst==null || !f.burst.Written || c==null || c.OriginOwnerGuid!=Plugin.RescueOwnerGuid ||
                     !p.Actors.TryGetValue(c.UnitId,out var a) || c.SessionId!=f.session)return null;
                 if(WorldMutationEvents.TryGetCurrentWorld(out long sid,out long world) && sid==c.SessionId && world==c.WorldGeneration &&
                     UnitAccess.TryGetById(a.Id,out GameUnit* u,out _) && u!=null && u->r_GlobalId==a.Global)p.OwnCalls++;
@@ -155,7 +157,7 @@ namespace TrappedUnitRescueTest
         private void CheckBurstSavedArchive(BurstPersistenceProof p)
         {
             Require(MapArchive.TryLoad(p.Path,out var archive) && archive!=null,"Burst save has no real readable mod archive");
-            byte[] raw;using(archive)raw=archive.TryReadBinaryFile("_SE_ModData_TrappedUnitRescueOwnedWorkers.msgpack",true);
+            byte[] raw;using(archive)raw=archive.TryReadBinaryFile("_SE_ModData_BugfixesAndQoLTrappedUnitRescue.msgpack",true);
             Require(raw!=null && raw.Length>0,"Actual burst native save omitted rescue archive");
             var codec=typeof(VersionedSaveData).Assembly.GetType("APIShared.Savegames.VersionedSaveRecordCodec",true);
             var decode=codec.GetMethod("Decode",BindingFlags.Static|BindingFlags.NonPublic,null,new[]{typeof(byte[]),typeof(int)},null);

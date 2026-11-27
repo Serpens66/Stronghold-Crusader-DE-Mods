@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -345,7 +347,7 @@ namespace TrappedUnitRescueTest
             {
                 var fixture=appleTreeFixture;var proof=fixture?.appleTreeTransit;
                 if(fixture==null || fixture.stopped || proof==null || !proof.Active || context==null ||
-                    context.OriginOwnerGuid!=Plugin.Guid || context.SessionId!=fixture.session || context.UnitId!=proof.Step.Actor.Id)return null;
+                    context.OriginOwnerGuid!=Plugin.RescueOwnerGuid || context.SessionId!=fixture.session || context.UnitId!=proof.Step.Actor.Id)return null;
                 try
                 {
                     if(proof.OwnMoves++==0)

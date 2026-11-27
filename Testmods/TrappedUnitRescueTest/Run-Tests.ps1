@@ -93,7 +93,8 @@ if(!$PathfindingPackage){$PathfindingPackage=Join-Path $workspace 'Pathfinding/B
 if(!$CastlePlannerPackage){$CastlePlannerPackage=Join-Path $workspace 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp'}
 $packages=[ordered]@{ '000shcdese'=[IO.Path]::GetFullPath($ExtenderPackage) }
 if($Layout -ne 'Minimal'){$packages['fixes']=[IO.Path]::GetFullPath($FixesPackage)}
-if($Layout -in @('Integrated','Planner')){$packages['BugfixesAndQoL_Serp']=[IO.Path]::GetFullPath($BugfixesPackage);$packages['Pathfinding_Serp']=[IO.Path]::GetFullPath($PathfindingPackage)}
+$packages['BugfixesAndQoL_Serp']=[IO.Path]::GetFullPath($BugfixesPackage)
+if($Layout -in @('Integrated','Planner')){$packages['Pathfinding_Serp']=[IO.Path]::GetFullPath($PathfindingPackage)}
 if($Layout -eq 'Planner'){$packages['CastlePlanner_Serp']=[IO.Path]::GetFullPath($CastlePlannerPackage)}
 if($PerfProbePackage){$packages['PerfProbe_Serp']=[IO.Path]::GetFullPath($PerfProbePackage)}
 foreach($package in $packages.GetEnumerator()){
@@ -133,8 +134,8 @@ try{
     $managerLaunch=if([string]::IsNullOrEmpty($priorManagerLaunch)){'TrappedUnitRescueTest-'+[Guid]::NewGuid().ToString('N')}else{$priorManagerLaunch}
     if(!$SkipBuild){
         if(@($Scenarios|Where-Object {$_ -cin @('rescue-diag-health4000-on','rescue-diag-nojesters4000-on','rescue-perf-4000-nojesters-passive-on','rescue-perf-9871-nojesters-passive-on')}).Count){
-            & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api -DriverArguments @('/devdiag')
-        }else{& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api}
+            & (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api -BugfixesDir $BugfixesPackage -DriverArguments @('/devdiag')
+        }else{& (Join-Path $PSScriptRoot 'Build.ps1') -nopause -noinstall -ApiSharedDir $api -BugfixesDir $BugfixesPackage}
     }
     $work=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-layout -Identity ('TrappedUnitRescueTest/'+$Layout)
     $evidence=New-ShortWorkDirectory -Root $workspace -Kind a -Name rescue-game -Identity ($Layout+'; '+($Scenarios -join ','))

@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,7 +21,7 @@ namespace TrappedUnitRescueTest
     {
         private sealed class LegacyCivilianProof
         {
-            internal Fixture Fixture;internal string Path,Fault;internal bool Active=true,LoadArmed,Ended,FirstTick,Marker,Gone;
+            internal Fixture Fixture;internal string Path,Fault;internal bool Active=true,LoadArmed,Ended,FirstTick,Marker,Preserved;
             internal long OriginalSession,LoadedSession,OriginalWorld,LoadedWorld;internal int Loaded,OwnMoves,SaveTick;
             internal int Quarry,Tether;internal uint TetherGlobal;internal byte[] Saved;
             internal Actor Human,Command,Ox;
@@ -29,13 +31,14 @@ namespace TrappedUnitRescueTest
         private static volatile LegacyCivilianProof legacyCivilian;
         private static bool legacyCivilianRegistered;
         private IEnumerable<AutomationStep> LegacyCivilianSteps()
-        {yield return new AutomationStep("historical-civilian-park-real-save-load-off-cleanup",TimeSpan.FromSeconds(1200),LegacyCivilian,false);}
+        {yield return new AutomationStep("historical-civilian-park-real-save-load-off-preservation",TimeSpan.FromSeconds(1200),LegacyCivilian,false);}
         private static void LegacyCivilianOff()
         {
             var field=typeof(Plugin).GetField("settings",BindingFlags.Static|BindingFlags.NonPublic);
-            Require(field!=null && field.FieldType==typeof(Settings),"Legacy fixture settings read contract changed");
-            var value=(Settings)field.GetValue(null);
-            Require(value!=null && value.EnableMod && !value.EnableExperimentalRescue && !Plugin.GeneralObserver.IsActive,
+            Require(field!=null && field.FieldType==typeof(BugfixesAndQoLViewModel),"Legacy fixture settings read contract changed");
+            var value=(BugfixesAndQoLViewModel)field.GetValue(null);
+            bool masterOff=legacyCivilian?.Fixture.scenario=="rescue-legacy-civilian-master-off";
+            Require(value!=null && value.EnableMod==!masterOff && value.EnableTrappedUnitRescue==masterOff && !Plugin.GeneralObserver.IsActive,
                 "Legacy migration acceptance must remain genuinely OFF, including restored save settings");
         }
         private void ArmLegacyCivilian(LegacyCivilianProof proof)
@@ -56,7 +59,7 @@ namespace TrappedUnitRescueTest
         {
             public unsafe IUnitMoveInvocation TryBegin(UnitMoveContext context)
             {
-                var p=legacyCivilian;if(p==null || !p.Active || context==null || context.OriginOwnerGuid!=Plugin.Guid || p.Tickets.Count!=3)return null;
+                var p=legacyCivilian;if(p==null || !p.Active || context==null || context.OriginOwnerGuid!=Plugin.RescueOwnerGuid || p.Tickets.Count!=3)return null;
                 if(!WorldMutationEvents.TryGetCurrentWorld(out long sid,out long world) || sid!=context.SessionId || world!=context.WorldGeneration)return null;
                 foreach(var t in p.Tickets)if(t.UnitId==context.UnitId && UnitAccess.TryGetById(t.UnitId,out GameUnit* u,out _) && u!=null && u->r_GlobalId==t.UnitGlobalId)
                     p.OwnMoves++;
@@ -98,14 +101,10 @@ namespace TrappedUnitRescueTest
                     return;
                 }
                 Require(world==p.LoadedWorld,"Legacy fixture world changed again");
-                f.CheckLegacyControl(p.Tickets[1],true);f.CheckLegacyControl(p.Tickets[2],true);
-                if(f.LegacyOriginalGone(p))
-                {
-                    f.ValidateLegacyChains(p);p.Gone=true;
-                    Require(!f.runtime.Workers.Ledger.TryGetOwnedByUnit(p.Human.Id,out var old) || old.UnitGlobalId!=p.Human.Global,
-                        "Removed original worker retains its old parked receipt");
-                    Require(f.runtime.Workers.Ledger.Count==2 && p.OwnMoves==0,"Migration changed retained Command/Ox receipts or replayed an old job");
-                }
+                foreach(var ticket in p.Tickets)f.CheckLegacyControl(ticket,true);
+                Require(f.runtime.Workers.Ledger.TrySerialize(out var retained) && ParkedSameBytes(retained,p.Saved) && p.OwnMoves==0,
+                    "OFF host changed its historical archive or replayed an old job");
+                p.Preserved=true;
             }
             catch(Exception error){p.Fault=error.ToString();}
         }
@@ -118,12 +117,11 @@ namespace TrappedUnitRescueTest
                 var f=p.Fixture;LegacyCivilianOff();
                 Require(WorldMutationEvents.TryGetCurrentWorld(out long sid,out long world) && sid==p.LoadedSession && world==p.LoadedWorld,
                     "Legacy marker boundary has a different world");
-                Require(UnitAccess.TryGetById(p.Human.Id,out GameUnit* u,out _) && u!=null && u->r_GlobalId==p.Human.Global &&
-                    u->r_UnitChimp==p.Human.Type && u->r_ControllableForPlayerId==f.owner && u->r_AliveState==AliveState.MarkedForDeletion &&
-                    !f.runtime.Workers.Ledger.TryGetOwnedByUnit(p.Human.Id,out _),
-                    "First actual OFF recovery boundary did not confirm original Life3 and retire only its old receipt");
-                f.CheckLegacyControl(p.Tickets[1],true);f.CheckLegacyControl(p.Tickets[2],true);p.Marker=true;
-                f.log("legacy-civilian-marker tick="+tick+" originalLife3=true oldReceiptRetired=true settingsOFF=true beforeNormalUnitPass=true commandOxPreserved=true");
+                foreach(var ticket in p.Tickets)f.CheckLegacyControl(ticket,true);
+                Require(f.runtime.Workers.Ledger.Count==3 && f.runtime.Workers.Ledger.LegacyCivilianCount==1 && p.OwnMoves==0,
+                    "OFF host changed an owned receipt or issued a native move");
+                CheckProductionScannerDisabled();p.Marker=true;
+                f.log("legacy-civilian-marker tick="+tick+" originalLifePreserved=true oldReceiptRetained=true settingsOFF=true beforeNormalUnitPass=true commandOxPreserved=true");
             }
             catch(Exception error){p.Fault=error.ToString();}
         }
@@ -339,16 +337,17 @@ namespace TrappedUnitRescueTest
                 if(MainViewModel.Instance.Show_HUD_Briefing)MainViewModel.Instance.ButtonBriefingResumeCommand.Execute(null);
                 yield return AutomationWait.Until("loaded legacy briefing closed",()=>!MainViewModel.Instance.Show_HUD_Briefing);
                 foreach(var w in run.SetPause(run.CurrentMission,false))yield return w;
-                for(int sample=0;sample<96 && !p.Gone;sample++)yield return run.WaitForTicks(run.CurrentMission,4);
+                for(int sample=0;sample<96 && !p.Preserved;sample++)yield return run.WaitForTicks(run.CurrentMission,4);
                 yield return run.WaitForTicks(run.CurrentMission,32);
                 foreach(var w in run.SetPause(run.CurrentMission,true))yield return w;
                 run.InSimulation(run.CurrentMission,()=>
                 {
-                    Require(p.Fault==null && p.FirstTick && p.Marker && p.Gone,"Legacy OFF migration lacked actual native destruction/first-tick proof: "+p.Fault);
-                    LegacyCivilianOff();ValidateLegacyChains(p);CheckLegacyControl(p.Tickets[1],true);CheckLegacyControl(p.Tickets[2],true);
-                    Require(p.OwnMoves==0 && runtime.Workers.Ledger.Count==2 && runtime.Workers.Ledger.LegacyCivilianCount==0,
-                        "Legacy migration replayed a job or changed protected Command/Ox parks");
-                    log("legacy-civilian-result settingsOFF=true originalGoneNative=true completeCurrentNextChainsFree=true oldWorkerReceiptRetired=true commandOxOriginalsPreserved=true ownMoves=0"+
+                    Require(p.Fault==null && p.FirstTick && p.Marker && p.Preserved,"Legacy OFF preservation lacked actual first-tick/native-state proof: "+p.Fault);
+                    LegacyCivilianOff();foreach(var ticket in p.Tickets)CheckLegacyControl(ticket,true);CheckProductionScannerDisabled();
+                    Require(p.OwnMoves==0 && runtime.Workers.Ledger.Count==3 && runtime.Workers.Ledger.LegacyCivilianCount==1 &&
+                        runtime.Workers.Ledger.TrySerialize(out var retained) && ParkedSameBytes(retained,p.Saved),
+                        "OFF host replayed a job, destroyed a life or changed its protected archive");
+                    log("legacy-civilian-result settingsOFF=true originalLifePreserved=true actualOccupancyPreserved=true oldWorkerReceiptRetained=true commandOxOriginalsPreserved=true ownMoves=0"+
                         " originalSession="+p.OriginalSession+" loadedSession="+p.LoadedSession+" originalWorld="+p.OriginalWorld+" loadedWorld="+p.LoadedWorld);return true;
                 });
             }

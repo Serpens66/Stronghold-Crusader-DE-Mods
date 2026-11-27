@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -90,7 +92,7 @@ namespace TrappedUnitRescueTest
                 {
                     fixture.suppression(fixture.expectedEnabled);
                     request.Origins.Add(fixture.CaptureMountedOrigin(request.Actor,true));
-                    using(var mutation=fixture.runtime.BeginMutation("native-keep-pending-step-"+request.Mapper+"-"+request.Rotation,
+                    using(var mutation=fixture.BeginMutation("native-keep-pending-step-"+request.Mapper+"-"+request.Rotation,
                         request.X+request.Scale/2,request.Y+request.Scale/2,request.Scale+2))
                     {
                         request.Pose=fixture.BuildMountedKeep(request.Mapper,request.Rotation);
@@ -745,7 +747,7 @@ namespace TrappedUnitRescueTest
                 // before opening the causally observed construction scope.
                 Require(runtime.Native.Relocate(actor.Id,cx,cy),"Native rider placement at the bridge corner failed");
                 CheckActor(actor,true);actor.SourceX=actor.X;actor.SourceY=actor.Y;
-                using(var mutation=runtime.BeginMutation("native-drawbridge-single-rider-"+type,cx+2,cy+2,5))
+                using(var mutation=BeginMutation("native-drawbridge-single-rider-"+type,cx+2,cy+2,5))
                 {
                     GameBuildingManagerAPI.Instance.CreatePrefab(owner,cx,cy,eMappers.MAPPER_DRAWBRIDGE,BuildingScales.GetScale(eMappers.MAPPER_DRAWBRIDGE),0,true,true);
                     int bridge=GameTileManagerAPI.Instance.GetTileBuildingId(GameTileManagerAPI.Instance.GetTileId(cx,cy));

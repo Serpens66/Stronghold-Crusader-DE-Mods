@@ -1831,6 +1831,7 @@ namespace BugfixesAndQoL
                 EmptyStockpileLimit = StorageEmptyLimitPolicy.Vanilla;
                 EmptyGranaryArmouryLimit = StorageEmptyLimitPolicy.Vanilla;
                 EnablePitchStairsFix = true;
+                EnableTrappedUnitRescue = true;
                 EnableDrawbridgeDestructionFix = true;
                 EnableSiegeCrewDuplicationFix = true;
                 EnableSiegeCrewFireLossFix = true;

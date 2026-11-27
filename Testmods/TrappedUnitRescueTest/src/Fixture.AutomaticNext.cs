@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -140,7 +142,7 @@ namespace TrappedUnitRescueTest
             {
                 var fixture=current;var original=actor;
                 if(fixture==null || fixture.stopped || original==null || context.SessionId!=fixture.session ||
-                    context.UnitId!=original.Id || context.OriginOwnerGuid!=Plugin.Guid)return null;
+                    context.UnitId!=original.Id || context.OriginOwnerGuid!=Plugin.RescueOwnerGuid)return null;
                 Calls++;if(Calls!=1)return null;
                 GameUnit* unit=null;
                 FirstNormalized=context.X==goalX && context.Y==goalY && context.Extra==0 &&

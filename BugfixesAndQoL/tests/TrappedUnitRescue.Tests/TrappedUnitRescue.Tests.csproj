@@ -138,6 +138,7 @@
   </Target>
   <ItemGroup>
     <!-- The production host is integration-tested separately; this project links only the migrated kernel. -->
+    <Compile Include="MountedScannerGatedFixture.cs" />
     <Compile Include="../../src/TrappedUnitRescue/*.cs" Exclude="../../src/TrappedUnitRescue/*.DevDiag.cs;../../src/TrappedUnitRescue/TrappedUnitRescueFeature.cs">
       <Link>Production/%(Filename)%(Extension)</Link>
     </Compile>

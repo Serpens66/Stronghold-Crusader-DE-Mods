@@ -94,6 +94,9 @@ static void Scan(string[] arguments)
     while (ancestor != null && !File.Exists(Path.Combine(ancestor.FullName, "_inspect/UnitIdAccess/inventory.json"))) ancestor = ancestor.Parent;
     Check(ancestor != null, "Workspace inventory not found above test output");
     string root = ancestor!.FullName;
+    string apiRoot = ResolveApiSourceRoot(root,Environment.GetEnvironmentVariable("SHCDE_BRANCH_API_ROOT"));
+    VerifySdkPathFixtures(root,apiRoot);
+    Console.WriteLine("UnitAccess SDK source root: "+apiRoot);
     string modRoot = null;
     if (arguments.Contains("--mod-directory"))
     {
@@ -105,7 +108,7 @@ static void Scan(string[] arguments)
     }
     var excluded = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".git", "bin", "obj", "BepInEx", "tests", "packages", ".inspect", "_inspect", ".tools", ".native-analysis", ".work", ".release-output", "shcde-script-extender", "UCP", "x86_64" };
     int checkedFiles=0;
-    var scanRoots = modRoot == null ? new[] { root } : new[] { modRoot, Path.Combine(root,"APIShared/src") };
+    var scanRoots = modRoot == null ? new[] { root,Path.Combine(apiRoot,"src") } : new[] { modRoot,Path.Combine(apiRoot,"src") };
     // Only source links actually compiled into this consumer, not every Shared helper.
     var linked = modRoot == null ? Enumerable.Empty<string>() : Directory.EnumerateFiles(modRoot, "*.csproj", SearchOption.TopDirectoryOnly)
         .SelectMany(p => XDocument.Load(p).Descendants().Where(e => e.Name.LocalName == "Compile")
@@ -113,7 +116,7 @@ static void Scan(string[] arguments)
             .Select(i => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(p)!, i!)))).Where(File.Exists);
     foreach (string file in scanRoots.SelectMany(RuntimeFiles).Concat(linked).Distinct())
     {
-        string relative=Path.GetRelativePath(root,file);
+        string relative=NormalizeSourcePath(root,apiRoot,file);
         // Public third-party examples are documentation, not workspace runtime sources.
         // Their public SDK calls cannot use our internal UnitAccess implementation.
         // Match the project inventory's existing exclusion of APIShared/examples.
@@ -126,7 +129,7 @@ static void Scan(string[] arguments)
     using var inventory=JsonDocument.Parse(File.ReadAllText(Path.Combine(root,"_inspect/UnitIdAccess/inventory.json")));
     foreach (var projectEntry in inventory.RootElement.GetProperty("projects").EnumerateObject())
     {
-        string projectPath=Path.Combine(root,projectEntry.Name);
+        string projectPath=ResolveInventoryProject(root,apiRoot,projectEntry.Name);
         if (modRoot != null && !Path.GetFullPath(projectPath).StartsWith(modRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) &&
             !projectEntry.Name.Replace('\\','/').StartsWith("APIShared/", StringComparison.OrdinalIgnoreCase)) continue;
         if (!File.Exists(projectPath) && projectEntry.Name.Replace('\\','/').StartsWith("Testmods/", StringComparison.OrdinalIgnoreCase))
@@ -142,9 +145,10 @@ static void Scan(string[] arguments)
         foreach (string file in compileFiles.Distinct())
         {
             string text=File.ReadAllText(file);
-            Check(!Regex.IsMatch(text,@"System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json"), "Forbidden runtime JSON: "+file);
+            string display=NormalizeSourcePath(root,apiRoot,file);
+            Check(!Regex.IsMatch(text,@"System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility|System\.Runtime\.Serialization\.Json"), "Forbidden runtime JSON: "+display);
             if (!file.EndsWith(".cs")) continue;
-            CheckRuntimeSyntax(text, file);
+            CheckRuntimeSyntax(text, display);
         }
         foreach(string file in Directory.EnumerateFiles(projectRoot,"*.xaml",SearchOption.AllDirectories))
             foreach(var content in XDocument.Load(file).Descendants().Where(e=>e.Name.LocalName=="Content"))
@@ -156,11 +160,54 @@ static void Scan(string[] arguments)
         foreach(string file in Directory.EnumerateFiles(directory,"*.cs",SearchOption.TopDirectoryOnly)) yield return file;
         foreach(string child in Directory.EnumerateDirectories(directory))
         {
+            // A selected SDK replaces the canonical checkout in a workspace scan.
+            if(!SamePath(apiRoot,Path.Combine(root,"APIShared")) && SamePath(child,Path.Combine(root,"APIShared")))continue;
             string name=Path.GetFileName(child);
             if(excluded.Contains(name)||name.EndsWith(".Tests",StringComparison.OrdinalIgnoreCase)) continue;
             foreach(string file in RuntimeFiles(child)) yield return file;
         }
     }
+}
+
+// Source-only scanner selection. Package provenance belongs to the outer build
+// gate; standalone source audits deliberately need no built SDK package.
+static string ResolveApiSourceRoot(string root,string selection)
+{
+    string chosen=Path.GetFullPath(string.IsNullOrEmpty(selection)?Path.Combine(root,"APIShared"):selection);
+    Check(Directory.Exists(Path.Combine(chosen,"src")) && File.Exists(Path.Combine(chosen,"APIShared.csproj")),
+        "Selected APIShared source root is missing or invalid: "+chosen);
+    return Path.TrimEndingDirectorySeparator(chosen);
+}
+static bool SamePath(string first,string second)=>string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(first)),
+    Path.TrimEndingDirectorySeparator(Path.GetFullPath(second)),StringComparison.OrdinalIgnoreCase);
+static string NormalizeSourcePath(string root,string apiRoot,string file)
+{
+    string relative=Path.GetRelativePath(apiRoot,file);
+    if(relative!=".." && !relative.StartsWith(".."+Path.DirectorySeparatorChar,StringComparison.Ordinal) && !Path.IsPathRooted(relative))
+        return Path.Combine("APIShared",relative);
+    return Path.GetRelativePath(root,file);
+}
+static string ResolveInventoryProject(string root,string apiRoot,string project)
+{
+    string normalized=project.Replace('\\','/');
+    return normalized.StartsWith("APIShared/",StringComparison.OrdinalIgnoreCase)?
+        Path.GetFullPath(Path.Combine(apiRoot,normalized.Substring("APIShared/".Length))):Path.GetFullPath(Path.Combine(root,project));
+}
+static void VerifySdkPathFixtures(string root,string apiRoot)
+{
+    string lookup=Path.Combine(apiRoot,"src/Units/Selection/UnitAccess.cs");
+    Check(NormalizeSourcePath(root,apiRoot,lookup).Replace('\\','/')=="APIShared/src/Units/Selection/UnitAccess.cs",
+        "Selected SDK lookup retains its canonical diagnostic identity");
+    Check(SamePath(ResolveInventoryProject(root,apiRoot,"APIShared/APIShared.csproj"),Path.Combine(apiRoot,"APIShared.csproj")),
+        "Inventory resolves the selected APIShared project");
+    Check(SamePath(ResolveInventoryProject(root,apiRoot,"BugfixesAndQoL/BugfixesAndQoL.csproj"),Path.Combine(root,"BugfixesAndQoL/BugfixesAndQoL.csproj")),
+        "Inventory leaves consumer projects in the workspace");
+    Check(!NormalizeSourcePath(root,apiRoot,Path.Combine(apiRoot+"-other","src/Units/Selection/UnitAccess.cs")).Replace('\\','/').StartsWith("APIShared/",StringComparison.Ordinal),
+        "A sibling with the same prefix cannot obtain SDK lookup authority");
+    bool rejected=false;
+    try{ResolveApiSourceRoot(root,Path.Combine(root,"_inspect/UnitIdAccess/Tests/does-not-exist"));}catch(Exception){rejected=true;}
+    Check(rejected,"Explicit invalid SDK selection fails closed without canonical fallback");
+    Console.WriteLine("PASS: selected SDK source normalization, inventory resolution, sibling boundary and missing-root rejection.");
 }
 
 // Syntax guardrail: catches direct startup teardown and scheduling. It does not

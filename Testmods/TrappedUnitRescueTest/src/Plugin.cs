@@ -3,7 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using APIShared;
-using APIShared.ModSettings;
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
+using BepInEx.Bootstrap;
+using System.Reflection;
 using APIShared.WorldMutations;
 using APIShared.Simulation;
 using APIShared.Units;
@@ -18,41 +21,36 @@ namespace TrappedUnitRescueTest
     [BepInDependency("APIShared_Serp", "0.74.0")]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("Pathfinding_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    public sealed class Plugin : BaseUnityPlugin
+    [BepInDependency("BugfixesAndQoL_Serp")]
+    public sealed partial class Plugin : BaseUnityPlugin
     {
         public const string Guid = "TrappedUnitRescueTest_Serp", Name = "Trapped Unit Rescue Test", Version = "0.1.0";
         private static ManualLogSource log;
-        private static Settings settings;
+        private static BugfixesAndQoLViewModel settings;
+        internal const string RescueOwnerGuid="BugfixesAndQoL_Serp";
+        private static TrappedUnitRescueFeature host;
         private static RescueRuntime runtime;
         private static GeneralRescueObserver generalObserver;
         private static WorkerRecoveryService workers;
-        private static IdleEscapeOwner idleEscapes;
-        private static NativeIdleEscapeWorld idleEscapeWorld;
         private static FixesIntegration fixes;
         private static Fixture fixture;
         private static RescueScenarioSeries series;
         private static IMissionLifecycleCapability missions;
         private static int active, fixtureActive, generalFixture;
-        private static int civilianRemovalTick;
         internal static GeneralRescueObserver GeneralObserver => generalObserver;
-        private static bool initialized, libraryReady, settingsReady;
+        private static bool initialized, libraryReady, settingsReady, startupFailureRun;
+        private static string startupFailure;
         private static Plugin instance;
         private static string configuredMap;
         private static string configuredScenarios;
         private static int configuredPeaceTime;
         private static int startupThread;
-        private static RescueOrderObserver orders;
 
         private void Awake()
         {
-            EarlyProviderProbe.OwnAwakeEntered(this);
             if (initialized) return;
-            initialized = true; instance = this; log = Logger; settings = new Settings();
+            initialized = true; instance = this; log = Logger;
             Shared.DevDiag.Attach(log);
-#if SERP_DEVDIAG
-            RescueCaptureDiagnostics.Initialize();
-#endif
             startupThread = Thread.CurrentThread.ManagedThreadId;
             configuredMap = Config.Bind("Fixture", "Map", "4spielerkarte.map", "Disposable local Skirmish map; suitability is checked before each scenario.").Value;
             configuredPeaceTime = Config.Bind("Fixture", "PeaceTimeMinutes", 60, "Explicit peace time for the disposable test world.").Value;
@@ -66,157 +64,72 @@ namespace TrappedUnitRescueTest
                 if (Thread.CurrentThread.ManagedThreadId != startupThread) { Stamp("INIT_FAILED settings readiness left the startup Unity thread"); return; }
                 InitializeSettings();
             });
-            EarlyProviderProbe.OwnAwakeReturned(this);
         }
 
         private static void LibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            if (libraryReady) return;
+            if(libraryReady)return;
             try
             {
-                Shared.NativePatchGuard.Bind(context, log);
-                var native = NativeRelocation.Create(Guid);
-                fixes = new FixesIntegration(log, native);
-                fixes.Initialize(context);
-                runtime = new RescueRuntime(native, () => Volatile.Read(ref active) != 0, Stamp);
-                var generalRuntime = new RescueRuntime(native, () => generalObserver != null && generalObserver.IsActive, Stamp);
-                generalObserver = new GeneralRescueObserver(generalRuntime, SetGeneralSuppression, Stamp);
-                generalRuntime.CanRemoveCivilian=()=>Volatile.Read(ref civilianRemovalTick)!=0 && generalObserver.IsRecovering;
-                generalObserver.ReplanIntents=new NativeRescueReplanIntentWorld(generalRuntime,new NativeWorkerResumeWorld(native));
-                generalObserver.ReplanOwnerGuid=Guid;
-                generalObserver.OwnReplanScope=()=>workers?.Supervisor.IsExecutingNativeCall==true || generalObserver.IsRecovering || idleEscapes?.IsExecutingNativeCall==true;
-                workers=new WorkerRecoveryService(native,()=>generalObserver.IsRecovering || idleEscapes?.IsExecutingNativeCall==true,Stamp);
-                if(!workers.Register(Guid,out string saveReason))throw new InvalidOperationException("Worker persistence unavailable: "+saveReason);
-                idleEscapeWorld=new NativeIdleEscapeWorld(native,Guid,IdleEscapeAuthority,native.TryReissue);
-                idleEscapes=new IdleEscapeOwner(idleEscapeWorld);
-                if(!UnitMoveEvents.TryRegister(Guid,"idle-escape-source-phase",idleEscapeWorld,out string idleReason,enabled:()=>idleEscapeWorld.IsArmed))
-                    throw new InvalidOperationException("Idle escape source-phase observation unavailable: "+idleReason);
-                foreach(var rescue in new[]{runtime,generalRuntime})
-                {
-                    rescue.Workers=workers.Supervisor;rescue.WorkerTick=()=>workers.TickValue;rescue.WorkerReady=()=>workers.Ready;
-                    rescue.IdleEscapes=idleEscapes;
-                    rescue.CreateIdleEscapeRequest=(before,target)=>WorldMutationEvents.TryGetCurrentWorld(out long session,out long generation)?
-                        new IdleEscapeRequest(session,generation,generalObserver.GetOrderSerial(before.Id),before,target,true):null;
-                }
-                generalObserver.WorldMutated=workers.Supervisor.MarkWorldMutation;
-                workers.CapturePending=generalObserver.TryCapturePending;
-                workers.RestorePending=generalObserver.StagePending;
-                workers.CaptureGeometry=generalObserver.TryCaptureGeometry;
-                workers.RestoreGeometry=generalObserver.StageGeometry;
-                if (!WorldMutationEvents.TryRegister(Guid,"rescue-world-mutations",generalObserver,out string mutationReason,
-                    enabled:()=>generalObserver.IsActive))
-                    throw new InvalidOperationException("World-mutation observer unavailable: " + mutationReason);
-                if(!SimulationTickEvents.TryRegister(Guid,"rescue-candidates",RecoveryTick,out string tickReason))
-                    throw new InvalidOperationException("Recovery tick unavailable: " + tickReason);
-                orders=new RescueOrderObserver(Guid,()=>workers.Supervisor.IsExecutingNativeCall || generalObserver.IsRecovering || idleEscapes.IsExecutingNativeCall,
-                    id=>{idleEscapes.Release(id);generalObserver.ObserveOrder(id,true);if(workers.Ready)workers.Supervisor.ObserveOrderPre(id);},
-                    (id,result)=>{try{if(workers.Ready)workers.Supervisor.ObserveOrderPost(id,workers.TickValue,result);}
-                        finally{generalObserver.EndExternalOrder(id);}},
-                    id=>generalObserver.IsInterestedInOrder(id) || idleEscapes.Contains(id) || workers.Supervisor.Ledger.TryGetOwnedByUnit(id,out _),
-                    id=>{try{workers.Supervisor.ObserveOrderAborted(id,workers.TickValue);}
-                        finally{generalObserver.EndExternalOrder(id);}});
-                if(!UnitMoveEvents.TryRegister(Guid,"rescue-order-identity",orders,out string orderReason,
-                    enabled:()=>generalObserver.HasEvidence || idleEscapes.Count!=0 || workers.Supervisor.Ledger.Count!=0))
-                    throw new InvalidOperationException("Final unit-move observations unavailable: "+orderReason);
-                if(!UnitMoveEvents.TryRegister(Guid,"rescue-replan-proof",generalObserver,out string replanReason,order:100,
-                    enabled:()=>generalObserver.HasEvidence))
-                    throw new InvalidOperationException("Replan proof observations unavailable: "+replanReason);
-                libraryReady = true;
-                UpdateGeneralSession();
-                Stamp("NATIVE_READY; experimental setting defaults off; gatehouse farmer fix retained");
-                if (settingsReady) QueueRequestedFixture();
+                if(!Chainloader.PluginInfos.TryGetValue(RescueOwnerGuid,out var info) || ReferenceEquals(info.Instance,null))
+                    throw new InvalidOperationException("Actual BQoL host is absent.");
+                var plugin=info.Instance as BugfixesAndQoLPlugin;
+                if(ReferenceEquals(plugin,null))throw new InvalidOperationException("BQoL plugin type differs from the referenced selected assembly.");
+                var field=typeof(BugfixesAndQoLPlugin).GetField("runtime",BindingFlags.Instance|BindingFlags.NonPublic);
+                var owner=field?.GetValue(plugin);
+                var feature=typeof(BugfixesAndQoLRuntime).GetField("trappedUnitRescueFeature",BindingFlags.Instance|BindingFlags.NonPublic);
+                host=feature?.GetValue(owner) as TrappedUnitRescueFeature;
+                if(host==null || !host.Ready)throw new InvalidOperationException("Actual BQoL rescue feature did not initialize.");
+                settings=plugin.Settings;runtime=host.Runtime;generalObserver=host.GeneralObserver;workers=host.Recovery;
+                var compatibility=typeof(TrappedUnitRescueFeature).GetField("fixes",BindingFlags.Instance|BindingFlags.NonPublic);
+                fixes=compatibility?.GetValue(host) as FixesIntegration;
+                if(settings==null || runtime==null || generalObserver==null || workers==null || fixes==null)
+                    throw new InvalidOperationException("Selected production host contract is incomplete.");
+                ArmAcceptanceDrain();libraryReady=true;
+                Stamp("PRODUCTION_HOST_READY assembly="+typeof(TrappedUnitRescueFeature).Assembly.Location+" mvid="+typeof(TrappedUnitRescueFeature).Module.ModuleVersionId+
+                    " owner="+RescueOwnerGuid+" secondRuntime=false secondEarlyProvider=false");
+                if(settingsReady)QueueRequestedFixture();
             }
-            catch (Exception ex) { SetActive(false); generalObserver?.SetSession(0); Stamp("INIT_FAILED " + ex); }
+            catch(Exception error)
+            {
+                startupFailure="Production acceptance binding: "+error;
+                Stamp("INIT_FAILED "+startupFailure);
+                if(settingsReady)QueueRequestedFixture();
+            }
         }
-
         private static void InitializeSettings()
         {
             try
             {
-                LobbyModSettingsPresetRegistration.Register(instance, log, Name, settings,
-                    "ScriptExtenderUI/TrappedUnitRescueTestSettings.xaml");
-                if (!ApiShared.ForMod(Guid).TryGetMissionLifecycle(out missions, out var diagnostic))
-                    throw new InvalidOperationException(diagnostic.Reason);
-                if (!missions.TryRegisterObserver("rescue-session", n => {
+                if(!ApiShared.ForMod(Guid).TryGetMissionLifecycle(out missions,out var diagnostic))throw new InvalidOperationException(diagnostic.Reason);
+                if(!missions.TryRegisterObserver("acceptance-session",n=>{
                     series?.MissionStarted(n.Context.SessionId);
-                    idleEscapes?.Clear();
-                    fixes?.RecheckPublishedHooks();
-                    SetActive(Volatile.Read(ref fixtureActive) != 0 && settings.EnableMod && settings.EnableExperimentalRescue);
-                    UpdateGeneralSession();
-                    workers?.BeginSession(n.Context.SessionId,LocalModeAllowed(n.Context));
-                }, n => { idleEscapes?.Clear();generalObserver?.SetSession(0); generalObserver?.ClearPending(); workers?.EndSession(); Volatile.Write(ref generalFixture, 0); SetActive(false);
-                    if(series!=null)series.MissionEnded(n.Context.SessionId);else fixture?.Stop(); }, null, out var observerDiagnostic))
-                    throw new InvalidOperationException(observerDiagnostic.Reason);
-                settingsReady = true;
-                UpdateGeneralSession();
-                Stamp("SETTINGS_READY; no request means no automatic scenario; event-driven rescue requires explicit setting");
-                if (libraryReady) QueueRequestedFixture();
+                    if(host!=null && libraryReady)Stamp("production-session-observed session="+n.Context.SessionId+" isSave="+n.Context.IsSave+
+                        " activeBeforeAcceptance="+host.Active+" hostMaster="+settings.EnableMod+" hostOption="+settings.EnableTrappedUnitRescue+" clientMaster="+settings.EnableClientFeatures);
+                    // Loaded production proofs are already staged by the main host. Never
+                    // reset that bank while the owned save fixture is rebinding metadata.
+                    if(Volatile.Read(ref fixtureActive)!=0 && !n.Context.IsSave)SetGeneralFixtureSession(false);
+                },n=>{
+                    RestoreAcceptanceDrain();
+                    Volatile.Write(ref generalFixture,0);
+                    if(series!=null)series.MissionEnded(n.Context.SessionId);else fixture?.Stop();
+                },null,out var registered))throw new InvalidOperationException(registered.Reason);
+                settingsReady=true;if(libraryReady || startupFailure!=null)QueueRequestedFixture();
             }
-            catch (Exception ex) { SetActive(false); Stamp("INIT_FAILED settings: " + ex); }
+            catch(Exception error)
+            {
+                startupFailure="Acceptance lifecycle: "+error;settingsReady=true;
+                Stamp("INIT_FAILED "+startupFailure);QueueRequestedFixture();
+            }
         }
 
         private static void QueueRequestedFixture()
         {
             if (!ApiShared.ForMod(Guid).Ui.TryPost(StartRequestedFixture)) Stamp("INIT_FAILED Unity dispatcher unavailable");
         }
-        private static void RecoveryTick(int tick)
-        {
-            // Acceptance-only hold; construction/order capture remains live.
-            if(Fixture.HoldRecoveryTick(tick))return;
-            if(generalObserver?.HasOpenExternalCalls==true)return;
-            generalObserver?.ExpireInactivePending();
-            if(!settings.EnableMod || !settings.EnableExperimentalRescue)idleEscapes?.Clear();
-            if(workers==null || (generalObserver.PendingCount==0 && workers.Supervisor.Ledger.Count==0 && idleEscapes.Count==0) || !workers.AdmitTick(tick))return;
-            if(!UnitMoveEvents.IsAvailable)idleEscapes.Clear();
-            // Retire only our historical civilian arrival barriers, including OFF.
-            // This is separate from new rescue and never suppresses Fixes workers.
-            workers.AdvanceLegacyTick(tick);
-#if SERP_DEVDIAG
-            long diagnosticStarted=0;
-            Shared.DevDiag.BeginBatch();
-            Shared.DevDiag.Start(ref diagnosticStarted);
-            try
-            {
-#endif
-            Volatile.Write(ref civilianRemovalTick,1);
-            try{generalObserver?.Tick(tick);}
-            finally{Volatile.Write(ref civilianRemovalTick,0);}
-            long completed=idleEscapes.CompletedCount;
-            idleEscapes.Advance(unchecked((uint)workers.TickValue));
-            if(idleEscapes.CompletedCount!=completed)Stamp("IDLE_ESCAPE_ARRIVED count="+(idleEscapes.CompletedCount-completed));
-            if(workers.Supervisor.Ledger.Count==0 || !workers.Ready || !settings.EnableMod || !settings.EnableExperimentalRescue)return;
-            bool fixtureScope=Volatile.Read(ref fixtureActive)!=0 && Volatile.Read(ref generalFixture)==0;
-            if(fixtureScope)SetSuppression(true);else SetGeneralSuppression(true);
-#if SERP_DEVDIAG
-            long supervisorStarted=0;Shared.DevDiag.Start(ref supervisorStarted);
-#endif
-            try{workers.Supervisor.Tick(workers.TickValue,32,4);}
-            finally
-            {
-#if SERP_DEVDIAG
-                Shared.DevDiag.StopSpike(ref supervisorStarted,"rescue.tick.supervisor",2000);
-#endif
-                if(fixtureScope)SetSuppression(false);else SetGeneralSuppression(false);
-            }
-#if SERP_DEVDIAG
-            }
-            finally
-            {
-                Shared.DevDiag.StopSpike(ref diagnosticStarted,"rescue.tick.total.inclusive",2000);
-                Shared.DevDiag.EndBatch();
-            }
-#endif
-        }
-        private static bool LocalModeAllowed(MissionContext current)=>current!=null && !current.Mode.IsRealMultiplayer &&
-            !current.Mode.HasConflictingCustomizedOrigin && current.Mode.Kind!=APIShared.GameModes.GameModeKind.Unknown;
-        private static bool IdleEscapeAuthority(IdleEscapeRequest request)=>request!=null && settings.EnableMod && settings.EnableExperimentalRescue &&
-            LocalModeAllowed(missions?.Current) && (generalObserver.IsActive || Volatile.Read(ref active)!=0) &&
-            WorldMutationEvents.TryGetCurrentWorld(out long session,out long generation) && session==request.Session && generation==request.Generation &&
-            generalObserver.GetOrderSerial(request.Before.Id)==request.OrderSerial;
-
         private static void StartRequestedFixture()
         {
-            if (fixture != null || series != null) return;
+            if (fixture != null || series != null || startupFailureRun) return;
             string request = Path.Combine(Paths.ConfigPath, "SerpAutomation", Guid + ".run");
             if (!File.Exists(request)) return;
             string[] lines = File.ReadAllLines(request);
@@ -233,6 +146,15 @@ namespace TrappedUnitRescueTest
             if(!RescueScenarioSelection.TryExpand(selection,out var expandedSelection))
             {Stamp("Expanded series exceeds bounded capacity; request not consumed");return;}
             selection=expandedSelection;
+            if(startupFailure!=null)
+            {
+                // A valid owned request must finish FAIL instead of waiting for the outer timeout.
+                string failure=startupFailure;startupFailureRun=true;File.Delete(request);
+                ApiShared.ForMod(Guid).Automation.Start(runId,new[]{new APIShared.Automation.AutomationStep(
+                    "production-host-initialization",TimeSpan.FromSeconds(10),_=>throw new InvalidOperationException(failure))},log,
+                    result=>Stamp("finished status="+result.Status+" detail="+result.Detail),quitWhenDone:true);
+                return;
+            }
             APIShared.Automation.AutomationStep[] steps;
             if(lines[1]==RescueScenarioSelection.SeriesRequest || selection.Length>1)
             {
@@ -248,7 +170,7 @@ namespace TrappedUnitRescueTest
             File.Delete(request);
             ApiShared.ForMod(Guid).Automation.Start(runId, steps, log,
                 result => {
-                    generalObserver?.SetSession(0); Volatile.Write(ref generalFixture, 0);
+                    RestoreAcceptanceDrain(); generalObserver?.SetSession(0); Volatile.Write(ref generalFixture, 0);
                     SetActive(false); Interlocked.Exchange(ref fixtureActive, 0); series?.Stop();fixture?.Stop();
                     Stamp("finished status=" + result.Status + " detail=" + result.Detail);
                 }, quitWhenDone: true);
@@ -257,8 +179,12 @@ namespace TrappedUnitRescueTest
         private static Fixture CreateFixture(string scenario)=>new Fixture(configuredMap, scenario, Stamp, runtime, enabled => {
                 if (enabled && (fixes == null || !fixes.Ready))
                     throw new InvalidOperationException("Experimental rescue is unavailable; the validated Fixes integration did not become ready. Original behavior remains active.");
-                settings.EnableMod = true; settings.EnableExperimentalRescue = enabled;
-                if (!settings.EnableMod || settings.EnableExperimentalRescue != enabled)
+                bool masterOff=scenario=="rescue-legacy-civilian-master-off" || scenario=="rescue-aivbridge-hostmaster-off";
+                bool defaultProfile=scenario=="rescue-aivbridge-default-on";
+                settings.EnableMod=!masterOff;
+                settings.EnableClientFeatures=scenario!="rescue-aivbridge-clientoff-on";
+                if(!defaultProfile)settings.EnableTrappedUnitRescue=masterOff || IsMountedScannerCase(scenario) || enabled;
+                if(settings.EnableMod!=!masterOff || settings.EnableTrappedUnitRescue!=(masterOff || IsMountedScannerCase(scenario) || enabled))
                     throw new InvalidOperationException("Requested test settings were not accepted before mission start.");
                 Interlocked.Exchange(ref fixtureActive, 1);
                 generalObserver?.SetSession(0);
@@ -269,52 +195,50 @@ namespace TrappedUnitRescueTest
                 return fixes.WorkerDeletionInstalled;
             }, configuredPeaceTime);
 
-        private static void SetActive(bool enabled)
+        internal static void AssertProductionProfile(string scenario,bool expected)
         {
-            bool allow = enabled && runtime != null && fixes != null && fixes.Ready &&
-                missions?.Current != null && Volatile.Read(ref fixtureActive) != 0;
-            // Mission activation enables our explicit rescue calls, never a mission-wide
-            // replacement of natural AI/Fixes behavior. Execute opens the narrower gate.
-            fixes?.SetEnabled(false);
-            Volatile.Write(ref active, allow ? 1 : 0);
+            bool masterOff=scenario=="rescue-aivbridge-hostmaster-off";
+            if(settings.EnableMod!=!masterOff || settings.EnableTrappedUnitRescue!=(masterOff || expected) ||
+                settings.EnableClientFeatures!=(scenario!="rescue-aivbridge-clientoff-on") || host.Active!=expected)
+                throw new InvalidOperationException("Actual production host/default/client activation differs from the selected profile.");
+            int gate=ProductionScannerGate(expected);
+            Stamp("production-profile scenario="+scenario+" hostMaster="+settings.EnableMod+" hostOption="+settings.EnableTrappedUnitRescue+
+                " clientMaster="+settings.EnableClientFeatures+" active="+host.Active+" providerNativeGate="+gate+
+                " optionExplicitlyWritten="+(scenario!="rescue-aivbridge-default-on")+" settingsChangedBeforeMissionOnly=true");
         }
+        internal static int ProductionScannerGate(bool expected)
+        {
+            var type=typeof(MountedScannerEarlyProvider);var flags=BindingFlags.Static|BindingFlags.NonPublic;
+            var requested=type.GetField("requested",flags);
+            if(requested?.FieldType!=typeof(int) || (int)requested.GetValue(null)!=(expected?1:0))throw new InvalidOperationException("Production scanner logical setting gate differs.");
+            var value=type.GetField("capture",flags)?.GetValue(null);if(value==null)return -1;
+            var field=value.GetType().GetField("activation",BindingFlags.Instance|BindingFlags.NonPublic);
+            if(field?.FieldType!=typeof(IntPtr))throw new InvalidOperationException("Production scanner activation contract changed.");
+            var bytes=Shared.CommittedMemory.ReadUpTo((IntPtr)field.GetValue(value),4);
+            if(bytes.Length!=4)throw new InvalidOperationException("Production scanner activation is unreadable.");
+            int gate=BitConverter.ToInt32(bytes,0);
+            if(!expected && gate!=0 || gate<0 || gate>1)throw new InvalidOperationException("Disabled production scanner has an active native gate.");
+            return gate;
+        }
+        private static bool IsMountedScannerCase(string scenario)=>scenario.StartsWith("rescue-mountedkeep",StringComparison.Ordinal);
+        private static void SetActive(bool enabled)
+        {fixes?.SetEnabled(false);Volatile.Write(ref active,enabled?1:0);}
         private static void SetSuppression(bool enabled)
         {
-            if (!enabled) { fixes?.SetEnabled(false); return; }
-            if (Volatile.Read(ref active) == 0 || fixes == null || !fixes.Ready ||
-                missions?.Current == null || Volatile.Read(ref fixtureActive) == 0)
-                throw new InvalidOperationException("Fixes suppression requires the active, ready, explicit test mission.");
+            if(!enabled){fixes?.SetEnabled(false);return;}
+            if(host==null || !host.Ready || fixes==null || !fixes.Ready || missions?.Current==null || Volatile.Read(ref fixtureActive)==0)
+                throw new InvalidOperationException("Acceptance suppression requires its actual production host and owned mission.");
             fixes.SetEnabled(true);
         }
-        private static void UpdateGeneralSession()
-        {
-            var current = missions?.Current;
-            bool allow = libraryReady && settingsReady && settings.EnableMod && settings.EnableExperimentalRescue &&
-                (Volatile.Read(ref fixtureActive) == 0 || Volatile.Read(ref generalFixture) != 0) && fixes != null && fixes.Ready && current != null &&
-                !current.Mode.IsRealMultiplayer && !current.Mode.HasConflictingCustomizedOrigin &&
-                current.Mode.Kind != APIShared.GameModes.GameModeKind.Unknown;
-            generalObserver?.SetSession(allow ? current.SessionId : 0);
-            if (allow) Stamp("GENERAL_PILOT_ACTIVE session=" + current.SessionId + " sources="+WorldMutationEvents.AvailableSources+"; recovery budgets active; original Fixes unchanged");
-        }
-        private static void SetGeneralSuppression(bool enabled)
-        {
-            if (!enabled) { fixes?.SetEnabled(false); return; }
-            if (generalObserver == null || !generalObserver.IsActive ||
-                (Volatile.Read(ref fixtureActive) != 0 && Volatile.Read(ref generalFixture) == 0) ||
-                fixes == null || !fixes.Ready || missions?.Current == null)
-                throw new InvalidOperationException("General rescue requires the active local rescue session.");
-            fixes.SetEnabled(true);
-        }
-        // Explicit observer fixture opt-in; callers hold the public simulation monitor and
-        // invoke the LIVE AIV entry without Fixture.Execute's construction suppression scope.
         internal static void SetGeneralFixtureSession(bool enabled)
         {
-            if (Volatile.Read(ref fixtureActive) == 0 || missions?.Current == null)
-                throw new InvalidOperationException("Observer fixture requires its current owned mission.");
-            fixes?.SetEnabled(false);
-            Volatile.Write(ref generalFixture, enabled ? 1 : 0);
-            if (enabled) UpdateGeneralSession(); else generalObserver?.SetSession(0);
+            if(host==null || !host.Ready || Volatile.Read(ref fixtureActive)==0 || missions?.Current==null)
+                throw new InvalidOperationException("Acceptance observer control requires its owned production mission.");
+            if(enabled && (!settings.EnableMod || !settings.EnableTrappedUnitRescue))
+                throw new InvalidOperationException("Acceptance cannot enable a disabled production setting mid-mission.");
+            fixes.SetEnabled(false);Volatile.Write(ref generalFixture,enabled?1:0);
+            generalObserver.SetSession(enabled?missions.Current.SessionId:0);
         }
-        private static void Stamp(string message) => log.LogInfo("[" + DateTime.Now.ToString("HH:mm:ss.fff") + "] RESCUE_TEST " + message);
+        private static void Stamp(string message)=>log.LogInfo("["+DateTime.Now.ToString("HH:mm:ss.fff")+"] RESCUE_TEST "+message);
     }
 }

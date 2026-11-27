@@ -431,11 +431,13 @@ internal static class Program
             "Runtime disposal must remain available only for failed initialization rollback.");
         Check(Regex.Matches(plugin, @"\.Dispose\s*\(").Count == 1,
             "The plugin may dispose only the unpublished failed initialization candidate.");
-        Check(plugin.IndexOf("runtime = candidate;", StringComparison.Ordinal) <
-              plugin.IndexOf("runtime.RegisterTroopHudWithApiShared();", StringComparison.Ordinal) &&
-              plugin.IndexOf("candidate?.Dispose();", StringComparison.Ordinal) <
-              plugin.IndexOf("runtime.RegisterTroopHudWithApiShared();", StringComparison.Ordinal),
-            "Process-lifetime APIShared registrations must occur only after runtime publication and rollback handling.");
+        foreach (string registration in new[] { "runtime.RegisterBuildingTilePaint();", "runtime.RegisterTroopHudWithApiShared();" })
+        {
+            int index = plugin.IndexOf(registration, StringComparison.Ordinal);
+            Check(index > plugin.IndexOf("runtime = candidate;", StringComparison.Ordinal) &&
+                  index > plugin.IndexOf("candidate?.Dispose();", StringComparison.Ordinal),
+                "Process-lifetime APIShared registrations must occur only after runtime publication and rollback handling.");
+        }
         Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.2\")") &&
               assemblyInfo.Contains("AssemblyFileVersion(\"0.1.2\")") &&
               assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.2\")"),
@@ -524,15 +526,16 @@ internal static class Program
             "The APIShared resolver must gate context and player ID before culture lookup without recursive refresh.");
         Match preview = Regex.Match(runtime,
             @"private bool TryReplaceRoundTowerTilePreview[\s\S]*?\n\s*}\r?\n\r?\n\s*private void OnMapStarted");
-        Match buildingHook = Regex.Match(runtime,
-            @"private unsafe void SetBuildingTileSpriteHook[\s\S]*?\n\s*}\r?\n\r?\n\s*private bool TryReplaceRoundTowerTilePreview");
+        Match buildingPaint = Regex.Match(runtime,
+            @"private unsafe void AfterBuildingTilePaint[\s\S]*?\n\s*}\r?\n\r?\n\s*private bool TryReplaceRoundTowerTilePreview");
         Check(preview.Success &&
-              buildingHook.Success &&
+              buildingPaint.Success &&
               preview.Value.Contains("tile.constructionOrigImage") &&
               preview.Value.Contains("controls.CurrentAction != 5") &&
               preview.Value.Contains("Enums.eMappers.MAPPER_TOWER5") &&
               preview.Value.Contains("ToCastleTileAtlasIndex(image)") &&
               preview.Value.Contains("ReferenceEquals(tile.tileImage, expected)") &&
+              Regex.IsMatch(preview.Value, @"if \(!paint.TryClaim\(\)\)\s+return true;\s+tile.tileImage = castleSprites\[frameIndex\];") &&
               preview.Value.Contains("tile.tileImage = castleSprites[frameIndex]") &&
               !preview.Value.Contains("tile.constructionOrigImage =") &&
               !preview.Value.Contains("tile.light =") &&
@@ -541,14 +544,19 @@ internal static class Program
               preview.Value.IndexOf("GetLocalPlayerId()", StringComparison.Ordinal) &&
               !runtime.Contains("TryReplaceRoundTowerPlacementPreview") &&
               !runtime.Contains("mouseCursorGO") &&
-              buildingHook.Value.IndexOf("buildingTrampoline(tile, file, image, light);", StringComparison.Ordinal) <
-              buildingHook.Value.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) &&
-              buildingHook.Value.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) <
-              buildingHook.Value.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
+              buildingPaint.Value.Contains("TryReplaceRoundTowerTilePreview(ref paint, expected)") &&
+              buildingPaint.Value.IndexOf("TryReplaceRoundTowerTilePreview(ref paint, expected)", StringComparison.Ordinal) <
+              buildingPaint.Value.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
             "Round-tower placement preview must use Vanilla tile fragments, direct indices and conflict-friendly sprite-only replacement before building resolution.");
-        Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
-              runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("BuildingAccess.TryGetById(buildingId") &&
-              runtime.Contains("STRUCT_TOWER5_DESTROYED") && runtime.Contains("SH1DE round-tower skin applied"),
+        Check(runtime.Contains("PaintEvents.TryRegisterTileGraphic") &&
+              runtime.Contains("files: new[] { (int)ExtenderGM.GM_CASTLES }") &&
+              !runtime.Contains("setGenericBuildingTileGraphic") && !runtime.Contains("buildingTrampoline") &&
+              buildingPaint.Value.Contains("paint.IsClaimed") &&
+              buildingPaint.Value.Contains("ReferenceEquals(tile.tileImage, expected)") &&
+              Regex.IsMatch(buildingPaint.Value, @"if \(!paint.TryClaim\(\)\)\s+return;\s+tile.tileImage = castleSprites\[image\];") &&
+              buildingPaint.Value.Contains("GetTileBuildingId(tileId)") &&
+              buildingPaint.Value.Contains("BuildingAccess.TryGetById(buildingId") &&
+              buildingPaint.Value.Contains("STRUCT_TOWER5_DESTROYED") && buildingPaint.Value.Contains("SH1DE round-tower skin applied"),
             "Round-tower replacement, one-based building resolution or diagnostics are incomplete.");
         Check(runtime.Contains("AddUpdateBuildingAnimHook") && runtime.Contains("AddUpdateWallFillinHook") &&
               runtime.Contains("castleAnimContexts.Push(context)") && runtime.Contains("PopCastleAnimContext(context)") &&

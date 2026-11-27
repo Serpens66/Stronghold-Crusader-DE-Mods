@@ -1,4 +1,0 @@
-Rescue.Enabled=Experimental local unit rescue
-Rescue.Help=Attempts local recovery after construction or terrain changes. Experimental and off by default. This test build has not passed the new in-game acceptance tests.
-Rescue.Scope=For known local missions and the editor. Handles only audited unit states; some jobs and special movement remain unsupported. No automatic repair of old saves without our records and no real multiplayer.
-Rescue.Rule=Keeps the same unit, goods and valid orders. If continuation fails, a protected pending recovery may remain. Vanilla and Fixes construction still run; matching suppression covers only our own calls. Fixes keep and gatehouse recovery stay active.

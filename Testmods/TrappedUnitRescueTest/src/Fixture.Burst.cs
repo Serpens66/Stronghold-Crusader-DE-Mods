@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -61,7 +63,7 @@ namespace TrappedUnitRescueTest
                 if(f==null || p==null || !p.Active || !p.Written || f.stopped || c==null || !p.ActorIds.Contains(c.UnitId) ||
                     c.SessionId!=p.Session || c.WorldGeneration!=p.World || !f.BurstWorld())return null;
                 var goal=f.BurstOwnedGoal(c.UnitId);if(goal==null)return null;
-                bool own=c.OriginOwnerGuid==Plugin.Guid && Plugin.GeneralObserver.IsRecovering;
+                bool own=c.OriginOwnerGuid==Plugin.RescueOwnerGuid && Plugin.GeneralObserver.IsRecovering;
                 if(p.PassiveControl)
                 {
                     if(own)

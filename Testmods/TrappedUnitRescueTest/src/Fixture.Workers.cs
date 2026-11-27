@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,7 +71,7 @@ namespace TrappedUnitRescueTest
                 Require(before!=null && before.Unsupported==null && (before.Flags==2 || before.Flags==4),"Worker travel changed before capture");
                 requestedX=before.RequestedX;requestedY=before.RequestedY;carryBefore=WorkerCarry(worker);
                 worker.Health=before.Health;worker.SourceX=worker.X=before.X;worker.SourceY=worker.Y=before.Y;
-                var scope=runtime.BeginMutation("synthetic-wall-under-naturally-working-apple-farmer",before.X,before.Y,1);
+                var scope=BeginMutation("synthetic-wall-under-naturally-working-apple-farmer",before.X,before.Y,1);
                 try
                 {
                     PaintSyntheticTrap(before.X,before.Y);

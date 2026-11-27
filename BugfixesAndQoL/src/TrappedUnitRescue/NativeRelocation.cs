@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using APIShared;
 using APIShared.NativeSites;
 using APIShared.Units;
@@ -43,10 +42,8 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 foreach (ProcessModule module in process.Modules)
                     if (string.Equals(module.ModuleName, "CrusaderDE.dll", StringComparison.OrdinalIgnoreCase)) { selected = module; break; }
             if (selected == null) throw new InvalidOperationException("CrusaderDE.dll is not loaded.");
-            using (var stream = File.OpenRead(selected.FileName))
-            using (var sha = SHA256.Create())
-                if (BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", "") != NativeHash)
-                    throw new InvalidOperationException("Unsupported native image; relocation disabled.");
+            if (Shared.DebugLogHelper.GetFileSha256(selected.FileName) != NativeHash)
+                throw new InvalidOperationException("Unsupported native image; relocation disabled.");
             if (Marshal.SizeOf(typeof(GameUnit)) != 0x490 || GameUnitManager.UnitRecordByteSize != 0x490)
                 throw new InvalidOperationException("Unsupported unit record size.");
             Offset(nameof(GameUnit.r_GlobalId), 0x94); Offset(nameof(GameUnit.r_CurrentTilePositionX), 0xC0);

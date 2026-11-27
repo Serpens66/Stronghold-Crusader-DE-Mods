@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using APIShared.Automation;
@@ -19,7 +21,7 @@ namespace TrappedUnitRescueTest
             Execute(run, () => {
                 VerifyLiveAndRemember();
                 Actor actor = actors[0];
-                var scope = runtime.BeginMutation("controlled-native-ai-wall", cx, cy, 1);
+                var scope = BeginMutation("controlled-native-ai-wall", cx, cy, 1);
                 try
                 {
                     // Public SE wrapper invokes the actual AI wall routine and both Fixes event phases.
@@ -53,7 +55,7 @@ namespace TrappedUnitRescueTest
             int targetX = 0, targetY = 0;
             Execute(run, () => {
                 VerifyLiveAndRemember();
-                var scope = runtime.BeginMutation("controlled-native-direct-completed-moat", cx, cy, 1);
+                var scope = BeginMutation("controlled-native-direct-completed-moat", cx, cy, 1);
                 try
                 {
                     var tiles = GameTileManagerAPI.Instance;

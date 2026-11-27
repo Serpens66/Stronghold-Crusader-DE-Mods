@@ -3,6 +3,10 @@
 Native contracts of commands, routes, formations, the Shift queue, troop movement, gate routing and Assassin
 routes moved with their code to `Pathfinding/UpdateToNewDLL.md` (2026-11-07).
 
+## Trapped-unit rescue integration (2026-11-27)
+
+Native ownership, layouts, call-only entries and the removable Fixes mounted-Keep correction are documented in [src/TrappedUnitRescue/UpdateToNewDLL.md](src/TrappedUnitRescue/UpdateToNewDLL.md). The rescue consumer borrows the existing Lord guard at19BA40; the separate mounted correction calls the audited two-argument187110 helper. They share one default-enabled Host option under the Host master, with SP/editor-only activation. Production integration tests are pending; earlier prototype passes are historical evidence.
+
 ## Building pause state and presentation (2026-11-15)
 
 The normal-click decision reads `GamePlayerResources.r_BuildingSleep` through the

@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -42,6 +44,7 @@ namespace TrappedUnitRescueTest
             // Do not use Fixture.Execute here: original Vanilla/Fixes construction is unsuppressed.
             run.InSimulation(run.CurrentMission,()=>{
                 Plugin.SetGeneralFixtureSession(expectedEnabled);
+                Plugin.AssertProductionProfile(scenario,expectedEnabled);
                 var observer=Plugin.GeneralObserver;
                 Require(observer!=null && observer.IsActive==expectedEnabled,"General observer session did not match fixture mode");
                 long captures=observer.CaptureCount,attempts=observer.AttemptCount,rescues=observer.RescueCount;

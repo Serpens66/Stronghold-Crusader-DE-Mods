@@ -1,3 +1,5 @@
+using BugfixesAndQoL;
+using BugfixesAndQoL.TrappedUnitRescue;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,7 +36,7 @@ namespace TrappedUnitRescueTest
                 if(fixture==null || fixture.stopped)return null;
                 var proof=fixture.automaticWorkerMoves;
                 if(proof==null || !proof.Active || context==null || context.UnitId!=proof.Actor.Id || context.SessionId!=proof.Session)return null;
-                bool own=context.OriginOwnerGuid==Plugin.Guid;
+                bool own=context.OriginOwnerGuid==Plugin.RescueOwnerGuid;
                 if(own)
                 {
                     proof.OwnBegins++;

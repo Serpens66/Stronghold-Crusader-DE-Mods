@@ -705,3 +705,6 @@ BugfixesAndQoL.MultiplayerLoad.WaitPeers=In attesa che tutti i giocatori attivin
 BugfixesAndQoL.MultiplayerLoad.Transition=Trasferimento dei giocatori nella sala di caricamento multigiocatore.
 BugfixesAndQoL.MultiplayerLoad.Failed=Impossibile aprire la sala di caricamento multigiocatore. Consulta il registro.
 BugfixesAndQoL.MultiplayerLoad.NotReady=Il caricamento multigiocatore non è ancora disponibile.
+BugfixesAndQoL.EnableTrappedUnitRescue=Rescue units trapped by construction
+BugfixesAndQoL.EnableTrappedUnitRescueHelp=In singleplayer and the map editor, helps soldiers and siege engines trapped by newly impassable tiles, such as after moat, wall or drawbridge construction. Peasants and human economic workers are instead removed through normal game cleanup; carried goods and invested resources are lost, and a replacement is not guaranteed. Also includes the temporary Fixes correction for mounted units stuck on keep roofs. Not active in real multiplayer.
+BugfixesAndQoL.SettingsRework.Reason.EnableTrappedUnitRescue=Helps units blocked by construction; normal removal of affected workers can cost carried goods and resources.
