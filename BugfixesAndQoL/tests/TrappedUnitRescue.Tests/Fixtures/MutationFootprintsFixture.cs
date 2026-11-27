@@ -129,7 +129,62 @@ namespace TrappedUnitRescueTest.Tests
             request.Structure = eStructs.STRUCT_GATE_MAIN; request.Direction = 81;
             Require(RescueMutationFootprints.TryPlan(request, context, budget, out var gateSelector, out failure) && gateSelector.Count == 25,
                 "non-directional creator retains native path selector81");
+            BatchPlanning(context,budget,families);
+            SquareValidation();
             Console.WriteLine("MutationFootprintsFixture: " + checks + " checks passed.");
+        }
+        private static void BatchPlanning(RescueFootprintContext context,RescueFootprintBudget budget,eStructs[] families)
+        {
+            var requests=new List<RescueMutationFootprintRequest>();
+            var expected=new Dictionary<int,RescueTile>();
+            var seed=new RescueTile(3,3,603);expected.Add(seed.TileId,seed);
+            for(int i=0;i<families.Length;i++)
+            {
+                var request=new RescueMutationFootprintRequest { Source=RescueMutationSource.Building,Structure=families[i],
+                    X=50+i%3,Y=50+i/3,Size=5,Direction=0 };
+                requests.Add(request);
+                Require(RescueMutationFootprints.TryPlan(request,context,budget,out var part,out var reason,includeCleanup:false),
+                    "single reference for batch "+families[i]+": "+reason);
+                foreach(var tile in part)expected[tile.TileId]=tile;
+            }
+            var union=new Dictionary<int,RescueTile>{{seed.TileId,seed}};
+            Require(RescueMutationFootprints.TryAppendBatch(requests,context,budget,union,out var failure) && union.Count==expected.Count,
+                "shared planner retains seed and exact creator-family union: "+failure);
+            foreach(var tile in expected.Values)
+                Require(union.TryGetValue(tile.TileId,out var actual) && actual.X==tile.X && actual.Y==tile.Y,
+                    "batch keeps complete geometry for tile "+tile.TileId);
+            var wall=new RescueMutationFootprintRequest { Source=RescueMutationSource.AiWallTile,X=20,Y=20 };
+            var repeated=new[]{wall,wall};union.Clear();
+            Require(RescueMutationFootprints.TryAppendBatch(repeated,context,new RescueFootprintBudget(9,9),union,out failure) && union.Count==9,
+                "each batch request retains its original work budget");
+            union.Clear();
+            Require(!RescueMutationFootprints.TryAppendBatch(repeated,context,new RescueFootprintBudget(8,100),union,out failure) && failure=="footprint-tile-budget",
+                "batch keeps union tile cap");
+            union.Clear();union.Add(19*200+19,new RescueTile(99,99,19*200+19));
+            Require(!RescueMutationFootprints.TryAppendBatch(repeated,context,budget,union,out failure) && failure=="footprint-coordinate-alias",
+                "existing cleanup seed cannot alias a construction coordinate");
+            union.Clear();
+            Require(!RescueMutationFootprints.TryAppendBatch(repeated,context,new RescueFootprintBudget(100,8),union,out failure) && failure=="footprint-work-budget",
+                "batch keeps per-request work rejection");
+        }
+        private static void SquareValidation()
+        {
+            var context=Context(new Dictionary<int,int>());
+            var request=new RescueMutationFootprintRequest { Source=RescueMutationSource.Building,Structure=eStructs.STRUCT_HOVEL,X=50,Y=50,Size=13 };
+            var budget=new RescueFootprintBudget(200,1000);
+            // Native tables need not be row-major. Exercise every bit word with a permutation.
+            context.SquareOffset=(size,index)=>{int position=(index+37)%(size*size);return new RescueFootprintOffset(position%size,position/size);};
+            Require(RescueMutationFootprints.TryPlan(request,context,budget,out var cells,out _) && cells.Count==169,
+                "permuted13x13 offsets retain all169 positions");
+            foreach(int duplicate in new[]{0,64,128,168})
+            {
+                context.SquareOffset=(size,index)=>{int position=index==duplicate?(duplicate==0?64:0):index;return new RescueFootprintOffset(position%size,position/size);};
+                Require(!RescueMutationFootprints.TryPlan(request,context,budget,out cells,out var reason) && cells.Count==0 && reason=="footprint-square-contract",
+                    "duplicate square offset rejected across word boundary "+duplicate);
+            }
+            context.SquareOffset=(size,index)=>new RescueFootprintOffset(-1,index/size);
+            Require(!RescueMutationFootprints.TryPlan(request,context,budget,out cells,out var negativeReason) && negativeReason=="footprint-square-contract",
+                "negative offset cannot enter duplicate bitmap");
         }
         private static RescueFootprintContext Context(Dictionary<int, int> table)
         {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using APIShared.WorldMutations;
 using SHCDESE.API;
 using SHCDESE.Extensions;
@@ -31,6 +32,9 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         private readonly RescueFootprintBudget budget;
         private readonly long imageBase;
         private readonly int maximumBuildingReads;
+        // Only empty, private invocation scratch is retained. A nested/concurrent call
+        // cannot see the leased session; a read-budget overrun leaves no retained pool.
+        private Session freeSession;
         internal NativeMutationFootprints(NativeRelocation native, RescueFootprintBudget budget, int maximumBuildingReads = 4096)
             : this(new LiveMemory(native == null ? IntPtr.Zero : native.ImageBase), budget,
                   native == null ? 0 : native.ImageBase.ToInt64(), maximumBuildingReads)
@@ -51,11 +55,23 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             this.memory = memory; this.budget = budget; this.imageBase = imageBase; this.maximumBuildingReads = maximumBuildingReads;
         }
 
+        private Session RentSession() => Interlocked.Exchange(ref freeSession, null) ?? new Session(memory, budget, maximumBuildingReads);
+        private void ReturnSession(Session session)
+        {
+            // Valid dense maps can exceed8192 reads with a tiny output envelope.
+            // Retain every budget-compliant capture; only an exhausted read budget
+            // discards scratch. Capacity remains bounded by the audited work/tile limits.
+            bool retain = session.Reads <= budget.MaximumWork;
+            session.Clear();
+            if (retain) Interlocked.CompareExchange(ref freeSession, session, null);
+        }
+
         internal bool TryPlan(WorldMutationContext source, out List<RescueTile> tiles, out int owner, out string reason)
         {
             tiles = new List<RescueTile>(); owner = 0; reason = null;
+            Session session = null;
 #if SERP_DEVDIAG
-            Session diagnosticSession=null;int diagnosticRequests=0;
+            int diagnosticRequests=0;
 #endif
             if (source == null) { reason = "missing-mutation-context"; return false; }
             try
@@ -79,10 +95,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     if (!TryReadAiv(source, out owner, out aivMapper, out aivDirection, out aivFields, out reason)) return false;
                     if (aivFields.IsEmpty) return true;
                 }
-                var session = new Session(memory, budget, maximumBuildingReads);
-#if SERP_DEVDIAG
-                diagnosticSession=session;
-#endif
+                session = RentSession();
                 var requests = new List<RescueMutationFootprintRequest>();
                 if (source.Source == WorldMutationSource.AivBuildStep)
                 {
@@ -144,31 +157,22 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 return PlanRequests(session, requests, out tiles, out reason);
             }
             catch (Exception ex) { reason = ex is InvalidOperationException ? ex.Message : "native-footprint-reader-failed"; return false; }
-#if SERP_DEVDIAG
             finally
             {
-                if(diagnosticSession!=null)RescueCaptureDiagnostics.Plan(diagnosticRequests,diagnosticSession.Reads,diagnosticSession.BuildingReads,
-                    diagnosticSession.Context.BrushSearches,diagnosticSession.Context.BrushCacheHits,diagnosticSession.Context.BrushNodes,tiles==null?0:tiles.Count);
-            }
+#if SERP_DEVDIAG
+                if(session!=null)RescueCaptureDiagnostics.Plan(diagnosticRequests,session.Reads,session.BuildingReads,
+                    session.Context.BrushSearches,session.Context.BrushCacheHits,session.Context.BrushNodes,tiles==null?0:tiles.Count);
 #endif
+                if (session != null) ReturnSession(session);
+            }
         }
         private bool PlanRequests(Session session, List<RescueMutationFootprintRequest> requests, out List<RescueTile> tiles, out string reason)
         {
-                tiles = new List<RescueTile>(); reason = null;
-                var union = new Dictionary<int, RescueTile>();
-            session.AddCleanupUnion(requests, union);
-                foreach (var request in requests)
-                {
-                if (!RescueMutationFootprints.TryPlan(request, session.Context, budget, out var part, out reason, includeCleanup: false)) return false;
-                    foreach (var tile in part)
-                    {
-                        if (union.TryGetValue(tile.TileId, out var previous) && (previous.X != tile.X || previous.Y != tile.Y))
-                            throw new InvalidOperationException("footprint-coordinate-alias");
-                        union[tile.TileId] = tile;
-                        if (union.Count > budget.MaximumTiles) throw new InvalidOperationException("footprint-tile-budget");
-                    }
-                }
-                tiles.AddRange(union.Values); tiles.Sort((a, b) => a.TileId.CompareTo(b.TileId)); return true;
+            tiles=new List<RescueTile>();reason=null;
+            var union=session.Union;
+            session.AddCleanupUnion(requests,union);
+            if(!RescueMutationFootprints.TryAppendBatch(requests,session.Context,budget,union,out reason))return false;
+            tiles.AddRange(union.Values);tiles.Sort((a,b)=>a.TileId.CompareTo(b.TileId));return true;
         }
 
         private static bool IsKeep(eStructs type) => type >= eStructs.STRUCT_KEEP_ONE && type <= eStructs.STRUCT_KEEP_FIVE;
@@ -223,11 +227,12 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         internal static bool AivGeometryIsNoop(AivBuildStepState state) =>
             state == AivBuildStepState.Inactive || state == AivBuildStepState.Abandoned;
         private static bool AivWaiting(AivBuildStepState state, eMappers mapper, int rebuildDelay, int restrictedMode) =>
-            // 51790 admits only hovels in restricted mode. The waiting branches only decrement the delay.
+            // 51790 admits only hovels in restricted mode. All six stairs share the Built cooldown
+            // return; Stair5/6 join at51BFE ->521C8. Waiting only decrements the delay.
             (restrictedMode != 0 && mapper != eMappers.MAPPER_HOVEL) ||
             (rebuildDelay != 0 && (state == AivBuildStepState.RetryPending ||
                 (state == AivBuildStepState.Built && (GameAIVManagerAPI.UsesOrderedMapTileBuffer(mapper) ||
-                    (mapper >= eMappers.MAPPER_STAIR1 && mapper <= eMappers.MAPPER_STAIR4)))));
+                    (mapper >= eMappers.MAPPER_STAIR1 && mapper <= eMappers.MAPPER_STAIR6)))));
 
         private bool BuiltAivStructureStillPresent(AivBuildStepState state, eMappers mapper, ReadOnlySpan<int> fields)
         {
@@ -301,7 +306,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             if (AivGeometryIsNoop(state) || AivWaiting(state, mapper, rebuildDelay, restrictedMode)) return true;
             if (fields == null) { reason = "aiv-field-reference-contract"; return false; }
             if (BuiltAivStructureStillPresent(state, mapper, fields)) return true;
-            var session = new Session(memory, budget, maximumBuildingReads);
+            var session = RentSession();
             try
             {
                 var requests = new List<RescueMutationFootprintRequest>();
@@ -309,7 +314,11 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 return PlanRequests(session, requests, out tiles, out reason);
             }
             catch (Exception ex) { reason = ex is InvalidOperationException ? ex.Message : "native-footprint-reader-failed"; return false; }
-            finally { metrics = new RescueFootprintMetrics(session.Reads, session.BuildingReads, session.Context.BrushSearches, session.Context.BrushCacheHits, session.Context.BrushNodes); }
+            finally
+            {
+                metrics = new RescueFootprintMetrics(session.Reads, session.BuildingReads, session.Context.BrushSearches, session.Context.BrushCacheHits, session.Context.BrushNodes);
+                ReturnSession(session);
+            }
         }
         private sealed class LiveMemory : IRescueFootprintMemory
         {
@@ -335,6 +344,8 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             private readonly Dictionary<int, BuildingRecord> buildings = new Dictionary<int, BuildingRecord>();
             private List<int> liveSlots;
             private Dictionary<uint, List<int>> compounds;
+            private bool compoundsIndexed;
+            internal readonly Dictionary<int, RescueTile> Union = new Dictionary<int, RescueTile>();
             private readonly Dictionary<int, int> dwords = new Dictionary<int, int>();
             private readonly Dictionary<int, short> words = new Dictionary<int, short>();
             private readonly Dictionary<int, byte> bytes = new Dictionary<int, byte>();
@@ -350,6 +361,17 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 Context = new RescueFootprintContext { TileAt = ActiveTile, RawTileAt = RawTile, Flags = tile => RescueCleanupProjection.ExpansionBits(Flags(tile)),
                     Neighbor = Neighbor, TableInt = Table, SquareOffset = SquareOffset, CompleteRemovalFootprint = Removal, CompleteCleanupFootprint = Cleanup,
                     BrushCache = new Dictionary<RescueBrushOrigin, List<RescueTile>>() };
+            }
+            internal void Clear()
+            {
+                // Drop every captured value/reference before publishing empty scratch. Callbacks
+                // retain only the stable reader reference/budgets; live reads refresh on each rent.
+                dwords.Clear(); words.Clear(); bytes.Clear(); buildings.Clear(); Union.Clear();
+                liveSlots?.Clear(); compounds?.Clear(); compoundsIndexed = false; indexedLimit = 1;
+                squares.Clear(); cleanupSpill = null;
+                Context.BrushCache.Clear();
+                Context.BrushSearches = Context.BrushCacheHits = Context.BrushNodes = 0;
+                reads = buildingsRead = 0;
             }
             private void Spend() { if (++reads > budget.MaximumWork) throw new InvalidOperationException("native-footprint-read-budget"); }
             internal int Int32(int rva) { if (dwords.TryGetValue(rva, out int value)) return value; Spend(); value = memory.Int32(rva); dwords.Add(rva, value); return value; }
@@ -527,11 +549,11 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             {
                 Geometry(tiles, b);
                 if (b.Compound == 0 || !expandedCompounds.Add(b.Compound)) return;
-                if (compounds == null)
+                if (!compoundsIndexed)
                 {
                     int limit = BuildingLimit();
                     ReadSlots(limit);
-                    compounds = new Dictionary<uint, List<int>>();
+                    if (compounds == null) compounds = new Dictionary<uint, List<int>>();
                     foreach (int slot in liveSlots)
                     {
                         int id = slot >> 16;
@@ -541,6 +563,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                         if (!compounds.TryGetValue(key, out var ids)) compounds.Add(key, ids = new List<int>());
                         ids.Add(id);
                     }
+                    compoundsIndexed = true;
                 }
                 if (compounds.TryGetValue(b.Compound, out var linked))
                     foreach (int id in linked) if (id != b.Id) Geometry(tiles, Building(id));

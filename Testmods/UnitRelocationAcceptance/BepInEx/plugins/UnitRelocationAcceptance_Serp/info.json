@@ -1,0 +1,12 @@
+{
+  "GUID": "UnitRelocationAcceptance_Serp",
+  "Author": "Serpens66",
+  "Name": "Unit Relocation Acceptance",
+  "Version": "0.1.0",
+  "NetworkMode": 1,
+  "MinimumScriptExtenderVersion": "2.14.4",
+  "Dependencies": [
+    { "GUID": "APIShared_Serp", "MinimumVersion": "0.79.0" },
+    { "GUID": "BugfixesAndQoL_Serp", "MinimumVersion": "1.0.250" }
+  ]
+}

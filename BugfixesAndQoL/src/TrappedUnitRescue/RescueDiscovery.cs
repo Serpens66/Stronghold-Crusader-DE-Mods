@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace BugfixesAndQoL.TrappedUnitRescue
 {
@@ -42,17 +43,62 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             internal int FirstChild,NextSibling,ChildCursor,Enter,Exit;
             internal Node(RescueDiscoveryUnit record){Record=record;}
         }
+        // Existing pure entry stays unpooled. Production explicitly owns a pool per
+        // RescueRuntime; no process-global scratch or cross-world discovery cache.
         internal static bool TryCollect(IList<RescueTile> changed, Func<int, int, int> tileAt,
             Func<int, int> head, RescueDiscoveryUnitReader read, RescueDiscoveryBudget budget,
-            out List<RescueDiscoveryUnit> units, out string reason)
+            out List<RescueDiscoveryUnit> units, out string reason) =>
+            TryCollectCore(changed,tileAt,head,read,budget,null,out units,out reason);
+
+        internal sealed class ScratchPool
+        {
+            private Scratch free;
+            internal bool TryCollect(IList<RescueTile> changed,Func<int,int,int> tileAt,
+                Func<int,int> head,RescueDiscoveryUnitReader read,RescueDiscoveryBudget budget,
+                out List<RescueDiscoveryUnit> units,out string reason)
+            {
+                var scratch=Interlocked.Exchange(ref free,null)??new Scratch();
+                try{return TryCollectCore(changed,tileAt,head,read,budget,scratch,out units,out reason);}
+                finally
+                {
+                    // Retention follows the existing call's limits, not a new admission
+                    // limit. Even a failed/over-budget capture clears every value first.
+                    bool retain=budget.MaximumCells>0 && budget.MaximumUnitId>0 &&
+                        scratch.Delta.Count<=budget.MaximumCells && scratch.Halo.Count<=budget.MaximumCells &&
+                        scratch.Records.Count<=budget.MaximumUnitId;
+                    scratch.Clear();
+                    if(retain)Interlocked.CompareExchange(ref free,scratch,null);
+                }
+            }
+        }
+        private sealed class Scratch
+        {
+            internal readonly Dictionary<int,RescueTile> Delta=new Dictionary<int,RescueTile>();
+            internal readonly HashSet<int> Halo=new HashSet<int>();
+            internal readonly Dictionary<int,int> Heads=new Dictionary<int,int>();
+            internal readonly Dictionary<int,Node> Records=new Dictionary<int,Node>();
+            internal readonly List<int> OccupiedTiles=new List<int>(),Path=new List<int>(),Ids=new List<int>(),Roots=new List<int>();
+            internal readonly Stack<int> Stack=new Stack<int>();
+            internal void Clear()
+            {
+                // Node objects and returned value-record lists are never pooled. Clearing
+                // drops all record/coordinate/graph references; only capacity remains.
+                Delta.Clear();Halo.Clear();Heads.Clear();Records.Clear();
+                OccupiedTiles.Clear();Path.Clear();Ids.Clear();Roots.Clear();Stack.Clear();
+            }
+        }
+        private static bool TryCollectCore(IList<RescueTile> changed,Func<int,int,int> tileAt,
+            Func<int,int> head,RescueDiscoveryUnitReader read,RescueDiscoveryBudget budget,Scratch scratch,
+            out List<RescueDiscoveryUnit> units,out string reason)
         {
             units=new List<RescueDiscoveryUnit>();reason=null;
             if(changed==null || tileAt==null || head==null || read==null || budget.MaximumCells<1 || budget.MaximumLinks<1 ||
                 budget.MaximumUnits<1 || budget.MaximumUnitId<1 || budget.TileCapacity<1)
             {reason="invalid-discovery-input";return false;}
             if(changed.Count>budget.MaximumCells){reason="mutation-cell-budget";return false;}
-            var delta=new Dictionary<int,RescueTile>();var halo=new HashSet<int>();
-            var heads=new Dictionary<int,int>();var records=new Dictionary<int,Node>();
+            if(scratch==null)scratch=new Scratch();
+            var delta=scratch.Delta;var halo=scratch.Halo;
+            var heads=scratch.Heads;var records=scratch.Records;
             int visits=0,selectedCount=0;
             try
             {
@@ -75,7 +121,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     }
                 // Each tile head is captured once. Auxiliary heads may share any
                 // suffix: native8FA is one outgoing link per physical unit record.
-                var occupiedTiles=new List<int>();
+                var occupiedTiles=scratch.OccupiedTiles;
                 foreach(int tile in halo)
                 {
                     int id=head(tile);
@@ -86,11 +132,11 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 }
                 if(occupiedTiles.Count==0)return true;
                 occupiedTiles.Sort();
-                List<int> path=null;
+                var path=scratch.Path;
                 foreach(int tile in occupiedTiles)
                 {
                     int id=heads[tile];
-                    if(path==null)path=new List<int>();else path.Clear();
+                    path.Clear();
                     while(id!=0)
                     {
                         if(records.TryGetValue(id,out var known))
@@ -104,7 +150,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     foreach(int seen in path)records[seen].State=2;
                 }
                 if(records.Count==0)return true; // no capacity-sized work arrays for empty worlds
-                var ids=new List<int>(records.Keys);ids.Sort();
+                var ids=scratch.Ids;ids.AddRange(records.Keys);ids.Sort();
                 // Revalidate EVERY unique node once, including a suffix seen from
                 // only one head. No old/new record mixture is published on failure.
                 foreach(int id in ids)
@@ -115,14 +161,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 // Reverse the acyclic functional graph into a forest rooted at
                 // terminal Next0. u is on head's original forward chain iff u is
                 // an ancestor of head in this forest (Enter[u]<=Enter[h]<Exit[u]).
-                var roots=new List<int>();
+                var roots=scratch.Roots;
                 foreach(int id in ids)
                 {
                     var node=records[id];int parent=node.Record.ChainNextId;
                     if(parent==0)roots.Add(id);
                     else {node.NextSibling=records[parent].FirstChild;records[parent].FirstChild=id;}
                 }
-                int clock=0;var stack=new Stack<int>();
+                int clock=0;var stack=scratch.Stack;
                 foreach(int root in roots)
                 {
                     var first=records[root];first.Enter=clock++;first.ChildCursor=first.FirstChild;stack.Push(root);

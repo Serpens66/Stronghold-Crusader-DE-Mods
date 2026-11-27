@@ -105,12 +105,31 @@ namespace TrappedUnitRescueTest.Tests
             ReceiptsAndDeferredExecution();
             NestedAndConflictingMutations();
             FailureAndLifetime();
+            BoundedCaptureReports();
             BudgetsAndCapacity();
             ReentrancyAndExceptions();
             PendingSaveAndRestore();
             MixedRemovalAndMovement();
             RemovalSurvivesOrders();
             Console.WriteLine("PASS: production general coordinator assertions="+assertions+"; actual queue/batches/receipts; no native calls or hooks");
+        }
+        private static void BoundedCaptureReports()
+        {
+            var world=new World{CaptureSupported=false};var messages=new List<string>();
+            var observer=New(world,report:messages.Add);
+            for(int i=1;i<=40;i++)
+            {
+                Require(observer.TryBegin(Context(i))==null,"failed capture still has no completion receipt");
+                observer.OnBatchCompleted(Batch(i));
+            }
+            Require(world.CaptureCalls==40 && messages.Count==32,"capture continues after the existing 32-report limit");
+            foreach(string message in messages)
+                Require(message=="mutation capture deferred source=BuildStructure reason=unsupported",
+                    "bounded failure keeps the existing source and reason text");
+            world.Generation++;
+            Require(observer.TryBegin(Context(41,generation:world.Generation))==null && messages.Count==33 && world.CaptureCalls==41,
+                "a new world resets the existing report limit");
+            Require(messages[32]==messages[0],"new-world capture report retains identical formatting");
         }
         private static void ReceiptsAndDeferredExecution()
         {

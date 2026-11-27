@@ -149,7 +149,8 @@ namespace BugfixesAndQoL.AreaConstruction
         private void FocusChanged(bool focused)
         {
             if (focused) return;
-            lock (engine) dragging = false;
+            if (dragging)
+                lock (engine) dragging = false;
             view.Hide();
         }
 
@@ -181,8 +182,18 @@ namespace BugfixesAndQoL.AreaConstruction
         private static bool Primary(EditorDirector __instance, int __0)
         {
             var runtime = Volatile.Read(ref instance);
-            if (runtime == null)
+            if (runtime == null || !Shared.UnityMainThreadDispatch.IsMainThread)
                 return true;
+            // An owned gesture keeps its release/cancellation path. Other inputs
+            // belong to Vanilla until local construction can actually begin.
+            if (!runtime.captured)
+            {
+                if (__0 != 1 || !AreaConstructionFeature.LocalEnabled)
+                    return true;
+                var controls = MainControls.instance;
+                if (controls == null || controls.CurrentAction != BuildAction)
+                    return true;
+            }
             lock (runtime.engine)
             {
                 try
@@ -244,7 +255,7 @@ namespace BugfixesAndQoL.AreaConstruction
         private static bool AllowCursor(int __0, int __4, bool __6)
         {
             var runtime = Volatile.Read(ref instance);
-            if (runtime == null || !__6)
+            if (runtime == null || !__6 || !Shared.UnityMainThreadDispatch.IsMainThread || !runtime.dragging)
                 return true;
             lock (runtime.engine)
                 return !runtime.ApplyLocalActivation() || !runtime.dragging ||
@@ -259,6 +270,16 @@ namespace BugfixesAndQoL.AreaConstruction
 
             try
             {
+                // Unity input creates local work; other threads only cancel or consume it.
+                // Keep idle frames outside the shared simulation monitor.
+                if (!runtime.captured && !runtime.dragging && runtime.toBuild.Count == 0 &&
+                    runtime.storageBuild == null && Volatile.Read(ref runtime.quarryOrder) == null &&
+                    Volatile.Read(ref runtime.cancellation) == runtime.appliedCancellation)
+                {
+                    runtime.view.Hide();
+                    return;
+                }
+
                 bool draw;
                 QuarryOrder outbound = null;
                 int generation = 0;

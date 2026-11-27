@@ -319,10 +319,30 @@ On the same canonical hash, `0x51790` rejects restricted-mode attempts before
 geometry except for mapper `0x36` (hovel). RetryPending (state 5) with a nonzero
 rebuild delay only decrements that delay. Built (state 3) with a nonzero delay
 also skips geometry on the ordered wall, moat and pitch branches and on the
-single-stair branch for mappers `0xB5` through `0xB8`. With zero delay these
+single-stair branch for all six mappers `0xB5` through `0xBA`. With zero delay these
 branches can still reach writers. The ordinary Built branch reads the anchor's
 building-layer slot and compares its structure field to `0xC77C0`'s native
 mapper conversion. A match returns before `0x5CD90` cleanup or placement.
 The drawbridge preflight `0x7A170` before this comparison writes scratch state.
 These outcomes bound geometry observation only. The original call still owns
 the retry byte, messages, and other placement state.
+
+### Stair5/6 convergence recheck, 27 November 2026 [Vanilla facts]
+
+The canonical DLL still hashes to `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Its complete2774-byte executor at `0x51790` matches function hash `69731F77776995C9FC452A7A9A41408385B757B461F0E7FAB76E291BE64C3ECF`. The Iced-verified analysis instructions below were independently compared with the actual PE bytes, not only the decompiler's switch reconstruction.
+
+Stair1..4 reach the single-tile branch through the first mapper classification. Stair5/6 take the second classification: `0x51BF5` computes `mapper - 0xB9` (`8D8647FFFFFF`), `0x51BFB` compares it unsigned with1 (`83F801`), and `0x51BFE` jumps below-or-equal to `0x521C8` (`0F86C4050000`). This therefore includes exactly Stair5/6 (`0xB9/0xBA`) at that branch. `0x521C8` compares frame state with Built3; `0x521D0` reads the delay byte, and `0x521D8` jumps on nonzero to `0x51817`. That tail decrements AL, stores only the frame delay at `+0x39` and returns zero at `0x5181E`. It performs no cleanup or geometry write. A zero delay or a state other than Built proceeds through `0x521DE` toward cleanup and the wall/stair constructor, subject to the earlier executor gates. The restricted-mode hovel exception remains earlier and independent. The installed Script Extender enum names were checked directly: `MAPPER_STAIR1..6 =181..186`, `MAPPER_HOVEL =54`.
+
+
+## Additional executor admission boundaries, 27 November 2026 [Vanilla facts]
+
+Confirmed static scope: canonical native SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`, complete `0x51790..0x52265` function SHA-256 `69731F77776995C9FC452A7A9A41408385B757B461F0E7FAB76E291BE64C3ECF`. All605 Iced-verified instructions were compared byte-for-byte with the installed PE using its section mappings. The full executor control flow and the semantic bodies of `0xCC420`, `0xB9710`, `0x414A0`, `0x41230`, `0x41380` and `0x41280` were read. These are native boundaries, not new implemented filters or measured invocation frequencies.
+
+- **Built scheduler gate:** after the state5 retry handling, `0x51831` compares state with Built3. For state3, `0x51835` compares signed DWORD at `0x366C210 + playerId * 0x583C + 0x131724` with120. `0x5183E` uses signed `JGE` to continue; otherwise `0x51840` jumps to the zero-return tail `0x5181E`. This precedes every geometry branch and does not depend on the mapper. No stronger semantic name for this counter is needed for the boundary.
+- **Manager capacity gate:** `0x5187A` compares signed DWORD at RVA `0x64CCC04` with20; signed `JL` at `0x51881` returns through `0x5181E` before the mapper dispatch or cleanup. Earlier affordability call `0xCC420` may already have executed. Along these executor calls its fourth argument is0; the audited body and its `0xB9710` eligibility predicate do not change this manager counter or geometry. Failed affordability can still update pending-resource deficits and suppress-sell timers. The original executor call must run to preserve these effects; evaluating `0xCC420` as an extra probe would duplicate native side effects.
+- **Ordinary Built rebuild cooldown:** after the ordinary anchor comparison fails, `0x51E1F..0x51E4F` checks both DWORDs at `0x366C210 + playerId * 0x583C + 0x1324AC` and `+0x1324B0`. Only when both equal0 and the frame delay byte is nonzero does it decrement that byte and return without cleanup. Either nonzero player flag bypasses this cooldown; a zero delay also proceeds. Consequently, a general Built-plus-delay rule would incorrectly omit real rebuilds. A missing or mismatched anchor alone is not a no-op.
+- **Ordered fields are retried in full:** the moat branch initializes its local index to0 at `0x518C5`, pitch at `0x519AA`, and counted wall branches at `0x51AEC`. Each advances from the frame's buffer start through its signed WORD count; no saved progress index authorizes excluding a prefix. Their state3 cooldown can end and the complete field list can be revisited. Existing terrain on one field does not prove that its preliminary cleanup or linked-removal footprint is empty. The local moat success marker does not persist a tail cursor.
+
+### Integration limits of the additional boundaries [mod integration]
+
+The current APIShared broker observes before its AIV observer dispatch and eventual original call. These native-entry predicates do not authorize assuming that an arbitrary lower foreign observer leaves frame storage, player fields or arguments unchanged. The audited local Fixes ordered-buffer patches replace the buffer base and village stride, retaining the loop indices and full field iteration; they provide no tail-slice contract. Ordinary Built frames must retain the missing-anchor rebuild path and complete cleanup envelope. No additional Runtime admission was implemented by this audit, and no frequency or performance benefit was measured. The original call and geometric before/after proof remain required for eligible mutations.

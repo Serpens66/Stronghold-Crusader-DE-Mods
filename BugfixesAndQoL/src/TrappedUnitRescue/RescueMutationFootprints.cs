@@ -77,14 +77,34 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             catch (FootprintRejected ex) { reason = ex.Message; return false; }
             catch (Exception) { reason = "footprint-reader-failed"; return false; }
         }
+        // One immutable invocation can contribute many AIV fields. Append directly to
+        // its private union; a failed batch is never published by the native adapter.
+        // Work remains bounded per request, and the union retains the tile/alias limit.
+        internal static bool TryAppendBatch(IList<RescueMutationFootprintRequest> requests, RescueFootprintContext context,
+            RescueFootprintBudget budget, Dictionary<int,RescueTile> union, out string reason)
+        {
+            reason=null;
+            if(requests==null || context==null || context.TileAt==null || union==null ||
+                budget.MaximumTiles<1 || budget.MaximumWork<1 || budget.TileCapacity<1)
+            {reason="invalid-footprint-input";return false;}
+            try
+            {
+                var plan=new Planner(context,budget,union);
+                foreach(var request in requests)plan.Build(request,false);
+                return true;
+            }
+            catch(FootprintRejected ex){reason=ex.Message;return false;}
+            catch(Exception){reason="footprint-reader-failed";return false;}
+        }
         private sealed class FootprintRejected : Exception { internal FootprintRejected(string reason) : base(reason) { } }
         private sealed class Planner
         {
-            internal readonly Dictionary<int, RescueTile> Tiles = new Dictionary<int, RescueTile>();
+            internal readonly Dictionary<int, RescueTile> Tiles;
             private readonly RescueFootprintContext context;
             private readonly RescueFootprintBudget budget;
             private int work;
-            internal Planner(RescueFootprintContext context, RescueFootprintBudget budget) { this.context = context; this.budget = budget; }
+            internal Planner(RescueFootprintContext context, RescueFootprintBudget budget, Dictionary<int,RescueTile> tiles=null)
+            { this.context=context;this.budget=budget;Tiles=tiles??new Dictionary<int,RescueTile>(); }
             private void Spend() { if (++work > budget.MaximumWork) Reject("footprint-work-budget"); }
             private static void Reject(string reason) { throw new FootprintRejected(reason); }
             private void Add(int x, int y)
@@ -103,17 +123,28 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 if (width < 1 || height < 1 || (long)width * height > budget.MaximumWork - work) Reject("footprint-work-budget");
                 for (int dy = 0; dy < height; dy++) for (int dx = 0; dx < width; dx++) Add(checked(x + dx), checked(y + dy));
             }
-            private List<RescueFootprintOffset> Square(int x, int y, int size, bool nativeCleanupSpill = false)
+            private List<RescueFootprintOffset> Square(int x, int y, int size, bool nativeCleanupSpill = false, bool collectOffsets = false)
             {
                 if (size < 1 || size > (nativeCleanupSpill ? 14 : 13) || nativeCleanupSpill && size != 14 || context.SquareOffset == null) Reject("footprint-square-contract");
-                var offsets = new List<RescueFootprintOffset>();
-                var seen = new HashSet<long>();
+                // Most callers need only the union, not an intermediate offset list.
+                // A validated 13x13 table has at most169 distinct positions: three
+                // local bit words retain the duplicate check without a HashSet.
+                var offsets = collectOffsets ? new List<RescueFootprintOffset>(size*size) : null;
+                ulong seen0=0,seen1=0,seen2=0;
                 for (int i = 0; i < size * size; i++)
                 {
                     Spend(); var offset = context.SquareOffset(size, i);
-                    if (!nativeCleanupSpill && (offset.X < 0 || offset.X >= size || offset.Y < 0 || offset.Y >= size || !seen.Add(((long)offset.X << 32) | (uint)offset.Y))) Reject("footprint-square-contract");
+                    if (!nativeCleanupSpill)
+                    {
+                        if ((uint)offset.X>=size || (uint)offset.Y>=size) Reject("footprint-square-contract");
+                        int position=offset.Y*size+offset.X;
+                        ulong bit=1UL<<(position&63);
+                        if(position<64){if((seen0&bit)!=0)Reject("footprint-square-contract");seen0|=bit;}
+                        else if(position<128){if((seen1&bit)!=0)Reject("footprint-square-contract");seen1|=bit;}
+                        else {if((seen2&bit)!=0)Reject("footprint-square-contract");seen2|=bit;}
+                    }
                     if (nativeCleanupSpill && ((long)x + offset.X < 0 || (long)x + offset.X >= 800 || (long)y + offset.Y < 0 || (long)y + offset.Y >= 800)) Reject("footprint-native-spill-coordinate-contract");
-                    offsets.Add(offset); Add(checked(x + offset.X), checked(y + offset.Y));
+                    offsets?.Add(offset); Add(checked(x + offset.X), checked(y + offset.Y));
                 }
                 return offsets;
             }
@@ -194,9 +225,11 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 if (context.BrushCache != null) context.BrushCache[origin] = queue;
             }
             private void BrushSquare(int x, int y, int size, int width)
-            { foreach (var p in Square(x, y, size)) Brush(checked(x + p.X), checked(y + p.Y), width); }
+            { foreach (var p in Square(x, y, size, collectOffsets:true)) Brush(checked(x + p.X), checked(y + p.Y), width); }
             internal void Build(RescueMutationFootprintRequest r, bool includeCleanup)
             {
+                work=0; // Preserve the original per-request budget in a shared batch planner.
+                if(r==null)Reject("invalid-footprint-input");
                 // Native source coordinates are bounded before any derived footprint arithmetic.
                 // 800 is the audited native XY capacity, not the current active-map size.
                 if (r.X < 0 || r.X >= 800 || r.Y < 0 || r.Y >= 800) Reject("footprint-source-coordinate-contract");

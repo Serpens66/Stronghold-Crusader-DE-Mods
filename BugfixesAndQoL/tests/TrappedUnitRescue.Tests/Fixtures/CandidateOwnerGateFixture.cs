@@ -56,8 +56,38 @@ namespace TrappedUnitRescueTest.Tests
                 Equals(snapshot[3].DefaultValue,0),"existing default snapshots retain collection and unfiltered ownership");
             var mutation=typeof(RescueRuntime).GetMethod("TryCaptureMutation",BindingFlags.Instance|BindingFlags.NonPublic).GetParameters();
             Check(mutation[3].IsOptional && Equals(mutation[3].DefaultValue,0),"existing mutation callers remain unfiltered by default");
-            DiscoveryFailures();EmptyCrew();
+            StableSnapshotFilter();DiscoveryFailures();EmptyCrew();
             Console.WriteLine("PASS: candidate owner capture gate "+checks+" checks; actual gate/BFS/discovery, owners0..8, order/distances, original failure budgets; no game execution.");
+        }
+        private static void StableSnapshotFilter()
+        {
+            var values=new List<UnitSnapshot>();
+            for(int owner=0;owner<=8;owner++)
+            {
+                values.Add(Unit(owner));
+                var unsupported=Unit(owner);unsupported.Unsupported="fixture-unsupported";values.Add(unsupported);
+            }
+            values.Insert(3,values[0]); // Preserve repeated references as well as order.
+            for(int sourceOwner=0;sourceOwner<=8;sourceOwner++)
+            {
+                var expected=new List<UnitSnapshot>(values);var actual=new List<UnitSnapshot>(values);
+                expected.RemoveAll(unit=>unit.Unsupported!=null || sourceOwner>0 && unit.Owner!=sourceOwner);
+                NativeRescueMutationWorld.FilterSnapshots(actual,sourceOwner);
+                Check(actual.Count==expected.Count,"snapshot filter preserves owner/unsupported selection");
+                for(int i=0;i<actual.Count;i++)
+                    Check(ReferenceEquals(actual[i],expected[i]),"snapshot filter preserves reference identity, order and duplicates");
+                foreach(var value in values)
+                    Check(value.Health==123 && value.RequestedX==8 && value.RequestedY==8 && value.Candidates.Count==0,
+                        "snapshot filter does not mutate snapshot payload");
+                NativeRescueMutationWorld.FilterSnapshots(actual,sourceOwner);
+                Check(actual.Count==expected.Count,"snapshot filter is idempotent");
+                for(int i=0;i<actual.Count;i++)Check(ReferenceEquals(actual[i],expected[i]),"repeated filter retains order/identity");
+            }
+            var empty=new List<UnitSnapshot>();NativeRescueMutationWorld.FilterSnapshots(empty,0);
+            Check(empty.Count==0,"empty snapshot filter succeeds");
+            var excluded=Unit(1);excluded.Unsupported="fixture-unsupported";
+            var allExcluded=new List<UnitSnapshot>{excluded,excluded};NativeRescueMutationWorld.FilterSnapshots(allExcluded,0);
+            Check(allExcluded.Count==0,"all unsupported entries are removed, including duplicate references");
         }
         private static void DiscoveryFailures()
         {

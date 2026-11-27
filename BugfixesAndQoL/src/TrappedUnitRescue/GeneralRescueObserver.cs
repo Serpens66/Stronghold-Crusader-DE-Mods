@@ -80,7 +80,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
 #endif
             if(tiles.Count==0){before=new List<UnitSnapshot>();return true;}
             if(!runtime.TryCaptureMutation(tiles,out before,out reason,owner,compactGeometry:true))return false;
-            before.RemoveAll(unit=>unit.Unsupported!=null || owner>0 && unit.Owner!=owner);
+            FilterSnapshots(before,owner);
             return true;
 #if SERP_DEVDIAG
             }
@@ -92,6 +92,20 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 Shared.DevDiag.EndBatch();
             }
 #endif
+        }
+        // Compact in place without allocating an owner-capturing predicate. Preserve
+        // snapshot identity/order; zero source owner remains unfiltered.
+        internal static void FilterSnapshots(List<UnitSnapshot> units,int owner)
+        {
+            int write=0;
+            for(int read=0;read<units.Count;read++)
+            {
+                var unit=units[read];
+                if(unit.Unsupported!=null || owner>0 && unit.Owner!=owner)continue;
+                if(write!=read)units[write]=unit;
+                write++;
+            }
+            if(write<units.Count)units.RemoveRange(write,units.Count-write);
         }
         public bool HasChangedTrapCandidate(UnitSnapshot before)=>runtime.HasChangedTrapCandidate(before);
         public unsafe bool TryCaptureIdle(int unitId,out UnitSnapshot idle)
@@ -381,7 +395,8 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                     partial=new Batch{Session=context.SessionId,World=context.WorldGeneration};batches.Add(context.BatchId,partial);
                 }
                 partial.Invalid=true;
-                ReportBounded("mutation capture deferred source="+context.Source+" reason="+reason);return null;
+                if(reported<32)ReportBounded("mutation capture deferred source="+context.Source+" reason="+reason);
+                return null;
             }
             if(before.Count==0 && retired.Count==0)return null;
             if(!batches.TryGetValue(context.BatchId,out Batch batch))
@@ -425,8 +440,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 else batch.Invalid=true;
             }
             Interlocked.Increment(ref captures);
-            return new Completion(context,context.SessionId,id=>IsCurrent(id,context.WorldGeneration),()=>{},
-                () => batch.Invalid=true);
+            return CreateMutationCompletion(context,batch);
 #if SERP_DEVDIAG
             }
             finally
@@ -437,6 +451,11 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             }
 #endif
         }
+
+        // Keep captured completion state off TryBegin's guarded/no-op path.
+        private Completion CreateMutationCompletion(WorldMutationContext context,Batch batch) =>
+            new Completion(context,context.SessionId,id=>IsCurrent(id,context.WorldGeneration),()=>{},
+                () => batch.Invalid=true);
 
         public void OnBatchCompleted(WorldMutationBatchCompletion completion)
         {

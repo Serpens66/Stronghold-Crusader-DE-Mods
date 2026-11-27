@@ -42,10 +42,16 @@ namespace BugfixesAndQoL.TrappedUnitRescue
     internal sealed unsafe class RescueRuntime
     {
         private readonly NativeRelocation native;
+        private readonly RescueDiscovery.ScratchPool discovery = new RescueDiscovery.ScratchPool();
         internal NativeRelocation Native => native;
         private readonly Func<bool> enabled;
         private readonly Action<string> report;
         private readonly Action<UnitSnapshot> candidateCapture;
+        private readonly Func<int,int,int> discoveryTile;
+        private readonly Func<int,int> discoveryHead;
+        private readonly RescueDiscoveryUnitReader discoveryUnit;
+        private readonly Func<int,bool> ordinaryGround;
+        private readonly Func<int,byte> terrainConnections;
         internal WorkerResumeSupervisor Workers { get; set; }
         internal Func<long> WorkerTick { get; set; }
         internal Func<bool> WorkerReady { get; set; }
@@ -54,7 +60,14 @@ namespace BugfixesAndQoL.TrappedUnitRescue
         internal Func<UnitSnapshot,RescueCandidate,IdleEscapeRequest> CreateIdleEscapeRequest { get; set; }
         private static readonly int[] Dx = { 0,1,1,1,0,-1,-1,-1 }, Dy = { -1,-1,0,1,1,1,0,-1 };
         internal RescueRuntime(NativeRelocation native, Func<bool> isEnabled, Action<string> report)
-        { this.native = native ?? throw new ArgumentNullException(nameof(native)); enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled)); this.report = report; candidateCapture=CaptureCandidates; }
+        {
+            this.native = native ?? throw new ArgumentNullException(nameof(native));
+            enabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled));
+            this.report = report; candidateCapture=CaptureCandidates;
+            // Cache callbacks, not world values: each invocation still reads the current native state.
+            discoveryTile=this.native.Tile;discoveryHead=this.native.Head;discoveryUnit=ReadDiscoveryUnit;
+            ordinaryGround=this.native.OrdinaryGround;terrainConnections=this.native.Connections;
+        }
         internal UnitSnapshot SnapshotUnit(int id) => SnapshotUnit(id, false);
         internal UnitSnapshot SnapshotUnit(int id, bool includeOrdinaryStep,bool collectCandidates=true,int sourceOwner=0)
         {
@@ -128,7 +141,7 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             try
             {
 #endif
-            if(!RescueDiscovery.TryCollect(changed,native.Tile,native.Head,ReadDiscoveryUnit,
+            if(!discovery.TryCollect(changed,discoveryTile,discoveryHead,discoveryUnit,
                 // The halo contains at most9 cells per planned write. Each native
                 // unit record is read once and revalidated once by discovery.
                 compactGeometry?new RescueDiscoveryBudget(9*2048,2*NativeRelocation.MaximumUnitId,NativeRelocation.MaximumUnitId,
@@ -148,6 +161,9 @@ namespace BugfixesAndQoL.TrappedUnitRescue
             try
             {
 #endif
+            // Discovery has already validated the complete envelope and occupancy chains.
+            // With no selected occupants no snapshot consumes an affected set or local field.
+            if(occupants.Count==0)return true;
             var affected=new HashSet<int>();foreach(var tile in changed)affected.Add(tile.TileId);
             // Per invocation only: later child originals may already have changed geometry.
             var fields=compactGeometry?new Dictionary<int,RescueLocalField>():null;
@@ -167,8 +183,8 @@ namespace BugfixesAndQoL.TrappedUnitRescue
                 {
                     if(!fields.TryGetValue(snapshot.TileId,out var field))
                     {
-                        if(!RescueLocalField.TryCapture(snapshot.X,snapshot.Y,snapshot.TileId,native.Tile,native.OrdinaryGround,
-                            native.Connections,out field,out reason))
+                        if(!RescueLocalField.TryCapture(snapshot.X,snapshot.Y,snapshot.TileId,discoveryTile,ordinaryGround,
+                            terrainConnections,out field,out reason))
                         {before.Clear();return false;}
                         fields.Add(snapshot.TileId,field);
                     }

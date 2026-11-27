@@ -162,10 +162,167 @@ namespace TrappedUnitRescueTest.Tests
             Require(measured.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_DRAWBRIDGE,0,new[]{Memory.Tile(30,30)},out mapped,out _,out reason,AivBuildStepState.Built) &&
                 mapped.Count>0,"built AIV step retains possible rebuild footprint, never treated as no-op");
             DenseConstruction();
+            ScratchReuse();
             Console.WriteLine("Footprint cost: bridge reads=" + bridgeMetrics.NativeReads + "; moat reads=" + moatMetrics.NativeReads + "; farm reads=" + farmMetrics.NativeReads +
                 "; keep reads=" + keepMetrics.NativeReads + "; keep buildingSlots=" + keepMetrics.BuildingSlots + "; keep brushSearches=" + keepMetrics.BrushSearches + "; keep cacheHits=" + keepMetrics.BrushCacheHits + "; keep nodes=" + keepMetrics.BrushNodes);
             Console.WriteLine("NativeMutationFootprintsFixture: " + checks + " checks passed.");
         }
+        private static void ScratchReuse()
+        {
+            var memory = new Memory();
+            var adapter = new NativeMutationFootprints(memory, new RescueFootprintBudget(2048, 131072));
+            int anchor = Memory.Tile(20, 20);
+            memory.AddBuilding(1, eStructs.STRUCT_HOPSFARM, 70, 70, 1, 123);
+            memory.AddBuilding(2, eStructs.STRUCT_HOVEL, 85, 85, 1, 123);
+            for (int i = 0; i < 24; i++) memory.Words[Memory.Record(1) + 0x1C8 + i * 4] = Memory.Tile(70, 70);
+            memory.Words[Memory.Record(1) + 0x1C8 + 35 * 4] = anchor;
+            memory.Flags[anchor] = 0x04000000;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out var first, out var cost, out var reason) &&
+                Contains(first, 85, 85), "pooled first capture includes farm lookup and remote compound: " + reason);
+            var original = new List<RescueTile>(first);
+            object scratch = FreeScratch(adapter);
+            Require(scratch != null && cost.NativeReads > 0, "bounded capture retains empty private scratch");
+            RequireEmptyScratch(scratch);
+            memory.Flags.Clear();
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out var changed, out cost, out reason) &&
+                changed.Count == 25 && !Contains(changed, 85, 85) && !ReferenceEquals(first, changed),
+                "later capture refreshes flags and returns a fresh list: " + reason);
+            Require(ReferenceEquals(scratch, FreeScratch(adapter)), "bounded invocations actually reuse scratch capacities");
+            memory.AddBuilding(3, eStructs.STRUCT_HOVEL, 20, 20, 1, 777);
+            memory.AddBuilding(4, eStructs.STRUCT_HOVEL, 85, 80, 1, 777);
+            memory.Layer[anchor] = 3;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out _, out reason) &&
+                Contains(changed, 85, 80), "next capture refreshes layer, live slots and new compound: " + reason);
+            memory.Words[Memory.Record(4) + 0x2A8] = 888;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out _, out reason) &&
+                !Contains(changed, 85, 80), "removed compound membership is not retained: " + reason);
+            memory.Words[Memory.Record(4) + 0x2A8] = 777;
+            memory.Words[NativeMutationFootprints.BuildingManagerRva + 0x50] = 4;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out _, out reason) &&
+                !Contains(changed, 85, 80), "shrunk native high-water limit is fresh: " + reason);
+            memory.Words[NativeMutationFootprints.BuildingManagerRva + 0x50] = 5;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out _, out reason) &&
+                Contains(changed, 85, 80), "later grown high-water limit is fresh: " + reason);
+            memory.Words[Memory.Record(3) + 0xD0] = 0;
+            memory.AddBuilding(5, eStructs.STRUCT_HOVEL, 20, 20, 1, 999);
+            memory.AddBuilding(6, eStructs.STRUCT_HOVEL, 75, 75, 1, 999);
+            memory.Layer[anchor] = 5;
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out _, out reason) &&
+                Contains(changed, 75, 75) && !Contains(changed, 85, 80), "replacement building ID cannot reuse an earlier record: " + reason);
+            Require(adapter.TryPlan(Mutation(WorldMutationSource.BuildingRemoval, NativeMutationFootprints.BuildingManagerRva, 5),
+                out changed, out int owner, out reason) && owner == 1 && Contains(changed, 75, 75) && ReferenceEquals(scratch, FreeScratch(adapter)),
+                "normal source path uses the same cleared pool: " + reason);
+            RequireEmptyScratch(FreeScratch(adapter));
+            Require(first.Count == original.Count, "returned footprint survives later pool reuse");
+            for (int i = 0; i < original.Count; i++)
+                Require(first[i].X == original[i].X && first[i].Y == original[i].Y && first[i].TileId == original[i].TileId,
+                    "no escaped result list or tile is recycled");
+
+            // Size14 aliases mutable globals. Brush flags and failed partial unions must
+            // also refresh even though the adapter retains the same empty dictionaries.
+            var spillMemory = new Memory();
+            var spillAdapter = new NativeMutationFootprints(spillMemory, new RescueFootprintBudget(2048, 131072));
+            int spill = 0x8DDCC0 + 14 * 169 * 24;
+            for (int i = 0; i < 196; i++) { spillMemory.Words[spill + i * 24] = 0; spillMemory.Words[spill + i * 24 + 4] = 0; }
+            spillMemory.Words[spill + 195 * 24] = 40; spillMemory.Words[spill + 195 * 24 + 4] = 20;
+            int farmAnchor = Memory.Tile(30, 30);
+            Require(spillAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_APPLEFARM, 0, new[] { farmAnchor }, out var spillFirst, out cost, out reason) &&
+                Contains(spillFirst, 68, 48) && cost.BrushSearches > 0, "pooled session captures live spill and brushes: " + reason);
+            object spillScratch = FreeScratch(spillAdapter); RequireEmptyScratch(spillScratch);
+            spillMemory.Words[spill + 195 * 24] = 50;
+            Require(spillAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_APPLEFARM, 0, new[] { farmAnchor }, out changed, out cost, out reason) &&
+                Contains(changed, 78, 48) && !Contains(changed, 68, 48) && cost.BrushSearches > 0,
+                "next invocation refreshes mutable spill and brush queues: " + reason);
+            Require(ReferenceEquals(spillScratch, FreeScratch(spillAdapter)), "spill arrays are dropped while bounded dictionary capacity is reused");
+            spillMemory.Flags[farmAnchor] = 0x20;
+            Require(!spillAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_APPLEFARM, 0, new[] { farmAnchor }, out changed, out _, out reason) &&
+                changed.Count == 0 && reason == "footprint-brush-search-exhausted", "new flags reject a formerly cached brush and discard partial union");
+            RequireEmptyScratch(FreeScratch(spillAdapter));
+            spillMemory.Flags.Clear();
+            Require(spillAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_APPLEFARM, 0, new[] { farmAnchor }, out changed, out cost, out reason) &&
+                Contains(changed, 78, 48) && cost.BrushSearches > 0, "failure does not poison the next complete capture: " + reason);
+            var escaped = spillAdapter.ContextForOfflineFixture();
+            Require(escaped.SquareOffset(14, 195).X == 50 && ReferenceEquals(spillScratch, FreeScratch(spillAdapter)),
+                "explicit offline context is unpooled and does not consume the free scratch");
+            spillMemory.Words[spill + 195 * 24] = 51;
+            Require(spillAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_APPLEFARM, 0, new[] { farmAnchor }, out changed, out _, out reason) &&
+                Contains(changed, 79, 48) && escaped.SquareOffset(14, 195).X == 50,
+                "escaped offline context is not cleared or republished by pooled captures: " + reason);
+
+            // Reentry occurs inside a real production memory-read seam after outer rent.
+            object outerScratch = FreeScratch(adapter), nestedScratch = null;
+            List<RescueTile> nestedResult = null;
+            memory.BeforeRead = () =>
+            {
+                Require(FreeScratch(adapter) == null, "an active scratch is absent from the free slot");
+                Require(adapter.TryPlan(Mutation(WorldMutationSource.BuildStructure, NativeMutationFootprints.TileManagerRva, 1, 50, 50,
+                    (int)eMappers.MAPPER_DRAWBRIDGE, 5, 0, 0), out nestedResult, out _, out var nestedReason) && nestedResult.Count == 25,
+                    "nested source capture owns isolated scratch: " + nestedReason);
+                nestedScratch = FreeScratch(adapter);
+                Require(nestedScratch != null && !ReferenceEquals(outerScratch, nestedScratch), "nested rental cannot alias the active outer session");
+            };
+            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_MOAT, 0, new[] { Memory.Tile(40, 40) }, out changed, out _, out reason) &&
+                changed.Count == 9 && Contains(changed, 39, 39), "outer capture survives nested source invocation: " + reason);
+            Require(nestedResult != null && nestedResult.Count == 25 && ReferenceEquals(nestedScratch, FreeScratch(adapter)),
+                "at most the first returned empty session is retained and both output lists survive");
+            RequireEmptyScratch(FreeScratch(adapter));
+
+            // A small valid envelope may scan the full native building domain. Keeping
+            // its empty capacity avoids reintroducing per-call allocation on dense maps.
+            var largeMemory = new Memory();
+            for (int id = 1; id < 4000; id++) largeMemory.AddBuilding(id, eStructs.STRUCT_HOVEL, 60, 60, 1, 7);
+            largeMemory.AddBuilding(1, eStructs.STRUCT_HOVEL, 20, 20, 1, 7);
+            largeMemory.Words[NativeMutationFootprints.BuildingManagerRva + 0x50] = 4000;
+            largeMemory.Layer[anchor] = 1;
+            var largeAdapter = new NativeMutationFootprints(largeMemory, new RescueFootprintBudget(2048, 131072));
+            Require(largeAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out cost, out reason) &&
+                cost.NativeReads > 8192 && Contains(changed, 60, 60) && FreeScratch(largeAdapter) != null,
+                "dense budget-compliant capture retains empty scratch: " + reason);
+            object largeScratch = FreeScratch(largeAdapter);
+            RequireEmptyScratch(largeScratch);
+            Require(largeAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out cost, out reason) &&
+                cost.NativeReads > 8192 && ReferenceEquals(largeScratch, FreeScratch(largeAdapter)),
+                "repeated dense captures do not recreate their private caches: " + reason);
+
+            var exhausted = new NativeMutationFootprints(largeMemory, new RescueFootprintBudget(2048, 1000));
+            Require(!exhausted.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out cost, out reason) &&
+                reason == "native-footprint-read-budget" && changed.Count == 0 && cost.NativeReads == 1001 && FreeScratch(exhausted) == null,
+                "read-budget exhaustion clears and discards scratch without publishing partial output: " + reason);
+            largeMemory.Layer.Clear();
+            Require(largeAdapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out cost, out reason) &&
+                changed.Count == 25 && cost.NativeReads <= 8192 && FreeScratch(largeAdapter) != null,
+                "small capture after dense work uses fresh values in bounded scratch: " + reason);
+            Require(ReferenceEquals(largeScratch, FreeScratch(largeAdapter)), "dense capacity survives a following small capture");
+            RequireEmptyScratch(FreeScratch(largeAdapter));
+            Require(exhausted.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_WALL, 0, new[] { anchor }, out changed, out cost, out reason) &&
+                changed.Count == 25 && FreeScratch(exhausted) != null, "small capture after budget exhaustion acquires fresh scratch: " + reason);
+            RequireEmptyScratch(FreeScratch(exhausted));
+        }
+        // Reflection is limited to the explicitly required private resource contract:
+        // one free slot, zero captured values/counters, bounded retention. Geometry tests
+        // above still execute the actual production admission and planning paths.
+        private static object FreeScratch(NativeMutationFootprints adapter) => typeof(NativeMutationFootprints)
+            .GetField("freeSession", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(adapter);
+        private static void RequireEmptyScratch(object scratch)
+        {
+            Require(scratch != null, "bounded empty scratch is available");
+            const BindingFlags fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var type = scratch.GetType();
+            foreach (string name in new[] { "dwords", "words", "bytes", "buildings", "Union", "liveSlots", "compounds", "squares" })
+            {
+                object value = type.GetField(name, fields).GetValue(scratch);
+                Require(value == null || ((System.Collections.ICollection)value).Count == 0, "returned scratch clears " + name);
+            }
+            foreach (string name in new[] { "reads", "buildingsRead" })
+                Require((int)type.GetField(name, fields).GetValue(scratch) == 0, "returned scratch resets " + name);
+            Require((int)type.GetField("indexedLimit", fields).GetValue(scratch) == 1 &&
+                !(bool)type.GetField("compoundsIndexed", fields).GetValue(scratch) && type.GetField("cleanupSpill", fields).GetValue(scratch) == null,
+                "returned scratch resets lazy indexes and mutable spill");
+            var context = (RescueFootprintContext)type.GetField("Context", fields).GetValue(scratch);
+            Require(context.BrushCache.Count == 0 && context.BrushSearches == 0 && context.BrushCacheHits == 0 && context.BrushNodes == 0,
+                "returned scratch clears brushes and counters");
+        }
+
         private static void DenseConstruction()
         {
             var memory = new Memory();
@@ -195,8 +352,27 @@ namespace TrappedUnitRescueTest.Tests
                 restrictedMode: 1) && restricted.Count == 0, "restricted mode skips non-hovel work");
             Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_HOVEL, 0, new[] { frame[0] }, out var hovel, out _, out _,
                 restrictedMode: 1) && hovel.Count > 0, "restricted mode admits hovels");
-            Require(adapter.TryPlanAivFieldsForOfflineFixture(eMappers.MAPPER_STAIR1, 0, new[] { frame[0] }, out var stair, out _, out _,
-                AivBuildStepState.Built, 1) && stair.Count == 0, "built stair cooldown skips native cleanup");
+            // 51790's two classifier paths converge at521C8 for all six stairs. Delayed
+            // Built frames only decrement a byte; zero-delay/Pending frames still reach writers.
+            foreach (var mapper in new[] { eMappers.MAPPER_STAIR1, eMappers.MAPPER_STAIR2, eMappers.MAPPER_STAIR3,
+                eMappers.MAPPER_STAIR4, eMappers.MAPPER_STAIR5, eMappers.MAPPER_STAIR6 })
+            {
+                foreach (int delay in new[] { 1, 255 })
+                {
+                    int reads = memory.ReadCount;
+                    Require(adapter.TryPlanAivFieldsForOfflineFixture(mapper, 0, new[] { frame[0] }, out var stair, out var cost, out _,
+                        AivBuildStepState.Built, delay) && stair.Count == 0 && cost.NativeReads == 0 && memory.ReadCount == reads,
+                        "built stair cooldown skips all footprint reads " + mapper + "/" + delay);
+                }
+                Require(adapter.TryPlanAivFieldsForOfflineFixture(mapper, 0, new[] { frame[0] }, out var readyStair, out _, out _,
+                    AivBuildStepState.Built, 0) && readyStair.Count > 0, "zero-delay built stair retains its writer envelope " + mapper);
+                Require(adapter.TryPlanAivFieldsForOfflineFixture(mapper, 0, new[] { frame[0] }, out var pendingStair, out _, out _,
+                    AivBuildStepState.Pending, 1) && pendingStair.Count > 0, "Pending stair is not skipped for a nonzero delay " + mapper);
+                int restrictedReads = memory.ReadCount;
+                Require(adapter.TryPlanAivFieldsForOfflineFixture(mapper, 0, new[] { frame[0] }, out var restrictedStair, out _, out _,
+                    AivBuildStepState.Pending, 0, restrictedMode: 1) && restrictedStair.Count == 0 && memory.ReadCount == restrictedReads,
+                    "restricted-mode stair remains a geometry no-op " + mapper);
+            }
             int anchor = Memory.Tile(60, 60);
             memory.Layer[anchor] = 1;
             int before = memory.ReadCount;
@@ -244,6 +420,13 @@ namespace TrappedUnitRescueTest.Tests
             internal readonly HashSet<int> Inactive = new HashSet<int>();
             internal int BuildingReads;
             internal int ReadCount;
+            internal Action BeforeRead;
+            private void NotifyRead()
+            {
+                ReadCount++;
+                Action callback = BeforeRead; BeforeRead = null;
+                callback?.Invoke();
+            }
             internal static int Row(int y) => y * 100 + y * y;
             internal static int Tile(int x, int y) => Row(y) + x;
             internal static int Record(int id) => 0x64CCC0C + id * 0x32C;
@@ -274,7 +457,7 @@ namespace TrappedUnitRescueTest.Tests
             }
             public int Int32(int rva)
             {
-                ReadCount++;
+                NotifyRead();
                 if (Words.TryGetValue(rva, out int value)) return value;
                 if (rva >= 0x402FF2C && rva < 0x402FF2C + 800 * 12 && (rva - 0x402FF2C) % 12 == 0) return Row((rva - 0x402FF2C) / 12);
                 if (rva >= NativeMutationFootprints.TileManagerRva && rva < NativeMutationFootprints.TileManagerRva + 800 * 32)
@@ -287,7 +470,7 @@ namespace TrappedUnitRescueTest.Tests
             }
             public short Int16(int rva)
             {
-                ReadCount++;
+                NotifyRead();
                 if (rva >= 0x64CCC0C && rva < 0x64CCC0C + 4000 * 0x32C) BuildingReads++;
                 if (Words.TryGetValue(rva, out int value)) return checked((short)value);
                 if (rva >= 0x4B6AA50 && rva < 0x4B6AA50 + 320800 * 2) return Layer.TryGetValue((rva - 0x4B6AA50) / 2, out value) ? checked((short)value) : (short)0;
@@ -297,7 +480,7 @@ namespace TrappedUnitRescueTest.Tests
             }
             public byte Byte(int rva)
             {
-                ReadCount++;
+                NotifyRead();
                 if (rva >= 0x3A11EA4 && rva < 0x3A11EA4 + 800 * 800)
                 { int xy = rva - 0x3A11EA4, x = xy % 800, y = xy / 800; return x < 100 && y < 100 && !Inactive.Contains(Tile(x, y)) ? (byte)1 : (byte)0; }
                 return Words.TryGetValue(rva, out int value) ? checked((byte)value) : (byte)0;
