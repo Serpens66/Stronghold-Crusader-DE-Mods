@@ -115,7 +115,6 @@ namespace BugfixesAndQoL
             {
                 TestNotificationSkipPolicy();
                 TestNotificationManagedContracts();
-                TestNotificationQueueNearCallResolver();
                 TestNotificationSkipIntegration();
                 Console.WriteLine("Notification policy and integration checks: failures=" + failures);
                 return failures == 0 ? 0 : 1;
@@ -157,7 +156,6 @@ namespace BugfixesAndQoL
             TestTroopPanelPageCountFixIntegration();
             TestNotificationSkipPolicy();
             TestNotificationManagedContracts();
-            TestNotificationQueueNearCallResolver();
             TestNotificationSkipIntegration();
             TestAllyGoodsTransferPolicy();
             TestAllyGoodsTransferIntegration();
@@ -1420,66 +1418,18 @@ namespace BugfixesAndQoL
 
         private static void TestNotificationSkipPolicy()
         {
-            Check(NotificationSkipPolicy.ShouldArmVideo(true, true, true, true, true, false),
-                "active visible queued video notification arms complete skip");
-            Check(!NotificationSkipPolicy.ShouldArmVideo(false, true, true, true, true, false) &&
-                  !NotificationSkipPolicy.ShouldArmVideo(true, false, true, true, true, false) &&
-                  !NotificationSkipPolicy.ShouldArmVideo(true, true, false, true, true, false) &&
-                  !NotificationSkipPolicy.ShouldArmVideo(true, true, true, false, true, false) &&
-                  !NotificationSkipPolicy.ShouldArmVideo(true, true, true, true, false, false) &&
-                  !NotificationSkipPolicy.ShouldArmVideo(true, true, true, true, true, true),
-                "disabled, idle, videoless, hidden, stopped, and briefing video notifications remain untouched");
-            Check(NotificationSkipPolicy.ShouldArmMinimap(true, true, false, false),
-                "active videoless notification arms complete skip from the minimap");
-            Check(!NotificationSkipPolicy.ShouldArmMinimap(false, true, false, false) &&
-                  !NotificationSkipPolicy.ShouldArmMinimap(true, false, false, false) &&
-                  !NotificationSkipPolicy.ShouldArmMinimap(true, true, true, false) &&
-                  !NotificationSkipPolicy.ShouldArmMinimap(true, true, false, true),
-                "disabled, idle, video, and briefing notifications do not arm minimap skip");
-            Check(NotificationSkipPolicy.ShouldCompleteOnRightClick(true, true, true),
-                "single right-click event on an armed notification surface completes it");
-            Check(!NotificationSkipPolicy.ShouldCompleteOnRightClick(false, true, true) &&
-                  !NotificationSkipPolicy.ShouldCompleteOnRightClick(true, false, true) &&
-                  !NotificationSkipPolicy.ShouldCompleteOnRightClick(true, true, false),
-                "unarmed, left-click, and non-single-click events do not complete notifications");
-            Check(NotificationSkipPolicy.AudioPathMatches(
-                      "fx\\speech\\Random_Events14.wav", "random_events14.wav") &&
-                  NotificationSkipPolicy.AudioPathMatches(
-                      "folder/Random_Events14.wav", "C:\\audio\\random_events14.wav") &&
-                  !NotificationSkipPolicy.AudioPathMatches(
-                      "Random_Events14.wav", "unrelated.wav") &&
-                  !NotificationSkipPolicy.AudioPathMatches(string.Empty, "Random_Events14.wav"),
-                "notification audio loads are matched by portable case-insensitive filename");
-        }
-
-        private static void TestNotificationQueueNearCallResolver()
-        {
-            byte[] validCall = { 0x90, 0xE8, 0x04, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0xC3 };
-            Check(NotificationQueueNativeContract.ResolveNearCallTarget(validCall, 1) == 10,
-                "production near-call resolver reads rel32 after E8 and uses the five-byte return address");
-
-            bool wrongOpcodeRejected = false;
-            try
+            const uint threshold = NotificationQueueNativeContract.AgeThresholdMs;
+            foreach (uint start in new[] { 0u, 55u, uint.MaxValue - 2, uint.MaxValue })
             {
-                NotificationQueueNativeContract.ResolveNearCallTarget(new byte[] { 0xE9, 0, 0, 0, 0 }, 0);
-            }
-            catch (InvalidOperationException)
-            {
-                wrongOpcodeRejected = true;
+                uint now = NotificationSkipPolicy.TimestampPastAgeGate(start);
+                Check(unchecked(now - start) == threshold + 1,
+                    "skip crosses the original unsigned age threshold, including timeGetTime wraparound");
             }
 
-            bool truncatedCallRejected = false;
-            try
-            {
-                NotificationQueueNativeContract.ResolveNearCallTarget(new byte[] { 0xE8, 0, 0, 0 }, 0);
-            }
-            catch (InvalidOperationException)
-            {
-                truncatedCallRejected = true;
-            }
-
-            Check(wrongOpcodeRejected && truncatedCallRejected,
-                "production near-call resolver rejects wrong opcodes and truncated calls");
+            bool truncated = false;
+            try { NotificationQueueNativeContract.ValidateAgeBranch(new byte[16]); }
+            catch (InvalidOperationException) { truncated = true; }
+            Check(truncated, "the Skip age branch rejects an incomplete native image");
         }
 
         private static void TestAllyGoodsTransferPolicy()
@@ -1810,13 +1760,13 @@ namespace BugfixesAndQoL
                 "Patches", "Assets", "GUI", "XAML", "MainHUD.xaml");
             string mainHudPatch = File.ReadAllText(mainHudPatchPath);
 
-            Check(feature.Contains("MainViewModel.Instance.HUDRoot.RadarME_Ended();") &&
-                  feature.Contains("speech.StopSpeechChannel1(MyAudioManager.Instance);") &&
+            Check(feature.Contains("hud.RadarME_Ended") &&
+                  feature.Contains("speech.TryStopNotification(MyAudioManager.Instance, id)") &&
+                  feature.Contains("NotificationPresentations.IsRenderedText(id)") &&
                   feature.Contains("Enums.eOnScreenText.OST_MESSAGE_BAR") &&
-                  feature.Contains("MainViewModel.Instance.OST_Message_Bar_Vis = false;") &&
-                  feature.Contains("ImmediateCommandIdOffset") &&
+                  feature.Contains("main.OST_Message_Bar_Vis = false;") &&
                   !feature.Contains("StopAllGameSounds"),
-                "notification right-click closes video, stops only channel 1, hides only the message bar, and marks queue state");
+                "notification right-click affects only media and message text owned by the clicked presentation");
             Check(behavior.Contains("element.PreviewMouseDown += OnPreviewMouseDown") &&
                   behavior.Contains("using NoesisApp;") &&
                   behavior.Contains("sender is MediaElement") &&
@@ -1830,58 +1780,44 @@ namespace BugfixesAndQoL
                   !behavior.Contains(".MouseDown") &&
                   !behavior.Contains("MouseLeftButton") &&
                   !behavior.Contains("void Update("),
-                "complete notification skip uses only notification-surface right-click UI events and no polling or HUD hook");
+                "skip uses only notification-surface right-click UI events");
             Check(behavior.IndexOf("args.ChangedButton != MouseButton.Right", StringComparison.Ordinal) <
-                      behavior.IndexOf("CompleteFromNotificationSurfaceRightClick(surface, args)", StringComparison.Ordinal) &&
+                      behavior.IndexOf("CompleteFromNotificationSurfaceRightClick(surface, sender, args)", StringComparison.Ordinal) &&
                   behavior.Contains("private static NotificationSkipFeature feature;") &&
                   feature.Contains("NotificationSkipBehavior.Configure(this);") &&
                   speechPlayback.Contains("source?.Stop();"),
-                "left-click exits in the static behavior before feature inspection and paused channel 1 stops");
-            Check(feature.Contains("surface == NotificationSkipSurface.Minimap") &&
-                  feature.Contains("NotificationSkipPolicy.ShouldArmMinimap") &&
-                  feature.Contains("if (!hasVideo)") &&
-                  feature.Contains("if (hasVideo)") &&
-                  feature.Contains("if (hasAudio)") &&
-                  feature.Contains("ImmediateAudioPathOffset") &&
-                  feature.Contains("NotificationSkipPolicy.AudioPathMatches") &&
-                  feature.Contains("The immediate notification audio path is not null-terminated"),
-                "video and videoless minimap clicks are classified separately, including a transparent RadarME overlay, and only matching notification audio is stopped");
+                "left-click exits in the static behavior before feature inspection and paused channel 1 can stop");
+            Check(feature.Contains("ReferenceEquals(sender, hud.RefRadarME)") &&
+                  feature.Contains("ReferenceEquals(sender, hud.RefRadarMapImage)") &&
+                  feature.Contains("sfx.requestBinkPlayState > 0") &&
+                  feature.Contains("ReferenceEquals(sfx.requestBinkPlaybackURI, uri)") &&
+                  feature.Contains("NotificationPresentations.TryGetRendered(out NotificationPresentationId id, out bool hasVideo)"),
+                "video and videoless clicks verify the exact HUD surface and accepted rendered request");
             Check(feature.Contains("speech = NotificationSpeechPlayback.Get(log);") &&
-                  feature.Contains("speech.SetNotificationClassifier(IsActiveNotificationAudioLoad);") &&
-                  feature.Contains("RollbackFailedInitialization(pendingNativeTransaction)") &&
+                  feature.Contains("speech.SetNotificationSkipEnabled(() => Enabled);") &&
+                  speechPlayback.Contains("NotificationPresentations.TryGetDispatchingSpeech") &&
                   !feature.Contains("new Hook("),
-                "native skip reuses the independent managed speech owner and publishes its classifier only after initialization");
-            int updateCallback = feature.IndexOf(
-                "private void UpdateNotificationQueue(IntPtr manager)", StringComparison.Ordinal);
-            int messageBarHelper = feature.IndexOf(
-                "private static void HideMessageBar()", StringComparison.Ordinal);
-            Check(updateCallback >= 0 && messageBarHelper > updateCallback &&
-                  feature.IndexOf("finalizeNotification(manager)", StringComparison.Ordinal) > updateCallback &&
-                  feature.IndexOf("finalizeNotification(manager)", StringComparison.Ordinal) < messageBarHelper &&
-                  feature.IndexOf("finalizeNotification(manager)",
-                      feature.IndexOf("finalizeNotification(manager)", StringComparison.Ordinal) + 1,
-                      StringComparison.Ordinal) < 0 &&
-                  feature.Contains("notificationUpdateHook.Original(manager);") &&
-                  !feature.Contains("0x102C30"),
-                "central single-message finalizer is called only from the validated native update callback");
-            Check(feature.Contains("PendingSkipRequest") && feature.Contains("expectedPresentationId") &&
-                  feature.Contains("discarded notification completion for an unexpected manager") &&
-                  feature.Contains("discarded stale notification completion") &&
-                  feature.Contains("complete notification skip failed after activation") &&
-                  feature.Contains("native notification completion failed"),
-                "notification requests remain identity-bound and expose rejected or failed completion");
+                "skip reuses the managed speech owner and only scopes loads to actual notification dispatch");
+            int ageCallback = feature.IndexOf("private void ApplyAgeBypass(", StringComparison.Ordinal);
+            int ageWrite = feature.IndexOf("state->RDI = NotificationSkipPolicy.TimestampPastAgeGate(startedAt);", StringComparison.Ordinal);
+            Check(ageCallback >= 0 && ageWrite > ageCallback &&
+                  feature.IndexOf("NotificationPresentations.IsNativeCurrent(request.Id)", ageCallback, StringComparison.Ordinal) < ageWrite &&
+                  feature.Contains("OverwrittenInstructionPlacement.AfterCallback") &&
+                  !feature.Contains("finalizeNotification") &&
+                  !feature.Contains("Marshal.Write"),
+                "skip changes only the timestamp register at the original age gate for the exact native ticket");
             Check(speechPlayback.Contains("speechChannel1Generation") &&
                   speechPlayback.Contains("loadedClip?.UnloadAudioData();") &&
                   speechPlayback.Contains("!IsCurrent(audio, generation)"),
                 "superseded channel-1 loads cannot replay skipped notification audio");
-            Check(feature.Contains("RollbackFailedInitialization") &&
+            Check(feature.Contains("candidate?.Dispose();") &&
+                  feature.Contains("Shared.NativePatchGuard.Watch(candidate, Feature)") &&
                   !feature.Contains("public void Dispose()"),
                 "notification hooks are process-lifetime rooted with initialization-only rollback");
             Check(runtime.Contains("private NotificationSkipFeature notificationSkipFeature;") &&
                   runtime.Contains("new NotificationSkipFeature(") &&
-                  runtime.Contains("nativeRegion,") &&
-                  runtime.Contains("newLibraryHandle)"),
-                "notification feature is retained by the process-lifetime runtime");
+                  runtime.Contains("notificationSkipFeature?.ResetMapState();"),
+                "the runtime keeps the native hook while mission end invalidates pending identity");
             Check(!feature.Contains("GameSoundManagerAPI") &&
                   !feature.Contains("SetSuppressMessages") &&
                   !feature.Contains("0x1031B0"),
@@ -5269,20 +5205,18 @@ namespace BugfixesAndQoL
             }
             try
             {
-                NotificationQueueNativeResolution notification =
-                    NotificationQueueNativeContract.Validate(mappedImage);
-                Check(notification.RunTickRva == 0x86680 &&
-                      notification.UpdateRva == 0xFE570 &&
-                      notification.FinalizerRva == 0x102A70 &&
-                      notification.StartRva == 0xFEE50 &&
-                      notification.PendingFlagRva == 0x8EBA90 &&
-                      NotificationQueueNativeContract.ImmediateCommandIdOffset == 0x04 &&
-                      NotificationQueueNativeContract.ImmediatePresentationIdOffset == 0x08 &&
-                      NotificationQueueNativeContract.ImmediateVideoPathOffset == 0x0C &&
-                      NotificationQueueNativeContract.ImmediateAudioPathOffset == 0x70 &&
-                      NotificationQueueNativeContract.ImmediateAudioPathCapacity == 100 &&
-                      NotificationQueueNativeContract.QueuedCountOffset == 0x94C,
-                    "notification DLL_RunTick update, single finalizer, presentation start, and manager offsets match the audited contract");
+                int age = NotificationQueueNativeContract.ValidateAgeBranch(mappedImage);
+                Check(age == 0xFE5C9 &&
+                      NotificationQueueNativeContract.AgeBranchLength == 14 &&
+                      NotificationQueueNativeContract.StartTimeOffset == 0xD8 &&
+                      NotificationQueueNativeContract.AgeThresholdMs == 10000,
+                    "notification age hook matches its only audited insertion point and three-instruction span");
+                byte[] changedBranch = mappedImage.ToArray();
+                changedBranch[age + 13] ^= 1;
+                bool branchRejected = false;
+                try { NotificationQueueNativeContract.ValidateAgeBranch(changedBranch); }
+                catch (InvalidOperationException) { branchRejected = true; }
+                Check(branchRejected, "notification age hook rejects a changed continuation target");
             }
             catch (Exception exception)
             {

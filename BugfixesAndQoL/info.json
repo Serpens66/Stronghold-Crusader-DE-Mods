@@ -3,19 +3,26 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.248",
+  "Version": "1.0.249",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.4",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.74.0"
+      "MinimumVersion": "0.77.0"
     }
   ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.249",
+      "Changes": [
+        "Right-clicking a notification skips the message you clicked. A queued follow-up and unrelated speech, such as a keep-placement warning, continue to play.",
+        "Restore normal minimap right-clicks when the last notification ends."
+      ]
+    },
     {
       "Version": "1.0.248",
       "Changes": [

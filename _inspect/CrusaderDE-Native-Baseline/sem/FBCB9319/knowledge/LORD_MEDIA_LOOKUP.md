@@ -351,3 +351,39 @@ assignment and retires them at the next assignment. Its normal refresh override
 is scoped to retirement of an API-owned text binding. The native message-group
 matcher requires both audio and video; it cannot be the sole gate for carrying
 the original subtitle of a message that has only one or neither.
+
+## Staged notification records and speakerless events (2026-11-27) [Vanilla facts]
+
+Between native ticks the render destination points at the staging area. In
+DLL_RunTick, 0x1A45D0 installs the caller buffer and 0x1A3EE0 copies the staged
+prefix without changing its record indices. At the end, 0x19CE70 reinstalls
+staging and clears the count. The managed producer copies PlayState and
+publishes the filled buffer afterward. Newly staged records after native
+return belong to the next tick even before the current buffer is published.
+
+The 0x1031B0 enqueue writes speaker zero. Its 0x1045F0 event supplies
+TEXT_ACTION, index 11, and Random_Events11.wav. RVA 0xFEE50 copies the current
+speaker into manager+0x950. RVA 0x19D960 exports that speaker with an absolute
+signed-byte conversion at PlayState output +0xA30. The text index and the
+speaker byte are independent.
+
+Queue resets include 0x102C30, which may invoke the finalizer before clearing
+the count, multiplayer initialization through 0x24220, initialization
+through 0x87D10, and the action-2 branch of 0x104240 in the tutorial path.
+These are confirmed static observations on the native hash above.
+
+## Notification identity transport (2026-11-27) [mod integration]
+
+The Script Extender's CopyPlayStateStruct callback leaves its cached Lord
+unchanged for a zero speaker. Its HUD delegate tests the message index as a
+Lord category. For the generic event above, index 11 passes that category
+test and the previous Lord's cached subtitle can replace the event text.
+
+APIShared now validates side data for individual accepted notification
+entries and binds their text to an exact published buffer and record index.
+It captures Extender or packaged clip selection before native admission.
+The existing public getter and packaged media/RNG policy remain available.
+The targeted Extender HUD delegate handles a verified text assignment once
+and returns to Vanilla for a verified assignment without custom text.
+Offline IL and render-protocol tests cover the new paths. Unity, native
+hook activation in a live game and network acceptance remain unverified.

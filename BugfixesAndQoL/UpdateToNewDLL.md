@@ -575,22 +575,44 @@ Procedure: [AGENTS/native-analysis.md](../AGENTS/native-analysis.md), section â
 - The shared cache is `src/Core/Native/BfqolNativeCache.cs` over `Shared/Runtime/Native/NativeResolutionCache.cs`, saved once at the end of LibraryLoaded.
 - The CrusaderDE.dll hash itself is cached across starts by path, size and write time (`Serp.file-hashes.tsv`).
 
-**Notification queue (`src/Notifications/NotificationQueueNativeContract.cs`)**
+**Notification skip age gate (`src/Notifications/NotificationQueueNativeContract.cs`)**
 
-The eight patterns previously had no reference RVA and were scanned on every start. The references below come from the installed FBCB9319 DLL; each pattern matched exactly once, and the fixed distances in the contract hold:
+Skip uses the reference native SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+and a validated APIShared presentation ticket. An unknown image or missing
+observation leaves the ordinary click and update paths available.
 
-| Pattern | Reference RVA |
+| RVA | Instruction or contract |
 |---|---|
-| DLL_RunTick entry | `0x86680` |
-| DLL_RunTick notification call | `0x86A91` (= entry + 0x411) |
-| Queue update entry | `0xFE570` |
-| Completion tail | `0xFE5C9` (= update + 0x59) |
-| Queue finalizer | `0x102A70` |
-| Queue promotion | `0x102AB5` |
-| Presentation entry | `0xFEE50` |
-| Presentation pending-flag set | `0xFEEB1` (= entry + 0x61) |
+| `0x86680` | `DLL_RunTick` serializes native update with the engine call |
+| `0xFE570` | Enter notification update and load the manager into `RBX` |
+| `0xFE5C9` | `sub edi,[rbx+0xD8]`, `cmp edi,10000`, `ja 0xFE5DD`; displace 6, 6, and 2 bytes |
+| `0xFE5D7` | Ordinary zero-selector branch when age does not exceed the bound |
+| `0xFE5DD` | First media guard for native video and audio eligibility |
 
-Another build scans the unique patterns once and caches them. All call-target and distance checks of the contract still run.
+The incoming conditional jumps at `0xFE5A8` and `0xFE5BD` target the start
+of the displaced span. The remaining path into the span is fallthrough
+from `0xFE5BF`. The verified span has no interior incoming target. The
+callback runs before the displaced instructions. For a pending click
+that still identifies the live presentation, it sets the sampled time
+in `EDI` to the 32-bit unsigned start time at manager `+0xD8` plus
+10001, including wraparound. The original SUB/CMP/JA computes the age and
+flags. Later instructions in the update do not read EDI before the
+epilogue restores RDI. Keep input selection, application eligibility,
+audio readiness, video idleness, stop-record output, and promotion in
+their original owners. The UI does not write native message fields.
+The skip patch has no native pattern fallback because the identity and
+render transport have a hash-bound contract.
+
+At startup check reference and live bytes and actual displaced length
+before enabling. Recheck the published patch at mission starts via the
+standard native guard. Verify the exact installed RedBird context
+backend relocates the taken and fallthrough branches and that ordinary
+age checks, media guards, expired and duplicate ticket rejection, and
+timer wraparound behave as expected. On an updated game version audit
+the entry, all predecessor and successor edges, EDI/flags, manager start
+time, APIShared presentation transport, and foreign patches before
+publishing any replacement span.
 
 **Reference-first uniqueness checks**
 

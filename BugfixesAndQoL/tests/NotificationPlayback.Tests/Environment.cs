@@ -1,5 +1,5 @@
 // Isolated adapters. Original HUD/SFX predicates mirror the audited installed assemblies;
-// the two feature classes are compiled unmodified from production sources.
+// Notification features are compiled directly from production sources.
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -13,10 +13,11 @@ namespace BepInEx.Logging { public sealed class ManualLogSource { } }
 namespace Shared { public static class DebugLogHelper { public static bool DiagnosticsEnabled => false;
  public static readonly List<string> Errors = new List<string>();
  public static void LogDebug(object a,string b) { }
+ public static void LogInfo(object a,string b) { }
  public static void LogError(object a,string b) { Errors.Add(b); }
  public static void LogErrorLimited(object a,string b,string c) { Errors.Add(c); }
 } }
-namespace Noesis { public class RoutedEventArgs { } }
+namespace Noesis { public class RoutedEventArgs { } public class MouseButtonEventArgs { public bool Handled; } public class Image { } }
 namespace NoesisApp { public class MediaElement {
  private Uri source;
  // Installed SE resolves overrides before the Noesis round-trip normalizes separators.
@@ -73,19 +74,30 @@ public class SFXManager {
 public static class Enums { public enum eOnScreenText { OST_MESSAGE_BAR=30, OST_GAME_SPEED=2 } }
 public class OnScreenText {
  public static OnScreenText Instance=new OnScreenText(); public bool Pending;
+ public sealed class OST
+ {
+     public bool active, activeThisFrame, wasTurnedOnOrChanged, wasTurnedOff;
+     public DateTime timedEnd;
+ }
+
+ private readonly OST slot = new OST();
+
+ public OST getOST(Enums.eOnScreenText id, ref bool off, ref bool changed, bool handleStatChange = false) =>
+     id == Enums.eOnScreenText.OST_MESSAGE_BAR && slot.active ? slot : null;
  public void addOSTEntry(Enums.eOnScreenText id,int data1,int data2=2,int data3=0,int data4=0,int data5=0){
   if(id==Enums.eOnScreenText.OST_MESSAGE_BAR)Pending=true;
  }
- public void Flush(){if(Pending){Pending=false;MainViewModel.Instance.OST_Message_Bar_Vis=true;}}
+ public void Flush(){if(Pending){Pending=false;slot.active=true;MainViewModel.Instance.OST_Message_Bar_Vis=true;}}
 }
 namespace CrusaderDE {
  public class MainViewModel {public static bool viewModelLoaded=true;public static MainViewModel Instance;
-  public object HUDmain=new object();public MainHUD HUDRoot;
+  public object HUDmain=new object();public MainHUD HUDRoot;public bool Show_HUD_Briefing;
   private bool visible;public event PropertyChangedEventHandler PropertyChanged;
   public bool OST_Message_Bar_Vis {get=>visible;set{if(visible!=value){visible=value;PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(nameof(OST_Message_Bar_Vis)));}}}
  }
  public class MainHUD {
   public MediaElement RefRadarME=new MediaElement();
+  public Image RefRadarMapImage=new Image();
   private void RadarME_Ended(object sender,RoutedEventArgs args) { }
   public void EndEvent(){MonoMod.RuntimeDetour.Hook.Dispatch("end",this,RefRadarME,new RoutedEventArgs());}
   public void RadarME_Ended(){RefRadarME.Stop();RefRadarME.Source=null;RefRadarME.Close();
@@ -109,6 +121,51 @@ namespace SHCDESE.API { public class GameTimeManagerAPI {
  }
 }
 namespace APIShared.Presentation {
+ public readonly struct NotificationPresentationId : IEquatable<NotificationPresentationId>
+ {
+     internal NotificationPresentationId(int value) => Value = value;
+     internal int Value { get; }
+     public bool Equals(NotificationPresentationId other) => Value == other.Value;
+ }
+ public static class NotificationPresentations
+ {
+     internal static NotificationPresentationId SpeechId, RenderedId, VideoId, TextId, NativeId;
+     internal static Uri Request;
+     internal static bool HasVideo;
+
+     public static bool TryGetRendered(out NotificationPresentationId id) => TryGetRendered(out id, out _);
+
+     public static bool TryGetRendered(out NotificationPresentationId id, out bool hasVideo)
+     {
+         id = RenderedId;
+         hasVideo = HasVideo;
+         return id.Value != 0;
+     }
+
+     public static bool TryGetRenderedVideo(out NotificationPresentationId id, out Uri request)
+     {
+         id = VideoId;
+         request = Request;
+         return id.Value != 0;
+     }
+
+     public static bool IsRenderedText(NotificationPresentationId id) => id.Value != 0 && TextId.Equals(id);
+
+     public static bool IsNativeCurrent(NotificationPresentationId id) => id.Value != 0 && NativeId.Equals(id);
+
+     internal static void Reset()
+     {
+         SpeechId = RenderedId = VideoId = TextId = NativeId = default;
+         Request = null;
+         HasVideo = false;
+     }
+
+     public static bool TryGetDispatchingSpeech(out NotificationPresentationId id)
+     {
+         id = SpeechId;
+         return id.Value != 0;
+     }
+ }
  public enum PresentationOperation{GuiChecks}
  public class PresentationPostEventArgs{public bool OriginalCompleted=true;}
  public static class PresentationEvents {
@@ -125,7 +182,7 @@ namespace APIShared.Presentation {
  }
 }
 namespace BugfixesAndQoL {
- internal class BugfixesAndQoLViewModel{public bool EnableMod=true,EnableClientFeatures=true,EnableNotificationLastFrame=true;}
+ internal class BugfixesAndQoLViewModel{public bool EnableMod=true,EnableClientFeatures=true,EnableNotificationLastFrame=true,EnableCompleteNotificationSkipOnClick=true;}
  public static class BugfixesAndQoLPlugin{public const string PluginGuid="BugfixesAndQoL_Serp";}
 }
 namespace MonoMod.RuntimeDetour {

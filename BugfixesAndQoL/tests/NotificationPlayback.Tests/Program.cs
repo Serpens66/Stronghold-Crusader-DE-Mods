@@ -21,7 +21,8 @@ internal static partial class Program
     private static void At(long milliseconds) => now = milliseconds * Stopwatch.Frequency / 1000;
     private static void Setup()
     {
-        feature?.ResetMapState(); speech?.Invalidate(); speech?.SetNotificationClassifier(null);
+        feature?.ResetMapState(); speech?.Invalidate(); speech?.SetNotificationSkipEnabled(null);
+        NotificationPresentations.Reset();
         SHCDESE.API.GameAssetManagerAPI.Instance.Videos.Clear();
         MyAudioManager.Instance = new MyAudioManager(); SFXManager.instance = new SFXManager();
         OnScreenText.Instance = new OnScreenText();
@@ -32,9 +33,18 @@ internal static partial class Program
         At(100000);
     }
     private static void Message() => OnScreenText.Instance.addOSTEntry(Enums.eOnScreenText.OST_MESSAGE_BAR, 221, 992);
-    private static void Start(bool wait = true, bool loop = false)
+    private static void PlayNotificationSpeech(NotificationPresentationId id, string folder, string filename)
     {
-        Message(); audio.PlaySpeech(1, "ai", "Saladin.wav");
+        NotificationPresentations.SpeechId = id;
+        try { audio.PlaySpeech(1, folder, filename); }
+        finally { NotificationPresentations.SpeechId = default; }
+    }
+
+    private static void Start(bool wait = true, bool loop = false, bool ownedAudio = false)
+    {
+        Message();
+        if (ownedAudio) PlayNotificationSpeech(new NotificationPresentationId(1), "ai", "Saladin.wav");
+        else audio.PlaySpeech(1, "ai", "Saladin.wav");
         sfx.playBink("Saladin.webm", loop, wait); StartRequested();
     }
     private static void StartRequested()
@@ -178,8 +188,8 @@ internal static partial class Program
     {
         foreach (bool faulted in new[] { false, true })
         {
-            Setup(); speech.SetNotificationClassifier(_ => true);
-            audio.Pending = new TaskCompletionSource<AudioClip>(); Start(); hud.EndEvent();
+            Setup(); speech.SetNotificationSkipEnabled(() => true);
+            audio.Pending = new TaskCompletionSource<AudioClip>(); Start(ownedAudio: true); hud.EndEvent();
             CheckHeld("accepted pending audio keeps the frame within the bounded wait");
             if (faulted) audio.Pending.SetException(new InvalidOperationException("deliberate held load failure"));
             else audio.Pending.SetResult(null);
@@ -199,37 +209,115 @@ internal static partial class Program
     }
     private static void TestSpeechOwnership()
     {
-  Setup();speech.SetNotificationClassifier(name=>name=="notification.wav");
-  var late=new TaskCompletionSource<AudioClip>();audio.Pending=late;audio.PlaySpeech(1,"ai","notification.wav");
-  long oldGeneration=speech.Capture(audio);audio.PlaySpeech(1,"scribe","other.wav");AudioClip oldClip=new AudioClip();late.SetResult(oldClip);
-  Check(SpinWait.SpinUntil(()=>oldClip.Unloaded,2000) && audio.Source.Plays==0 && audio.Mode==1,"late notification load must unload after unrelated accepted request");
-  Check(!speech.IsCurrent(audio,oldGeneration),"all accepted loads invalidate previous token");
+        var first = new NotificationPresentationId(1);
+        var second = new NotificationPresentationId(2);
 
-  Setup();speech.SetNotificationClassifier(_=>true);audio.Pending=new TaskCompletionSource<AudioClip>();
-  audio.PlaySpeech(1,"_SE_","custom/full.wav");Check(audio.LastPath=="custom/full.wav","SE custom path must preserve original loader contract");
-  audio.Paused=true;AudioClip ownClip=new AudioClip();audio.Pending.SetResult(ownClip);
-  Check(SpinWait.SpinUntil(()=>audio.Mode==2,2000) && audio.Source.Paused,"accepted async load respects pause");
-  speech.StopSpeechChannel1(audio);Check(audio.Mode==0 && ownClip.Unloaded && audio.Source.Stops==1,"skip stops paused owned channel and unloads its clip");
-  Setup();speech.SetNotificationClassifier(_=>true);audio.Pending=new TaskCompletionSource<AudioClip>();audio.PlaySpeech(1,"ai","pending.wav");
-  speech.StopSpeechChannel1(audio);AudioClip skipped=new AudioClip();audio.Pending.SetResult(skipped);
-  Check(SpinWait.SpinUntil(()=>skipped.Unloaded,2000) && audio.Source.Plays==0,"skipped loading audio must not replay");
-  Setup();speech.SetNotificationClassifier(_=>true);audio.Pending=new TaskCompletionSource<AudioClip>();audio.PlaySpeech(1,"ai","pending.wav");
-  speech.Invalidate();AudioClip ended=new AudioClip();audio.Pending.SetResult(ended);
-  Check(SpinWait.SpinUntil(()=>ended.Unloaded,2000) && audio.Source.Plays==0,"mission end invalidates pending notification load");
-  Setup();speech.SetNotificationClassifier(_=>true);audio.Pending=new TaskCompletionSource<AudioClip>();audio.PlaySpeech(1,"ai","missing.wav");audio.Pending.SetResult(null);
-  Check(SpinWait.SpinUntil(()=>audio.Mode==0,2000),"null clip must release loading speech state");
-  Setup();settings.EnableNotificationLastFrame=false;Start();Originals.EndCalls=0;Originals.FailEnd=true;
-  bool originalFailed=false;try{hud.EndEvent();}catch(System.Reflection.TargetInvocationException){originalFailed=true;}finally{Originals.FailEnd=false;}
-  Check(originalFailed && Originals.EndCalls==1,"original failure must propagate without retrying Vanilla");
-  Setup();settings.EnableNotificationLastFrame=false;Start(false);var oldHud=new MainHUD();Originals.EndCalls=0;oldHud.EndEvent();
-  Check(Originals.EndCalls==1,"disabled callback must retain complete Vanilla event dispatch even for an obsolete HUD");
-  Setup();speech.SetNotificationClassifier(_=>true);var failed=new TaskCompletionSource<AudioClip>();audio.Pending=failed;audio.PlaySpeech(1,"ai","failed.wav");
-  failed.SetException(new InvalidOperationException("deliberate loader failure"));Check(SpinWait.SpinUntil(()=>audio.Mode==0,2000),"faulted current load must release channel");
-  Setup();speech.SetNotificationClassifier(name=>name=="failed.wav");failed=new TaskCompletionSource<AudioClip>();audio.Pending=failed;audio.PlaySpeech(1,"ai","failed.wav");
-  audio.PlaySpeech(1,"scribe","new.wav");failed.SetException(new InvalidOperationException("deliberate stale failure"));
-  Check(audio.Mode==1 && audio.Source.Stops==0,"faulted stale load must not reset or stop newer speech");
-  Check(Shared.DebugLogHelper.Errors.Count==3,"only deliberate failed-load tests should log an error");
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        var late = new TaskCompletionSource<AudioClip>();
+        audio.Pending = late;
+        PlayNotificationSpeech(first, "ai", "notification.wav");
+        long oldGeneration = speech.Capture(audio);
+        audio.PlaySpeech(1, "scribe", "notification.wav");
+        var oldClip = new AudioClip();
+        late.SetResult(oldClip);
+        Check(SpinWait.SpinUntil(() => oldClip.Unloaded, 2000) && audio.Source.Plays == 0 && audio.Mode == 1,
+            "late notification load unloads after an unrelated accepted request for the same basename");
+        Check(!speech.IsCurrent(audio, oldGeneration), "all accepted loads invalidate the previous token");
+        Check(!speech.TryStopNotification(audio, first) && audio.Source.Stops == 0 && audio.Mode == 1,
+            "a later placement or keep warning survives skipping the previous video");
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        audio.Pending = new TaskCompletionSource<AudioClip>();
+        PlayNotificationSpeech(first, "_SE_", "custom/full.wav");
+        Check(audio.LastPath == "custom/full.wav", "SE custom path preserves the original loader contract");
+        audio.Paused = true;
+        var ownedClip = new AudioClip();
+        audio.Pending.SetResult(ownedClip);
+        Check(SpinWait.SpinUntil(() => audio.Mode == 2, 2000) && audio.Source.Paused,
+            "accepted asynchronous load respects pause");
+        Check(!speech.TryStopNotification(audio, second) && speech.TryStopNotification(audio, first) &&
+            audio.Mode == 0 && ownedClip.Unloaded && audio.Source.Stops == 1,
+            "only the exact ticket stops and unloads a paused owned clip");
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        audio.Pending = new TaskCompletionSource<AudioClip>();
+        PlayNotificationSpeech(first, "ai", "pending.wav");
+        Check(speech.TryStopNotification(audio, first), "the exact ticket can cancel a pending load");
+        var skipped = new AudioClip();
+        audio.Pending.SetResult(skipped);
+        Check(SpinWait.SpinUntil(() => skipped.Unloaded, 2000) && audio.Source.Plays == 0,
+            "skipped loading audio must not replay");
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        audio.Pending = new TaskCompletionSource<AudioClip>();
+        PlayNotificationSpeech(first, "ai", "repeated.wav");
+        var firstLoad = audio.Pending;
+        audio.Pending = new TaskCompletionSource<AudioClip>();
+        PlayNotificationSpeech(second, "ai", "repeated.wav");
+        Check(!speech.TryStopNotification(audio, first) && speech.TryStopNotification(audio, second),
+            "an identically named successor has its own accepted speech generation");
+        firstLoad.SetResult(new AudioClip());
+        audio.Pending.SetResult(new AudioClip());
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        audio.Pending = new TaskCompletionSource<AudioClip>();
+        PlayNotificationSpeech(first, "ai", "pending.wav");
+        speech.Invalidate();
+        var ended = new AudioClip();
+        audio.Pending.SetResult(ended);
+        Check(SpinWait.SpinUntil(() => ended.Unloaded, 2000) && audio.Source.Plays == 0 &&
+            !speech.TryStopNotification(audio, first), "mission end retires the old notification load and identity");
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        audio.Pending = new TaskCompletionSource<AudioClip>();
+        PlayNotificationSpeech(first, "ai", "missing.wav");
+        audio.Pending.SetResult(null);
+        Check(SpinWait.SpinUntil(() => audio.Mode == 0, 2000), "null clip releases the loading speech state");
+
+        Setup();
+        settings.EnableNotificationLastFrame = false;
+        Start();
+        Originals.EndCalls = 0;
+        Originals.FailEnd = true;
+        bool originalFailed = false;
+        try { hud.EndEvent(); }
+        catch (System.Reflection.TargetInvocationException) { originalFailed = true; }
+        finally { Originals.FailEnd = false; }
+        Check(originalFailed && Originals.EndCalls == 1, "original failure propagates without retrying Vanilla");
+
+        Setup();
+        settings.EnableNotificationLastFrame = false;
+        Start(false);
+        var oldHud = new MainHUD();
+        Originals.EndCalls = 0;
+        oldHud.EndEvent();
+        Check(Originals.EndCalls == 1, "disabled callback retains Vanilla dispatch even for an obsolete HUD");
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        var failed = new TaskCompletionSource<AudioClip>();
+        audio.Pending = failed;
+        PlayNotificationSpeech(first, "ai", "failed.wav");
+        failed.SetException(new InvalidOperationException("deliberate loader failure"));
+        Check(SpinWait.SpinUntil(() => audio.Mode == 0, 2000), "faulted current load releases the channel");
+
+        Setup();
+        speech.SetNotificationSkipEnabled(() => true);
+        failed = new TaskCompletionSource<AudioClip>();
+        audio.Pending = failed;
+        PlayNotificationSpeech(first, "ai", "failed.wav");
+        audio.PlaySpeech(1, "scribe", "new.wav");
+        failed.SetException(new InvalidOperationException("deliberate stale failure"));
+        Check(audio.Mode == 1 && audio.Source.Stops == 0, "faulted stale load cannot reset newer speech");
+        Check(Shared.DebugLogHelper.Errors.Count == 3, "only deliberate failed-load tests log errors");
     }
+
     public static int Main()
     {
         try
@@ -237,7 +325,7 @@ internal static partial class Program
             Setup(); speech = NotificationSpeechPlayback.Get(new BepInEx.Logging.ManualLogSource());
             feature = new NotificationLastFrameFeature(new BepInEx.Logging.ManualLogSource(), settings, () => now);
             TestNotificationMediaPaths();
-            TestHdCompletion(); TestSpeechLoadFailureCompletion(); TestSpeechOwnership();
+            TestHdCompletion(); TestSpeechLoadFailureCompletion(); TestSpeechOwnership(); TestNotificationSkip();
             Console.WriteLine("PASS: " + checks + " production notification playback checks (isolated Unity/Noesis adapters and monotone test clock).");
             return 0;
         }

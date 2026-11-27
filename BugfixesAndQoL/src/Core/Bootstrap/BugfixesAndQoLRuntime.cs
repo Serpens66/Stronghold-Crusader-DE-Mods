@@ -243,6 +243,7 @@ namespace BugfixesAndQoL
         {
             processNotificationSpeechPlayback?.Invalidate();
             processNotificationLastFrameFeature?.ResetMapState();
+            notificationSkipFeature?.ResetMapState();
             ClearSingleBuildingPauseOverrides();
             multiplayerGameSpeedRuntime.ResetMapState();
             abruptHostMigrationFix?.ResetMapState();
@@ -357,7 +358,8 @@ namespace BugfixesAndQoL
                     log,
                     settings,
                     nativeRegion,
-                    newLibraryHandle));
+                    newLibraryHandle,
+                    isFixedLayoutHashValidated));
             TryInitializePersistentFeature(
                 "notification last frame",
                 () => processNotificationLastFrameFeature =

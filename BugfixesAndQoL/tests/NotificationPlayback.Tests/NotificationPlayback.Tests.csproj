@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable></PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>disable</ImplicitUsings><Nullable>disable</Nullable><AllowUnsafeBlocks>true</AllowUnsafeBlocks></PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/Notifications/NotificationLastFrameFeature.cs" Link="NotificationLastFrameFeature.cs" />
     <Compile Include="../../src/Notifications/NotificationSpeechPlayback.cs" Link="NotificationSpeechPlayback.cs" />
+    <Compile Include="../../src/Notifications/NotificationSkipFeature.cs" Link="NotificationSkipFeature.cs" />
+    <Compile Include="../../src/Notifications/NotificationSkipPolicy.cs" Link="NotificationSkipPolicy.cs" />
+    <Compile Include="../../src/Notifications/NotificationQueueNativeContract.cs" Link="NotificationQueueNativeContract.cs" />
   </ItemGroup>
 </Project>

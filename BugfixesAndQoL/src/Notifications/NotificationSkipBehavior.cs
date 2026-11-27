@@ -60,7 +60,7 @@ namespace BugfixesAndQoL
             else
                 return;
 
-            feature?.CompleteFromNotificationSurfaceRightClick(surface, args);
+            feature?.CompleteFromNotificationSurfaceRightClick(surface, sender, args);
         }
     }
 }

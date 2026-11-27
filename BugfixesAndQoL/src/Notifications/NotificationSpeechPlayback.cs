@@ -1,4 +1,5 @@
 // Feature: Own accepted channel-1 speech identities independently of native notification skipping.
+using APIShared.Presentation;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using System;
@@ -23,7 +24,8 @@ namespace BugfixesAndQoL
         private readonly FieldInfo speechSource1Field, speechClip1Field, speechMode1Field;
         private readonly FieldInfo speechPausedField, ignoreSpeechMutingField;
         private readonly MethodInfo loadClipByPathMethod;
-        private Func<string, bool> notificationAudioLoad;
+        private Func<bool> notificationSkipEnabled;
+        private NotificationSpeechOwner notificationOwner;
         private MyAudioManager currentAudio;
         private long speechChannel1Generation;
 
@@ -73,7 +75,7 @@ namespace BugfixesAndQoL
         }
 
         // Publish only after the optional native skip feature has initialized successfully.
-        internal void SetNotificationClassifier(Func<string, bool> classifier) => notificationAudioLoad = classifier;
+        internal void SetNotificationSkipEnabled(Func<bool> isEnabled) => notificationSkipEnabled = isEnabled;
 
         private void LoadSpeechClipHook(MyAudioManager self, int channel, string folder,
             string soundName, bool unitsSpeech, bool ignorePauseState)
@@ -87,18 +89,23 @@ namespace BugfixesAndQoL
             // request, including unrelated speech and repeated requests for the same file.
             long generation = Interlocked.Increment(ref speechChannel1Generation);
             Volatile.Write(ref currentAudio, self);
-            if (notificationAudioLoad == null || !notificationAudioLoad(soundName))
+            Volatile.Write(ref notificationOwner, null);
+            if (notificationSkipEnabled?.Invoke() != true ||
+                !NotificationPresentations.TryGetDispatchingSpeech(out NotificationPresentationId id))
             {
                 loadSpeechClipOriginal(self, channel, folder, soundName, unitsSpeech, ignorePauseState);
                 return;
             }
+            Volatile.Write(ref notificationOwner, new NotificationSpeechOwner(id, generation));
             LoadSpeechChannel1Async(self, folder, soundName, unitsSpeech, ignorePauseState, generation);
         }
 
-        internal void StopSpeechChannel1(MyAudioManager audio)
+        internal bool TryStopNotification(MyAudioManager audio, NotificationPresentationId id)
         {
-            if (audio == null)
-                return;
+            NotificationSpeechOwner owner = Volatile.Read(ref notificationOwner);
+            if (audio == null || owner == null || !owner.Id.Equals(id) || !IsCurrent(audio, owner.Generation) ||
+                !audio.isSpeechPlaying(1))
+                return false;
 
             Invalidate();
             AudioSource source = (AudioSource)speechSource1Field.GetValue(audio);
@@ -115,6 +122,7 @@ namespace BugfixesAndQoL
                 otherSpeechPlaying &&
                 ConfigSettings.Settings_ReduceMusicVolumeForSpeech &&
                 !ignoreSpeechMuting);
+            return true;
         }
 
         private async void LoadSpeechChannel1Async(
@@ -172,6 +180,18 @@ namespace BugfixesAndQoL
                 }
                 Shared.DebugLogHelper.LogErrorLimited(log, "NotificationSpeechPlayback.Load", $"Bugfixes and QoL channel-1 speech loading failed: {ex}");
             }
+        }
+
+        private sealed class NotificationSpeechOwner
+        {
+            internal NotificationSpeechOwner(NotificationPresentationId id, long generation)
+            {
+                Id = id;
+                Generation = generation;
+            }
+
+            internal NotificationPresentationId Id { get; }
+            internal long Generation { get; }
         }
 
         private static MethodInfo FindLoadSpeechClipMethod()
