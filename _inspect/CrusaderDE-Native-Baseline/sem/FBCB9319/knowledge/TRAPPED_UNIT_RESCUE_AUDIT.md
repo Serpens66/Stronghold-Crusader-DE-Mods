@@ -140,7 +140,7 @@ The adjacent Fixes deletion hook, its leading JZ, the prototype's conditional
 flag bridge, managed AI-wall suppression and LordTeleportGuard integration are
 EXTERNAL/MOD contracts, not Vanilla behavior. Their current implementation and
 byte/ownership checks are documented in
-[testmod update contracts](../../../../../Testmods/TrappedUnitRescueTest/UpdateToNewDLL.md).
+[testmod update contracts](../../../../../BugfixesAndQoL/src/TrappedUnitRescue/UpdateToNewDLL.md).
 No Fixes callback or testmod rescue is added to the Vanilla model by this note.
 
 ## Experiment status and evidence limits [mod integration]
@@ -1043,3 +1043,9 @@ This is a type-specific state meaning. It does not establish any other type's
 AI1 as idle (ArcherAI1 has no corresponding handler case), nor prove absence
 of pending target/order context from the AI number alone. Existing unchanged
 lifetime, pose, command and target evidence remains relevant independently.
+
+## 27 November 2026: completed testmod retirement [mod integration]
+
+The completed `Testmods/TrappedUnitRescueTest` directory is removed on explicit user request after its runtime/API integration and final acceptance. Its historical native and managed audit sources remain retrievable through Modrepo commit `5c2fe284c` (for example `git show 5c2fe284c:Testmods/TrappedUnitRescueTest/Audits/CONSTRUCTION.md`). Earlier bare testmod paths in this append-only record denote those historical sources, not a current dependency. Markdown navigation now points to the production contract or final acceptance; it does not qualify retired prototype policies.
+
+Current code/native-consumption entry: [production update contract](../../../../../BugfixesAndQoL/src/TrappedUnitRescue/UpdateToNewDLL.md). Current final results, budgets, Fixes follow-up, limits and provenance: [BQoL acceptance](../../../../../BugfixesAndQoL/docs/TrappedUnitRescue.Acceptance.md). The25 pure fixtures and independently useful181-check performance-log regression live under `BugfixesAndQoL/tests`; the separate Ingame scenario plugin and launcher are retired. Existing external game archives and compact SDK proofs are retained unchanged. No new Vanilla behavior, runtime qualification or multiplayer claim follows from this cleanup.

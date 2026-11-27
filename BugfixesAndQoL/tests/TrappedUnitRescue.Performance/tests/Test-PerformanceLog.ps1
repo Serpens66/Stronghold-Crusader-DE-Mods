@@ -308,7 +308,7 @@ foreach($profile in @('rescue-perf-4000-idle1000walk-passive-on','rescue-perf-98
     if(!$outcome.Qualified -or !$outcome.OutcomeCountersObserved -or $outcome.RemovalRequestCountTotal -ne 8){throw 'Current higher-tier outcome schema rejected'};$checks++
 }
 
-$workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
+$workspace=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../..'))
 . (Join-Path $workspace 'Shared/Tools/Paths/WorkPaths.ps1')
 $temporary=New-ShortWorkDirectory -Root $workspace -Kind t -Name rescue-perflog -Identity 'passive log CLI contract'
 try{

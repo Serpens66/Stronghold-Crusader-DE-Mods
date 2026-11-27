@@ -305,7 +305,7 @@ The first testhost attempt stalled after discovery, was cancelled, and produced
 no qualified result; its cause remains unknown. The corrected observable retry
 passed. Subsequent normal Planner214 and Minimal215 have zero Error/Fatal lines
 and explicit notification READY, as recorded in the
-[SP acceptance](../../../../../Testmods/TrappedUnitRescueTest/SP-ACCEPTANCE.md#27112026--normale-endabnahme214215)
-and [final acceptance](../../../../../Testmods/TrappedUnitRescueTest/FINAL-ACCEPTANCE.md).
+[SP acceptance](../../../../../BugfixesAndQoL/docs/TrappedUnitRescue.Acceptance.md)
+and [final acceptance](../../../../../BugfixesAndQoL/docs/TrappedUnitRescue.Acceptance.md).
 These rescue/initialization runs do not establish all notification UI behavior,
 Noesis decoder timing or multiplayer acceptance.

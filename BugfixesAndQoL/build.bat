@@ -157,6 +157,11 @@ call :step_start "tests" "TrappedUnitRescue.Tests execution"
 "%PROJECT_DIR%tests\TrappedUnitRescue.Tests\bin\BugfixesAndQoL.TrappedUnitRescue.Tests.exe" "%API_SHARED_DIR%"
 call :step_end %ERRORLEVEL%
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+rem Validate retained passive rescue evidence with a fresh Windows PowerShell process.
+call :step_start "tests" "TrappedUnitRescue performance log contracts"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\TrappedUnitRescue.Performance\tests\Test-PerformanceLog.ps1"
+call :step_end %ERRORLEVEL%
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 rem Source-aware AI demand contracts use production sources and the installed native backend.
 call :step_start "tests" "AiMarket.Logic.Tests"
 dotnet run --project "%PROJECT_DIR%tests\AiMarket.Tests\Logic\AiMarket.Logic.Tests.csproj" --configuration Release

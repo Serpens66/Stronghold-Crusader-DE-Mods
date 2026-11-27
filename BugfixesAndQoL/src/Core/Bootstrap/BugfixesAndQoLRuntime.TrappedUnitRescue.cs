@@ -1,9 +1,5 @@
-using System.Runtime.CompilerServices;
 using SHCDESE.API.LowLevel;
 using BugfixesAndQoL.TrappedUnitRescue;
-
-// Separate acceptance automation uses the real production objects, never a second kernel.
-[assembly: InternalsVisibleTo("TrappedUnitRescueTest")]
 
 namespace BugfixesAndQoL
 {

@@ -158,79 +158,79 @@
     <Compile Include="../../../Shared/Runtime/Native/CommittedMemory.cs">
       <Link>Shared/CommittedMemory.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/CandidateOwnerGateFixture.cs">
+    <Compile Include="Fixtures/CandidateOwnerGateFixture.cs">
       <Link>Fixtures/CandidateOwnerGateFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/CandidateQueueFixture.cs">
+    <Compile Include="Fixtures/CandidateQueueFixture.cs">
       <Link>Fixtures/CandidateQueueFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/CivilianRemovalPolicyFixture.cs">
+    <Compile Include="Fixtures/CivilianRemovalPolicyFixture.cs">
       <Link>Fixtures/CivilianRemovalPolicyFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/CommandJourneyFixture.cs">
+    <Compile Include="Fixtures/CommandJourneyFixture.cs">
       <Link>Fixtures/CommandJourneyFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/CompactArchiveFixture.cs">
+    <Compile Include="Fixtures/CompactArchiveFixture.cs">
       <Link>Fixtures/CompactArchiveFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/DiscoveryFixture.cs">
+    <Compile Include="Fixtures/DiscoveryFixture.cs">
       <Link>Fixtures/DiscoveryFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/FixesManagedContractFixture.cs">
+    <Compile Include="Fixtures/FixesManagedContractFixture.cs">
       <Link>Fixtures/FixesManagedContractFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/GeneralObserverFixture.cs">
+    <Compile Include="Fixtures/GeneralObserverFixture.cs">
       <Link>Fixtures/GeneralObserverFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/IdleEscapeFixture.cs">
+    <Compile Include="Fixtures/IdleEscapeFixture.cs">
       <Link>Fixtures/IdleEscapeFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/LocalFieldFixture.cs">
+    <Compile Include="Fixtures/LocalFieldFixture.cs">
       <Link>Fixtures/LocalFieldFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/MutationFootprintsFixture.cs">
+    <Compile Include="Fixtures/MutationFootprintsFixture.cs">
       <Link>Fixtures/MutationFootprintsFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/NativeMutationFootprintsFixture.cs">
+    <Compile Include="Fixtures/NativeMutationFootprintsFixture.cs">
       <Link>Fixtures/NativeMutationFootprintsFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/NativeVegetationAccessFixture.cs">
+    <Compile Include="Fixtures/NativeVegetationAccessFixture.cs">
       <Link>Fixtures/NativeVegetationAccessFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/PendingRescueFixture.cs">
+    <Compile Include="Fixtures/PendingRescueFixture.cs">
       <Link>Fixtures/PendingRescueFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/ReplanCoordinatorFixture.cs">
+    <Compile Include="Fixtures/ReplanCoordinatorFixture.cs">
       <Link>Fixtures/ReplanCoordinatorFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/RescueGeometryPersistenceFixture.cs">
+    <Compile Include="Fixtures/RescueGeometryPersistenceFixture.cs">
       <Link>Fixtures/RescueGeometryPersistenceFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/RescueGeometryWitnessFixture.cs">
+    <Compile Include="Fixtures/RescueGeometryWitnessFixture.cs">
       <Link>Fixtures/RescueGeometryWitnessFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/RescueOrderFixture.cs">
+    <Compile Include="Fixtures/RescueOrderFixture.cs">
       <Link>Fixtures/RescueOrderFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/RescuePolicyFixture.cs">
+    <Compile Include="Fixtures/RescuePolicyFixture.cs">
       <Link>Fixtures/RescuePolicyFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/RescueReplanIntentFixture.cs">
+    <Compile Include="Fixtures/RescueReplanIntentFixture.cs">
       <Link>Fixtures/RescueReplanIntentFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/StartedStepFixture.cs">
+    <Compile Include="Fixtures/StartedStepFixture.cs">
       <Link>Fixtures/StartedStepFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/WorkerRecoveryServiceFixture.cs">
+    <Compile Include="Fixtures/WorkerRecoveryServiceFixture.cs">
       <Link>Fixtures/WorkerRecoveryServiceFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/WorkerResumeLedgerFixture.cs">
+    <Compile Include="Fixtures/WorkerResumeLedgerFixture.cs">
       <Link>Fixtures/WorkerResumeLedgerFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/WorkerResumeSupervisorFixture.cs">
+    <Compile Include="Fixtures/WorkerResumeSupervisorFixture.cs">
       <Link>Fixtures/WorkerResumeSupervisorFixture.cs</Link>
     </Compile>
-    <Compile Include="../../../Testmods/TrappedUnitRescueTest/tests/WorkerTravelFixture.cs">
+    <Compile Include="Fixtures/WorkerTravelFixture.cs">
       <Link>Fixtures/WorkerTravelFixture.cs</Link>
     </Compile>
     <Compile Include="Program.cs" />
