@@ -349,8 +349,9 @@ Machine-readable Chore data (link, not copied): [chore-opcodes.jsonl](../chore-o
 - Chore-56 wire record = typed GameUnit minus 4 bytes; slot 0 is a sentinel; preserved word wire `+0x34`. Typed offsets (e.g. surrender audit) must not be applied to wire records. [confirmed, static] (DESYNC)
 - `0xD1AD0` calls the checksum builder with 0, Chore 54 `0x15170` with 1; both can occur in the same tick. [confirmed, static] (DESYNC)
 
-### Campfire popularity popup (spectator-visible)
+### Campfire popularity popup (visible for opponents)
 - `0xB5690` creates projectile type 41 via `0x9B2B0` (updater run at `0x9BA06` through table `0x2DA9C0` before the value is set), writes popularity/100 at `0xB5845`. Updater `0x9AC20` (`0x9ACAC..0x9ACCF`): mask 130 < 40, 129 for 40..59, 128 >= 60. `0xA12C0` suppresses duplicates; `0xCAA70` schedules later snapshots. Packet builder `0x1A13C0` writes mask to short index 17, value to 18/19. Managed `addUpdateFly` creates icon children only on creation, so a stale red mask can persist. [confirmed, static] (SR)
+- The campfire owner does not have to be allied to the viewer. The displayed snapshot is the owner's popularity truncated to whole points. [confirmed, static] ([opponent campfire value](../SPECTATOR_REPORTS.md#opponent-campfire-value-2026-11-28-vanilla-facts))
 
 ### Extended Shift queue natives (from QueueTest)
 - Draw helper ABI `void(drawManager, category, spriteId, layer, verticalOffset, tileId, flags)`; Vanilla PatrolOnce flags tuple `category=0xAC`, `layer=0x12`, `verticalOffset=-1`, `flags=0xA0022`, sprites `0x138..0x141` (flags) and `0x12E..0x136` (digits). [confirmed, static] (QT)

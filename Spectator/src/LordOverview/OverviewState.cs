@@ -7,14 +7,18 @@ namespace Spectator.LordOverview {
  internal enum Metric { Gold, Army, Popularity, Fear, GoldAcquired, MaxPopulation, FoodProduced, WoodProduced, StoneProduced, IronProduced, PitchProduced, WeaponsProduced, GoodsReceived, GoodsSent, TroopsProduced, TroopsKilled, TroopsLost, BuildingsDestroyed, BuildingsLost, LordsKilled, GreatestLord }
  internal sealed class MetricDefinition {
   internal readonly Metric Id; internal string Group; internal readonly string Key; internal Func<decimal,string> Formatter;
+  internal readonly bool PubliclyVisible;
   internal bool Historical => Id>=Metric.GoldAcquired && Id<=Metric.LordsKilled;
-  internal MetricDefinition(Metric id,string group){Id=id;Group=group;Key=id.ToString();}
+  internal MetricDefinition(Metric id,string group,bool publiclyVisible){Id=id;Group=group;Key=id.ToString();PubliclyVisible=publiclyVisible;}
   internal MetricDefinition(Metric id,string key,string group){Id=id;Key=key;Group=group;}
   internal string Format(decimal? value)=>!value.HasValue?"?":Formatter!=null?Formatter(value.Value):value.Value.ToString(CultureInfo.InvariantCulture);
  }
  internal static class Metrics {
   internal static readonly string[] Groups={"Economy","Military","PopulationMood","OtherMods"};
-  internal static readonly MetricDefinition[] Builtins=Enum.GetValues(typeof(Metric)).Cast<Metric>().Select(m=>new MetricDefinition(m,Group(m))).ToArray();
+  internal static readonly MetricDefinition[] Builtins=Enum.GetValues(typeof(Metric)).Cast<Metric>()
+   .Select(m=>new MetricDefinition(m,Group(m),m==Metric.Gold || m==Metric.Army || m==Metric.Popularity)).ToArray();
+  internal static readonly ulong PublicDisplayMask=Builtins.Where(d=>d.PubliclyVisible).Aggregate(0UL,(mask,d)=>mask | DisplayBit(d.Id));
+  internal static ulong DisplayBit(Metric metric)=>1UL<<(int)metric;
   private static string Group(Metric metric){switch(metric){
    case Metric.Popularity:case Metric.Fear:case Metric.MaxPopulation:return "PopulationMood";
    case Metric.Army:case Metric.TroopsProduced:case Metric.TroopsKilled:case Metric.TroopsLost:case Metric.BuildingsDestroyed:case Metric.BuildingsLost:case Metric.LordsKilled:return "Military";
@@ -80,17 +84,31 @@ namespace Spectator.LordOverview {
   internal void Cancel(){Active=false;Dragging=false;Target=-1;}
  }
  internal static class InformationPolicy {
-  internal static bool CanRead(Metric metric,bool editor,bool spectator,bool eliminated,bool own,bool allied,bool enemyPermissionConfirmed)=>metric==Metric.Gold || metric==Metric.Army || editor || spectator || eliminated || own || allied || enemyPermissionConfirmed;
   internal static bool IsEliminated(bool officialLoss,bool meritDefeat,bool identifiedDeadLord)=>officialLoss || meritDefeat || identifiedDeadLord;
   internal static bool HasDeadLordEvidence(bool initializing,bool zeroHealth,bool projectileDeath,bool deleting)=>!initializing && (zeroHealth || projectileDeath || deleting);
  }
  internal sealed class LordRow {
   internal readonly int Player; internal readonly bool Alive; internal readonly long?[] Values;
-  internal LordRow(int player,bool alive,params long?[] values) {Player=player;Alive=alive;Values=(long?[])values.Clone();}
-  private Dictionary<Metric,decimal?> extra;
-  internal bool ExtendedAllowed {get;set;}
-  internal decimal? Get(Metric metric)=>(int)metric>=0?((int)metric<Values.Length?(decimal?)Values[(int)metric]:null):(extra!=null && extra.TryGetValue(metric,out var value)?value:null);
-  internal void SetExtra(Metric metric,decimal? value){if(!value.HasValue){extra?.Remove(metric);return;}if(extra==null)extra=new Dictionary<Metric,decimal?>();extra[metric]=value;}
+  internal readonly ulong DisplayMask;
+  private Dictionary<Metric,(decimal? Display,decimal? Sort)> extra;
+  internal LordRow(int player,bool alive,params long?[] values):this(player,alive,ulong.MaxValue,values){}
+  internal LordRow(int player,bool alive,ulong displayMask,long?[] values) {
+   Player=player;Alive=alive;DisplayMask=displayMask;Values=(long?[])values.Clone();
+  }
+  internal decimal? Get(Metric metric){
+   if((int)metric>=0)return (DisplayMask & Metrics.DisplayBit(metric))!=0?GetSortValue(metric):null;
+   return extra!=null && extra.TryGetValue(metric,out var cell)?cell.Display:null;
+  }
+  internal decimal? GetSortValue(Metric metric){
+   if((int)metric>=0)return (int)metric<Values.Length?(decimal?)Values[(int)metric]:null;
+   return extra!=null && extra.TryGetValue(metric,out var cell)?cell.Sort:null;
+  }
+  internal void SetExtra(Metric metric,decimal? value)=>SetExtra(metric,value,value);
+  internal void SetExtra(Metric metric,decimal? display,decimal? sort){
+   if(!display.HasValue && !sort.HasValue){extra?.Remove(metric);return;}
+   if(extra==null)extra=new Dictionary<Metric,(decimal?,decimal?)>();
+   extra[metric]=(display,sort);
+  }
  }
  internal sealed class OverviewState : IComparer<LordRow> {
   int IComparer<LordRow>.Compare(LordRow a,LordRow b)=>Compare(a,b);
@@ -109,7 +127,7 @@ namespace Spectator.LordOverview {
   internal void SortInto(List<LordRow> source,List<LordRow> target,bool showEliminated=true){target.Clear();for(int i=0;i<source.Count;i++)if(showEliminated || source[i].Alive)target.Add(source[i]);target.Sort(this);}
   private int Compare(LordRow a,LordRow b){
    if(!Column.HasValue)return Descending?b.Player.CompareTo(a.Player):a.Player.CompareTo(b.Player);
-   decimal? av=a.Get(Column.Value),bv=b.Get(Column.Value);
+   decimal? av=a.GetSortValue(Column.Value),bv=b.GetSortValue(Column.Value);
    if(av.HasValue!=bv.HasValue)return av.HasValue?-1:1;
    int cmp=av.HasValue?av.Value.CompareTo(bv.Value):0;
    return cmp==0?a.Player.CompareTo(b.Player):Descending?-cmp:cmp;

@@ -21,7 +21,7 @@ internal static partial class Program {
   state.Restore("bad",true,new[]{Metric.Gold});Check(state.Column==null && !state.Descending,"invalid persisted sort safely falls back");
   state.Restore("Player",true,new[]{Metric.Gold});Check(state.Column==null && state.Descending,"player descending persists");
   var external=Metrics.RegisterExternal("sort.mod/score");state.Restore("sort.mod/score",true,new[]{external});Check(state.Column==external && state.SortKey=="sort.mod/score","provider sort persists by stable key, never ephemeral negative enum ID");
-  TestColumns();TestExternalColumns();TestInformation();TestValues();TestMenuAndGestures();TestPassiveHover();TestLayoutsAndActions();TestMenuWindowAndCrown();
+  TestColumns();TestExternalColumns();TestInformation();TestMaskedSorting(external);TestValues();TestMenuAndGestures();TestPassiveHover();TestLayoutsAndActions();TestMenuWindowAndCrown();
   TestSamplingAndPointer();TestPortraits();
   Console.WriteLine("PASS: "+checks+" production layout, UI lifetime, sample isolation, sorting, information and cadence checks.");
  }
@@ -71,15 +71,13 @@ internal static partial class Program {
   Check(!TableInteraction.CanEdit(true,true,5,5,4,2),"closing and reopening menu rejects stale queued sort");
  }
  static void TestInformation(){
-  foreach(var metric in Metrics.All){
-   bool baseline=metric.Id==Metric.Gold || metric.Id==Metric.Army;
-   Check(InformationPolicy.CanRead(metric.Id,false,false,false,false,false,false)==baseline,"enemy restrictions default");
-   Check(InformationPolicy.CanRead(metric.Id,false,false,true,false,false,false),"eliminated viewer sees all with spectator flag off and host permission off");
-   Check(InformationPolicy.CanRead(metric.Id,false,true,false,false,false,false),"confirmed spectator all");
-   Check(InformationPolicy.CanRead(metric.Id,true,false,false,false,false,false),"editor all");
-   Check(InformationPolicy.CanRead(metric.Id,false,false,false,true,false,false),"own all");
-   Check(InformationPolicy.CanRead(metric.Id,false,false,false,false,true,false),"allied all");
-   Check(InformationPolicy.CanRead(metric.Id,false,false,false,false,false,true),"confirmed host permission all");
+  var values=Metrics.Builtins.Select(_=>(long?)37).ToArray();
+  var enemy=new LordRow(2,true,Metrics.PublicDisplayMask,values);
+  var ally=new LordRow(3,true,values);
+  foreach(var metric in Metrics.Builtins){
+   bool baseline=metric.Id==Metric.Gold || metric.Id==Metric.Army || metric.Id==Metric.Popularity;
+   Check(enemy.Get(metric.Id)==(baseline?37m:(decimal?)null),"only public enemy values are displayed");
+   Check(enemy.GetSortValue(metric.Id)==37m && ally.Get(metric.Id)==37m,"all available values sort and allies see details");
   }
   Check(!InformationPolicy.IsEliminated(false,false,false),"unresolved lord does not imply elimination");
   Check(InformationPolicy.IsEliminated(true,false,false),"official defeat loaded from save");
@@ -88,6 +86,31 @@ internal static partial class Program {
   Check(!InformationPolicy.HasDeadLordEvidence(true,true,false,false),"uninitialized lord is not an eliminated viewer");
   Check(!InformationPolicy.HasDeadLordEvidence(false,false,false,false),"healthy paused lord does not grant information");
   Check(InformationPolicy.HasDeadLordEvidence(false,true,false,false) && InformationPolicy.HasDeadLordEvidence(false,false,true,false),"health and projectile deaths qualify");
+ }
+ static void TestMaskedSorting(Metric external){
+  var enemyValues=new long?[Metrics.Builtins.Length];
+  enemyValues[(int)Metric.GreatestLord]=100;
+  var enemy=new LordRow(2,true,Metrics.PublicDisplayMask,enemyValues);
+  enemyValues[(int)Metric.GreatestLord]=40;
+  var own=new LordRow(1,true,enemyValues);
+  var tie=new LordRow(4,true,Metrics.PublicDisplayMask,enemyValues);
+  var unknown=new LordRow(3,true,Metrics.PublicDisplayMask,new long?[Metrics.Builtins.Length]);
+  var rows=new[]{unknown,enemy,tie,own};
+  var state=new OverviewState();
+  state.Select(Metric.GreatestLord);
+  Check(state.Sort(rows).Select(row=>row.Player).SequenceEqual(new[]{2,1,4,3}),"masked values sort descending alongside visible values");
+  state.Select(Metric.GreatestLord);
+  Check(state.Sort(rows).Select(row=>row.Player).SequenceEqual(new[]{1,4,2,3}),"masked values sort ascending and missing values stay last");
+  Check(Metrics.Get(Metric.GreatestLord).Format(enemy.Get(Metric.GreatestLord))=="?","built-in sort-only value stays masked");
+  bool formatted=false;
+  Metrics.RegisterExternal(Metrics.Key(external),formatter:value=>{formatted=true;return value.ToString();});
+  enemy.SetExtra(external,null,100);
+  own.SetExtra(external,40);
+  state.Select(external);
+  Check(state.Sort(rows)[0]==enemy && Metrics.Get(external).Format(enemy.Get(external))=="?" && !formatted,
+   "external sort-only value reaches ordering without reaching the formatter");
+  enemy.SetExtra(external,null,null);
+  Check(state.Sort(rows)[0]==own,"revocation clears the external sort key as well as the display value");
  }
  static void TestValues(){
   Check(StatisticValues.Popularity(0)==0 && StatisticValues.Popularity(9999)==99 && StatisticValues.Popularity(10000)==100,"Vanilla popularity truncates hundredths");

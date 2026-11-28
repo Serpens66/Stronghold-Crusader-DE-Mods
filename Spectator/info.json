@@ -3,14 +3,14 @@
   "Author": "Serpens66",
   "Name": "Spectator",
   "Description": "Spectator perspectives, live statistics and local AI testing tools.",
-  "Version": "0.2.9",
+  "Version": "0.2.10",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.14.0",
   "MaximumScriptExtenderVersion": "",
   "Dependencies": [
     {
       "GUID": "APIShared_Serp",
-      "MinimumVersion": "0.73.0"
+      "MinimumVersion": "0.79.3"
     }
   ],
   "Manifest": 1,
@@ -19,6 +19,14 @@
     "2.8.0.2"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.2.10",
+      "Changes": [
+        "The Lord Overview now shows enemy popularity, matching the value displayed above their campfires.",
+        "Sorting built-in columns uses the actual value even when a cell shows a question mark.",
+        "Mods can set visibility rules for their own columns and choose whether hidden values affect sorting. Requires APIShared 0.79.3."
+      ]
+    },
     {
       "Version": "0.2.9",
       "Changes": [

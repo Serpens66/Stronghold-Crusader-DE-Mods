@@ -148,3 +148,13 @@ HUD_MeritPanel.populateList's Lord branch compares score descending, then gold
 descending, and optionally reverses the resulting rank list. Its crown button
 Merit_SortLordScore references UI-Buttons S045/S046/S047. These statements concern
 the current Merit ranking, not a separate mission-over award calculation.
+
+### In-game Merit disclosure (2026-11-28) [Vanilla facts]
+
+Rechecked the installed FBCB9319 native and BC8B6A39 managed binaries.
+`HUD_MeritPanel.populateList` uses the export's column 1 internally for Lord
+ordering and defeat indication. It never assigns the numeric score to a row
+binding. It assigns columns 2 and 3 to `MeritGold` and `MeritTroops` for the
+same ranked lords, with no team check. Comparing the numerical score of
+living lords is therefore possible through their order, while the exact
+score is absent from this panel.

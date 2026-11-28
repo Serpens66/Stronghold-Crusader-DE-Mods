@@ -19,10 +19,11 @@ namespace Spectator.LordOverview {
   private static readonly long?[] values=new long?[Metrics.Builtins.Length];
   private static readonly List<LordRow> assembled=new List<LordRow>(8);
   private static GamePlayerManagerAPI players;
-  private static bool historyDue,hasSample,capturing;
+  private static bool historyDue,hasSample,capturing,frontPublished;
   private static double lastHistory=double.NegativeInfinity;
   private static long cachedSession;
   private static int cachedRights;
+  private static LordStatisticView capturedViewer;
   private static long requestedSession;
   private static int requestedRights,requestedGeneration;
   private static double copiedAt;
@@ -55,8 +56,17 @@ namespace Spectator.LordOverview {
   internal static void Reset(){CancelPending();hasSample=false;cachedSession=0;cachedRights=0;lastHistory=double.NegativeInfinity;front.Clear();if(!pending.Busy)back.Clear();assembled.Clear();}
   internal static bool HasSample(long session,int rights)=>hasSample && cachedSession==session && cachedRights==rights;
   internal static List<LordRow> FromCache(Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,long session,int rights){
-   if(!HasSample(session,rights) || capturing)return null;
-   return BuildRows(front,visible,settings,mode,previous,false);
+   if(capturing || !frontPublished || !ViewerStillCurrent(settings,mode,session,rights))return null;
+   return BuildRows(front,visible,capturedViewer,previous,false);
+  }
+  internal static void MarkPublished()=>frontPublished=true;
+  internal static bool ViewerStillCurrent(OverviewSettings settings,GameModeSnapshot? mode,long session,int rights)=>
+   HasSample(session,rights) && front.Controlled==PlayerPerspectiveAPI.GetControlledPlayerId() &&
+   capturedViewer.Equals(DescribeViewer(front,settings,mode,session));
+  internal static LordStatisticView[] GetViews(List<LordRow> sample){
+   var views=new LordStatisticView[sample.Count];
+   for(int i=0;i<sample.Count;i++)views[i]=DescribeLord(front,capturedViewer,sample[i].Player);
+   return views;
   }
   internal static List<LordRow> Capture(Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,long session,int rights,int generation,double now){
    if(capturing)return null;capturing=true;
@@ -86,9 +96,10 @@ namespace Spectator.LordOverview {
 #endif
     if(failure!=null)throw new InvalidOperationException("Deferred statistics read failed.",failure);
     if(!valid || requestedSession!=session || requestedRights!=rights || requestedGeneration!=generation || back.Controlled!=PlayerPerspectiveAPI.GetControlledPlayerId()){back.Clear();return null;}
-    var old=front;front=back;back=old;hasSample=true;cachedSession=session;cachedRights=rights;
+    var old=front;front=back;back=old;hasSample=true;frontPublished=false;cachedSession=session;cachedRights=rights;
     if(historyDue){lastHistory=copiedAt;Shared.DevDiag.Count("overview.history");}
-    return BuildRows(front,visible,settings,mode,previous,true);
+    capturedViewer=DescribeViewer(front,settings,mode,session);
+    return BuildRows(front,visible,capturedViewer,previous,true);
    }finally {capturing=false;Shared.DevDiag.StopSpike(ref elapsed,"overview.capture",1000);}
   }
   // Prepared buffers and services only: no managed allocation, conversion or presentation while locked.
@@ -120,19 +131,28 @@ namespace Spectator.LordOverview {
    }
    copiedAt=System.Diagnostics.Stopwatch.GetTimestamp()/(double)System.Diagnostics.Stopwatch.Frequency;
   }
-  private static List<LordRow> BuildRows(RawSnapshot raw,Metric[] visible,OverviewSettings settings,GameModeSnapshot? mode,List<LordRow> previous,bool includeExtensions){
-   bool editor=mode.HasValue && mode.Value.Kind==GameModeKind.MapEditor;var state=GameData.Instance?.lastGameState;
+  private static LordStatisticView DescribeViewer(RawSnapshot raw,OverviewSettings settings,GameModeSnapshot? mode,long session){
+   var state=GameData.Instance?.lastGameState;
    bool spectator=state!=null && state.spectatorMode!=0 && EditorDirector.instance!=null && EditorDirector.instance.ActivePlayerID<=0;
    bool permission=settings.AllowEnemyDetails && mode.HasValue && mode.Value.Kind!=GameModeKind.Unknown && (!mode.Value.IsRealMultiplayer || settings.IsRealMultiplayerContext && (settings.IsLocalSettingsHost || settings.EnemyDetailsReceived));
+   return new LordStatisticView(session,raw.LocalValid?raw.Controlled:0,0,mode?.Kind ?? GameModeKind.Unknown,
+    mode?.IsRealMultiplayer==true,spectator,raw.Eliminated,false,permission);
+  }
+  private static LordStatisticView DescribeLord(RawSnapshot raw,LordStatisticView viewer,int player){
+   int viewerTeam=raw.LocalValid?raw.Merit[raw.Controlled*5+4]:0;
+   bool allied=viewerTeam>0 && player!=viewer.ViewerPlayerId && viewerTeam==raw.Merit[player*5+4];
+   return new LordStatisticView(viewer.SessionId,viewer.ViewerPlayerId,player,viewer.Mode,viewer.IsRealMultiplayer,
+    viewer.IsSpectator,viewer.IsEliminated,allied,viewer.HasEnemyDetailsPermission);
+  }
+  private static List<LordRow> BuildRows(RawSnapshot raw,Metric[] visible,LordStatisticView viewer,List<LordRow> previous,bool includeExtensions){
    bool external=false;for(int i=0;i<visible.Length;i++)if((int)visible[i]<0){external=true;break;}
    assembled.Clear();bool unchanged=true;
    for(int player=1;player<=8;player++){
     int slot=player*5;if(raw.Merit[slot]<=0)continue;
-    Array.Clear(values,0,values.Length);bool own=raw.LocalValid && player==raw.Controlled;
-    bool allied=raw.LocalValid && raw.Merit[raw.Controlled*5+4]>0 && raw.Merit[raw.Controlled*5+4]==raw.Merit[slot+4];
-    bool extended=InformationPolicy.CanRead(Metric.Popularity,editor,spectator,raw.Eliminated,own,allied,permission);
+    Array.Clear(values,0,values.Length);
+    ulong displayMask=DescribeLord(raw,viewer,player).CanShowDetails?ulong.MaxValue:Metrics.PublicDisplayMask;
     for(int i=0;i<visible.Length;i++){
-     var metric=visible[i];if((int)metric<0 || !InformationPolicy.CanRead(metric,editor,spectator,raw.Eliminated,own,allied,permission))continue;
+     var metric=visible[i];if((int)metric<0)continue;
      switch(metric){
       case Metric.Gold:values[(int)metric]=raw.Merit[slot+2];break;
       case Metric.Army:values[(int)metric]=raw.Merit[slot+3];break;
@@ -144,11 +164,12 @@ namespace Spectator.LordOverview {
     }
     LordRow old=null;for(int i=0;i<previous.Count;i++)if(previous[i].Player==player){old=previous[i];break;}
     bool alive=!InformationPolicy.IsEliminated(raw.Resources[player].Present && raw.Resources[player].Defeated,raw.Merit[slot+1]<0,false);
-    bool same=old!=null && old.Alive==alive && old.ExtendedAllowed==extended;
+    bool same=old!=null && old.Alive==alive && old.DisplayMask==displayMask;
     if(same)for(int i=0;i<values.Length;i++)if(values[i]!=old.Values[i]){same=false;break;}
     if(external && includeExtensions)same=false; // Providers must not mutate a published row.
-    var row=same?old:new LordRow(player,alive,values){ExtendedAllowed=extended};
-    if(!same && !includeExtensions && external && old!=null && extended)for(int i=0;i<visible.Length;i++)if((int)visible[i]<0)row.SetExtra(visible[i],old.Get(visible[i]));
+    var row=same?old:new LordRow(player,alive,displayMask,values);
+    if(!same && !includeExtensions && external && old!=null && old.DisplayMask==displayMask)
+     for(int i=0;i<visible.Length;i++)if((int)visible[i]<0)row.SetExtra(visible[i],old.Get(visible[i]),old.GetSortValue(visible[i]));
     if(assembled.Count>=previous.Count || !ReferenceEquals(row,previous[assembled.Count]))unchanged=false;
     assembled.Add(row);
    }

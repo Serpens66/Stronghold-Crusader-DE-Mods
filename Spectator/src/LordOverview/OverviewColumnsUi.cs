@@ -22,8 +22,8 @@ namespace Spectator.LordOverview {
   private static void InvalidateInformation(){System.Threading.Interlocked.Increment(ref informationGeneration);long id=System.Threading.Interlocked.Read(ref session);Post(()=>{
    if(id!=System.Threading.Interlocked.Read(ref session))return;
    CancelHeaderGesture();OverviewData.Reset();
-   rows=rows.Select(row=>{var values=(long?[])row.Values.Clone();for(int i=2;i<values.Length;i++)values[i]=null;return new LordRow(row.Player,row.Alive,values);}).ToList();
-   if(panel?.IsVisible==true)Render();
+   rows=rows.Select(row=>new LordRow(row.Player,row.Alive,Metrics.PublicDisplayMask,row.Values)).ToList();
+   if(panel?.IsVisible==true){Render();sampling.Request();requestedRefresh.Request();}
   });}
   private static void OnSettingsChanged(object sender,PropertyChangedEventArgs args){
    bool layoutChanged=args.PropertyName==nameof(OverviewSettings.Design) || args.PropertyName==nameof(OverviewSettings.LordGrid) || args.PropertyName==nameof(OverviewSettings.ValueGrid);

@@ -132,3 +132,13 @@ Extracted resource previews remain beside it. No raw baseline or binary identity
 was rewritten. APIShared's internal managed correction normalizes only the type41
 mask argument from the same numeric snapshot before Vanilla cache creation; it
 does not change native state, digits, player identity or other popup types.
+
+### Opponent campfire value (2026-11-28) [Vanilla facts]
+
+Rechecked the installed FBCB9319 native and BC8B6A39 managed binaries.
+`0xCAA70` schedules a changed whole-point popularity snapshot for an eligible
+player with a campfire. `0xB5690` uses the building's owner slot and allows an
+owner other than the current player without an alliance test. The type-41
+payload consumed by `GameMap.addUpdateFly` is the owner's current popularity
+divided by 100, with truncation. Eligibility, on-map rendering and duplicate
+suppression control when a popup is seen.

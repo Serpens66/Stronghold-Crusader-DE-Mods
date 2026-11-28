@@ -175,7 +175,7 @@ namespace Spectator.LordOverview {
    try {
     success=UiSamples.TryRead(CurrentUiContext,()=>Volatile.Read(ref informationGeneration),
      ()=>OverviewData.Capture(selection.Columns,settings,mode,rows,Interlocked.Read(ref session),Volatile.Read(ref informationGeneration),Volatile.Read(ref generation),now),ReadExtensions,sample=>{
-      rows=sample;long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}Render();
+      rows=sample;OverviewData.MarkPublished();long id=Interlocked.Read(ref session);if(lastSampleSession!=id){lastSampleSession=id;Message("FIRST_SAMPLE session="+id+" players="+rows.Count);}Render();
      });
    }finally{sampling.End(Now,success);}
   }
