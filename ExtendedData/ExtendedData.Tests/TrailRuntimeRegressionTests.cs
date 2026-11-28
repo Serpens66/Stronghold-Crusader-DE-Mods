@@ -152,6 +152,11 @@ internal static class TrailRuntimeRegressionTests
         slot.PackageDigest = digest;
         Check(TrailLordPackageRuntime.TryResolve(slot, out media, out path, out _) && media == null &&
             path == Path.Combine(lord.configs[0].path, "aic.lordjson"), "registered matching package rejected without media");
+        slot.AivChecksums = new[] { "22", "791" };
+        Check(TrailLordPackageRuntime.TryResolve(slot, out _, out path, out _) &&
+            path == Path.Combine(lord.configs[0].path, "aic.lordjson"),
+            "a registered matching script package rejected a mixed embedded castle selection");
+        slot.AivChecksums = new[] { "22" };
         GameAIManagerAPI.Instance.Supported.Add("Example");
         Check(TrailLordPackageRuntime.TryResolve(slot, out media, out _, out _) && media == "Example",
             "registered optional media not resolved");
@@ -191,75 +196,167 @@ internal static class TrailRuntimeRegressionTests
         Check(active.SequenceEqual(new[] { 1, 3, 5 }), "empty slots changed active order");
         var included = CoopTrailSlotSelection.GetAiPlayerIds(active);
         Check(included.SetEquals(new[] { 6 }), "human slots were not removed before capture");
-        var sources = new Dictionary<int, TrailLordPackageRuntime.Candidate>();
-        var slots = TrailLordPackageRuntime.Capture(restart, sources, included);
-        Check(slots.Count == 1 && slots[0].PlayerId == 6 && sources.Keys.SequenceEqual(new[] { 6 }),
-            "capture looked up the future guest or changed original IDs");
+        var slots = TrailLordRequirementSource.CaptureForSave(null, restart, included, out _);
+        Check(slots.Count == 1 && slots[0].PlayerId == 6 && slots[0].ModLordJson != null,
+            "capture included the future guest, dropped the AI's extras or changed original IDs");
         string makerFile = Path.Combine(fixture.Root, "Trail_Mission_1.trail");
         File.WriteAllText(makerFile, "saved restart info");
         TrailLordRequirements.Create(makerFile, slots).Write(makerFile);
         Check(TrailLordRequirements.Read(makerFile).Slots.Single().PlayerId == 6, "Maker sidecar IDs were remapped");
-        var remapped = CoopTrailSlotSelection.RemapForCoop(slots, active);
+        var exported = TrailLordRequirementSource.ReadForExport(makerFile, restart, included);
+        var remapped = CoopTrailSlotSelection.RemapForCoop(exported, active);
         string coopFile = Path.Combine(fixture.Root, "01.coopmission.json");
         File.WriteAllText(coopFile, "Coop JSON");
         TrailLordRequirements.Create(coopFile, remapped).Write(coopFile);
         Check(TrailLordRequirements.Read(coopFile).Slots.Single().PlayerId == 3, "Coop sidecar ID was not remapped");
-        Reject<InvalidDataException>(() => TrailLordPackageRuntime.Capture(restart));
         restart.aivs[5].lordName = "Missing AI";
-        Reject<InvalidDataException>(() => TrailLordPackageRuntime.Capture(restart, includedPlayerIds: included));
+        var embedded = TrailLordRequirementSource.CaptureForSave(makerFile, restart, included, out _).Single();
+        Check(embedded.PlayerId == 6 && embedded.EmbeddedValuesOnly && embedded.ModLordJson == null,
+            "a replacement AI inherited extra values from a different Lord in the same slot");
         restart.lordTypes[5] = -9999;
         var noAi = CoopTrailSlotSelection.GetAiPlayerIds(CoopTrailSlotSelection.GetActiveSlots(restart.lordTypes));
-        Check(TrailLordPackageRuntime.Capture(restart, includedPlayerIds: noAi).Count == 0,
+        Check(TrailLordRequirementSource.CaptureForSave(makerFile, restart, noAi, out _).Count == 0,
             "two-human mission attempted to resolve an AI source");
         Reject<InvalidDataException>(() => CoopTrailSlotSelection.GetActiveSlots(new[] { -1, -9999 }));
     }
 
-    // F5/P3: stored values survive a re-saved Trail and a missing installation as long as the slot's
-    // authored identity is unchanged; a changed slot without a verifiable source needs a decision.
-    internal static void RequirementSourceReusesStoredValues()
+    internal static void MakerRefreshesAndExportsEditedLord()
     {
         using var fixture = new Scope();
-        var lord = fixture.InstallLord("Example", "installed", unsupported: false);
-        const string metadata = "{\"LocalizedDisplayName\":{\"de-DE\":\"Beispiel\"},\"Future\":{\"preserved\":[1,true,null]}}";
-        File.WriteAllText(Path.Combine(lord.configs[0].path, "lordmeta.json"), metadata);
+        var lord = fixture.InstallLord("Lord Bessy", "installed", unsupported: false);
+        string root = lord.configs[0].path;
+        string extra = Path.Combine(root, "aic.modlord.json");
+        string fixesFile = Path.Combine(root, "Override", "Fixes", "preferences.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(fixesFile));
+        const string initialFixes = "{\"Value\":13}";
+        const string editedFixes = "{\"Value\":29}";
+        File.WriteAllText(fixesFile, initialFixes);
+        var fixesPlugin = new Fixes.Boostrap.Plugin();
+        Chainloader.PluginInfos["fixes"] = new FakePluginInfo { Instance = fixesPlugin };
+        fixesPlugin.CustomLordPreferences["Lord Bessy"] = new Fixes.Config.CustomLordPreferencesEntry { Value = 13 };
+        var fixes = new FixesLordPreferencesBridge();
+        string trail = Path.Combine(fixture.Root, "Trail_Mission_2.trail");
+        var restart = BessySelection(11, Castle("castle", 22, 1), Castle("embedded-only castle", 791, 3));
+        File.WriteAllText(trail, "original restart data");
+        var original = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out _).Single();
+        Check(original.ModLordJson == File.ReadAllText(extra) && original.FixesJson == fixes.Normalize(initialFixes),
+            "original installed values were not captured");
+        TrailLordRequirements.Create(trail, new[] { original }).Write(trail);
+
+        lord.configs[0].checksum = 55;
+        lord.aivs[0] = Castle("castle", 44, 2, root);
+        const string editedExtra = "{\"test.mod\":{\"value\":2}}";
+        const string metadata = "{\"LocalizedDisplayName\":{\"de-DE\":\"Bessy\"}}";
+        File.WriteAllText(extra, editedExtra);
+        File.WriteAllText(fixesFile, editedFixes);
+        File.WriteAllText(Path.Combine(root, "lordmeta.json"), metadata);
+        TrailLordPackageRuntime.RefreshMakerSelection(restart);
+
+        var current = restart.aivs[4];
+        Check(current.lordConfig.checksum == 55 && current.aivs.Select(aiv => aiv.checksum).SequenceEqual(new ulong[] { 44, 791 }) &&
+            current.aivs.Select(aiv => aiv.data[0]).SequenceEqual(new short[] { 2, 3 }),
+            "the saved names did not load the edited catalog data while preserving the mixed castle selection");
+        var edited = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out var warnings).Single();
+        Check(warnings.Count == 0 && edited.ConfigChecksum == "55" && edited.AivChecksums.SequenceEqual(new[] { "44", "791" }) &&
+            edited.ModLordJson == editedExtra && edited.Presentation?.MetadataJson == metadata &&
+            edited.FixesJson == fixes.Normalize(editedFixes),
+            "the refreshed selection did not capture its current extras and exact castle order");
+        File.WriteAllText(trail, "edited restart data");
+        TrailLordRequirements.Create(trail, new[] { edited }).Write(trail);
+
+        using (File.Open(extra, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var recovered = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out warnings).Single();
+            Check(warnings.Count > 0 && recovered.ModLordJson == editedExtra,
+                "a temporary read error was treated as removal of previously saved extras");
+        }
+
+        File.Delete(extra);
+        File.Delete(fixesFile);
+        var exported = TrailLordRequirementSource.ReadForExport(trail, restart, null).Single();
+        Check(exported.ModLordJson == editedExtra && exported.FixesJson == edited.FixesJson,
+            "export pulled unsaved changes from the live installation");
+        var removed = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out _).Single();
+        Check(removed.ModLordJson == null && removed.FixesJson == null && removed.Presentation?.MetadataJson == metadata,
+            "deleting an extra value from the selected package did not take effect on save");
+        TrailLordRequirements.Create(trail, new[] { removed }).Write(trail);
+        exported = TrailLordRequirementSource.ReadForExport(trail, restart, null).Single();
+        Check(exported.ModLordJson == null && exported.FixesJson == null,
+            "export revived an extra value removed by the author");
+    }
+
+    internal static void MakerPreservesEmbeddedLord()
+    {
+        using var fixture = new Scope();
+        var lord = fixture.InstallLord("Lord Bessy", "installed", unsupported: true);
+        string root = lord.configs[0].path;
+        string trail = Path.Combine(fixture.Root, "Trail_Mission_2.trail");
+        var restart = BessySelection(11, Castle("castle", 22, 1));
+        File.WriteAllText(trail, "original restart data");
+        var stored = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out _).Single();
+        Check(stored.RequiresInstalledPackage && stored.ModLordJson != null, "the fixture did not capture its dependency and extras");
+        TrailLordRequirements.Create(trail, new[] { stored }).Write(trail);
+
+        var duplicate = fixture.InstallLord("Lord Bessy", "duplicate", unsupported: false);
+        lord.configs[0].checksum = duplicate.configs[0].checksum = 55;
+        lord.aivs[0] = Castle("castle", 44, 2, root);
+        duplicate.aivs[0] = Castle("castle", 45, 3, duplicate.configs[0].path);
+        TrailLordPackageRuntime.RefreshMakerSelection(restart);
+        var current = restart.aivs[4];
+        Check(current.lordConfig.checksum == 11 && current.aivs.Single().data[0] == 1,
+            "ambiguous same-name installations replaced the embedded Lord");
+        var ambiguous = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out _).Single();
+        Check(ambiguous.RequiresInstalledPackage && ambiguous.PackageDigest == stored.PackageDigest,
+            "saving an ambiguous embedded Lord picked a different package");
+
+        CustomisationFileManager.Instance.CustomLords.Clear();
+        current.aivs.Insert(0, Castle("another embedded castle", 791, 4));
+        var saved = TrailLordRequirementSource.CaptureForSave(trail, restart, null, out _).Single();
+        Check(saved.ModLordJson == stored.ModLordJson && saved.RequiresInstalledPackage && saved.PackageDigest == stored.PackageDigest &&
+            saved.AivChecksums.SequenceEqual(new[] { "791", "22" }),
+            "a missing installation or castle edit discarded previously saved extras");
+        File.WriteAllText(trail, "new restart data");
+        TrailLordRequirements.Create(trail, new[] { saved }).Write(trail);
+        var exported = TrailLordRequirementSource.ReadForExport(trail, restart, null).Single();
+        Check(exported.RequiresInstalledPackage && exported.PackageDigest == stored.PackageDigest &&
+            !TrailLordPackageRuntime.TryResolve(exported, out _, out _, out _),
+            "exporting without the installation lost the dependency or bypassed the start check");
+
+        File.AppendAllText(trail, " prior Maker rewrote the mission only");
+        Check(TrailLordRequirementSource.ReadForExport(trail, restart, null).Single().PackageDigest == stored.PackageDigest,
+            "export rejected a legacy re-save of the same Lord or lost its known dependency");
+        restart.aivs[4].lordName = "Replacement";
+        Check(TrailLordRequirementSource.ReadForExport(trail, restart, null).Single().EmbeddedValuesOnly,
+            "the legacy sidecar donated data to a different Lord");
+        restart.aivs[4].lordName = "Lord Bessy";
+
+        string sidecar = TrailLordRequirements.SidecarPath(trail);
+        File.Delete(sidecar);
+        var legacy = TrailLordRequirementSource.ReadForExport(trail, restart, null).Single();
+        Check(legacy.EmbeddedValuesOnly && legacy.ConfigChecksum == "11" && legacy.ModLordJson == null &&
+            !legacy.RequiresInstalledPackage && legacy.AivChecksums.SequenceEqual(new[] { "791", "22" }),
+            "legacy export did not retain exactly the embedded data without an installation");
+
+        File.WriteAllText(sidecar, "{");
+        Reject<InvalidDataException>(() => TrailLordRequirementSource.ReadForExport(trail, restart, null));
+    }
+
+    private static HUD_IngameMenu.RestartSkirmishMapInfo BessySelection(ulong checksum,
+        params CustomisationFileManager.CustomAIV[] castles)
+    {
         var restart = new HUD_IngameMenu.RestartSkirmishMapInfo
         {
-            lordTypes = new List<int> { -1, 100, 200 },
-            aivs = new FRONT_Multiplayer.MPAIVInfo[3],
+            lordTypes = new List<int> { -1, 1, 2, -9999, 3 },
+            aivs = new FRONT_Multiplayer.MPAIVInfo[5],
         };
-        restart.aivs[2] = new FRONT_Multiplayer.MPAIVInfo { lordName = "Example", lordType = -1,
-            lordConfig = lord.configs[0], aivs = lord.aivs };
-        string trail = Path.Combine(fixture.Root, "Trail_Mission_01.trail");
-        File.WriteAllText(trail, "saved");
-        TrailLordRequirementSource.Resolution first = TrailLordRequirementSource.Resolve(trail, restart, null, false);
-        Check(first.Slots.Single().PlayerId == 3 && first.InstalledSources.ContainsKey(3) &&
-            first.Slots[0].ModLordJson != null && first.Slots[0].Presentation.MetadataJson == metadata && first.ReusedPlayerIds.Count == 0, "installed author capture failed");
-        TrailLordRequirements.Create(trail, first.Slots).Write(trail);
-
-        File.AppendAllText(trail, " re-saved");
-        CustomisationFileManager.Instance.CustomLords.Clear();
-        TrailLordRequirementSource.Resolution reused = TrailLordRequirementSource.Resolve(trail, restart, null, false);
-        Check(reused.ReusedPlayerIds.SequenceEqual(new[] { 3 }) && reused.InstalledSources.Count == 0 &&
-            reused.Slots.Single().ModLordJson == first.Slots[0].ModLordJson && reused.Slots[0].Presentation.MetadataJson == metadata,
-            "stored values of an unchanged slot were not reused without the installation");
-
-        restart.aivs[2].lordConfig = new CustomisationFileManager.CustomLordConfig
-            { lordType = -1, name = "aic", checksum = 99, path = lord.configs[0].path };
-        var gap = Reject<TrailLordAuthoringUnavailableException>(() =>
-            TrailLordRequirementSource.Resolve(trail, restart, null, false));
-        Check(gap.PlayerId == 3 && gap.LordName == "Example", "the missing authoring source was not identified");
-        TrailLordRequirementSource.Resolution embedded = TrailLordRequirementSource.Resolve(trail, restart, null, true);
-        TrailLordSlot only = embedded.Slots.Single();
-        Check(embedded.EmbeddedOnlyPlayerIds.SequenceEqual(new[] { 3 }) && only.EmbeddedValuesOnly &&
-            only.ModLordJson == null && only.FixesJson == null && !only.RequiresInstalledPackage &&
-            only.ConfigChecksum == "99", "the explicit embedded-only decision kept or invented extra values");
-
-        File.WriteAllText(TrailLordRequirements.SidecarPath(trail), "{");
-        bool rejected = false;
-        try { TrailLordRequirementSource.Resolve(trail, restart, null, true); }
-        catch (Exception) { rejected = true; }
-        Check(rejected, "a damaged requirements file was silently replaced");
+        restart.aivs[4] = new FRONT_Multiplayer.MPAIVInfo { lordName = "Lord Bessy", lordType = 33,
+            lordConfig = new CustomisationFileManager.CustomLordConfig { lordType = -1, name = "aic", checksum = checksum },
+            aivs = castles.ToList() };
+        return restart;
     }
+
+    private static CustomisationFileManager.CustomAIV Castle(string name, ulong checksum, short value, string path = null) =>
+        new CustomisationFileManager.CustomAIV { lordType = -1, AIVName = name, checksum = checksum, data = new[] { value }, path = path };
 
     private sealed class Scope : IDisposable
     {
@@ -269,6 +366,7 @@ internal static class TrailRuntimeRegressionTests
         private readonly string[] names = ConfigSettings.extendedLordPaths;
         private readonly string media = ConfigSettings.MediaPath;
         private readonly Dictionary<string, FakePluginInfo> plugins = new(Chainloader.PluginInfos);
+        private readonly Fixes.Boostrap.Plugin fixes = Fixes.Boostrap.Plugin.Instance;
         internal Scope()
         {
             Root = Path.Combine(parent, Guid.NewGuid().ToString("N"));
@@ -293,7 +391,7 @@ internal static class TrailRuntimeRegressionTests
             if (unsupported) File.WriteAllText(Path.Combine(path, "init.lua"), "return true");
             var lord = new CustomisationFileManager.CustomLord { lordName = name };
             lord.configs.Add(new CustomisationFileManager.CustomLordConfig { lordType = -1, name = "aic", path = path, checksum = 11 });
-            lord.aivs.Add(new CustomisationFileManager.CustomAIV { checksum = 22 });
+            lord.aivs.Add(Castle("castle", 22, 1, path));
             CustomisationFileManager.Instance.CustomLords.Add(lord);
             return lord;
         }
@@ -306,6 +404,7 @@ internal static class TrailRuntimeRegressionTests
             ConfigSettings.MediaPath = media;
             Chainloader.PluginInfos.Clear();
             foreach (var entry in plugins) Chainloader.PluginInfos.Add(entry.Key, entry.Value);
+            Fixes.Boostrap.Plugin.Instance = fixes;
             GameAIManagerAPI.Instance.Supported.Clear();
             GameAssetModManager.Instance.Registered.Clear();
             Check(Path.GetDirectoryName(Path.GetFullPath(Root)) == parent, "Unsafe test cleanup path");

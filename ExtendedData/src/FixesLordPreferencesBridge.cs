@@ -114,6 +114,22 @@ namespace ExtendedData
         internal IReadOnlyList<FixesPreferenceSource> CaptureSources(string name, int type, int baseLord)
             => CaptureSources(name, type, baseLord, null);
 
+        internal IReadOnlyList<FixesPreferenceSource> CapturePackageSources(
+            string name, int type, int baseLord, string packageJson)
+        {
+            var selected = new FixesPreferenceSource
+            {
+                CustomName = type < 0 ? name : null,
+                LordType = type < 0 ? null : (int?)type,
+                Json = packageJson,
+            };
+            return CaptureSources(name, type, baseLord,
+                new Dictionary<string, FixesPreferenceSource>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [FixesPreferenceSources.Identity(selected)] = selected,
+                });
+        }
+
         private IReadOnlyList<FixesPreferenceSource> CaptureSources(string name, int type, int baseLord,
             IDictionary<string, FixesPreferenceSource> recorded)
         {

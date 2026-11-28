@@ -36,15 +36,14 @@ internal static class CustomTrailFixTests
         Directory.Delete(root, true);
     }
 
-    private static TrailLordSlot Slot(int playerId, string checksum = "11", int? type = -1) => new TrailLordSlot
+    private static TrailLordSlot Slot(int playerId) => new TrailLordSlot
     {
-        PlayerId = playerId, LordType = type, LordName = "Phoenix", ConfigName = "Phoenix",
-        ConfigChecksum = checksum, AivChecksums = new[] { "21", "22" },
+        PlayerId = playerId, LordType = -1, LordName = "Phoenix", ConfigName = "Phoenix",
+        ConfigChecksum = "11", AivChecksums = new[] { "21", "22" },
     };
 
-    // F5/F6: stored requirements keep values only for the same authored identity. New writes include complete metadata;
-    // legacy v2/v3 remain readable without inventing complete Fixes source captures.
-    internal static void RequirementsBindIdentityAndDecision()
+    // Legacy v2/v3 remain readable without inventing complete Fixes source captures.
+    internal static void RequirementsBindMissionAndEmbeddedValues()
     {
         string root = TempRoot();
         try
@@ -66,16 +65,6 @@ internal static class CustomTrailFixTests
                 "a re-saved Trail lost its stored values or was reported as bound");
             Reject<InvalidDataException>(() => TrailLordRequirements.Read(trail));
 
-            Check(TrailLordRequirements.HasSameAuthoredIdentity(stale.Slots[0], Slot(3)), "same identity rejected");
-            Check(TrailLordRequirements.HasSameAuthoredIdentity(Slot(3, type: null), Slot(3)),
-                "legacy requirements without a Lord type lost their identity");
-            TrailLordSlot reordered = Slot(3);
-            reordered.AivChecksums = new[] { "22", "21" };
-            Check(!TrailLordRequirements.HasSameAuthoredIdentity(stale.Slots[0], reordered) &&
-                !TrailLordRequirements.HasSameAuthoredIdentity(stale.Slots[0], Slot(3, "99")) &&
-                !TrailLordRequirements.HasSameAuthoredIdentity(stale.Slots[0], Slot(4)),
-                "changed AIV order, configuration or slot kept the stored values");
-
             TrailLordSlot embeddedOnly = Slot(3);
             embeddedOnly.EmbeddedValuesOnly = true;
             TrailLordRequirements.Create(trail, new[] { embeddedOnly, Slot(5) }).Write(trail);
@@ -83,7 +72,7 @@ internal static class CustomTrailFixTests
             TrailLordRequirements read = TrailLordRequirements.Read(trail);
             Check(json.Contains("\"version\": " + TrailLordRequirements.CurrentVersion) && read.Slots.Single(slot => slot.PlayerId == 3).EmbeddedValuesOnly &&
                 !read.Slots.Single(slot => slot.PlayerId == 5).EmbeddedValuesOnly,
-                "the embedded-only export decision was not stored per slot");
+                "the embedded-only record was not stored per slot");
             embeddedOnly.FixesJson = "{}";
             Reject<InvalidDataException>(() => TrailLordRequirements.Create(trail, new[] { embeddedOnly }));
         }

@@ -40,14 +40,16 @@ var tests = new (string Name, Action Run)[]
     ("Coop publication preserves old data across failures", TrailRuntimeRegressionTests.Publication),
     ("portable Lord resolution keeps installations optional", TrailRuntimeRegressionTests.PortableLords),
     ("Coop capture resolves only remaining AI sources", TrailRuntimeRegressionTests.CaptureSelection),
-    ("stored Lord requirements survive re-saves and need a decision when unverifiable", TrailRuntimeRegressionTests.RequirementSourceReusesStoredValues),
-    ("Lord requirements bind authored identity and the embedded-only decision", CustomTrailFixTests.RequirementsBindIdentityAndDecision),
+    ("Maker refresh saves and exports edited AIC, mixed castles and current extras", TrailRuntimeRegressionTests.MakerRefreshesAndExportsEditedLord),
+    ("Maker preserves embedded Lords and known extras when installed sources are unavailable or ambiguous", TrailRuntimeRegressionTests.MakerPreservesEmbeddedLord),
+    ("Lord requirements bind mission bytes and preserve embedded-only records", CustomTrailFixTests.RequirementsBindMissionAndEmbeddedValues),
     ("embedded Trail Lords are selected by configuration identity", CustomTrailFixTests.ConfigurationIdentitySelectsEmbeddedSlots),
     ("Coop remapping keeps Maker slot IDs", CustomTrailFixTests.CoopRemapLeavesMakerSlotsUnchanged),
     ("schema 5 embedded Trail references are validated and schema 4 stays readable", CustomTrailFixTests.SchemaFiveEmbeddedReferences),
     ("Coop publication replaces Maker sources together with the missions", CustomTrailFixTests.PublicationReplacesMakerSourcesAtomically),
     ("the original map reference is read from the Trail restart block", CustomTrailFixTests.RestartMapReferenceIsReadWithoutTheOriginalMap),
     ("Trail export neutralizes player settings while preserving the map and other restart fields", TrailAuthoringSetupTests.Run),
+    ("Maker saves publish the Trail and its requirements together and retain the old pair on failure", TrailAuthoringSetupTests.SaveMakerMissionKeepsConsistentPair),
     ("bundled mission loads", TestBundledMission),
     ("Coop mission modsettings use an optional sidecar", TestCoopMissionModSettingsSidecar),
     ("path escape rejected", TestPathEscape),
@@ -1032,20 +1034,13 @@ static void TestLordWorkshopMetadataFingerprint()
     }
 }
 
-static string CreateEquivalentLordExportSources(string root)
+static string CreateLordExportSource(string root)
 {
-    string[] sources = { Path.Combine(root, "local"), Path.Combine(root, "workshop") };
-    foreach (string source in sources)
-    {
-        Directory.CreateDirectory(source);
-        File.WriteAllText(Path.Combine(source, "lord.lordjson"), "{\"lord\":{}}");
-        File.WriteAllText(Path.Combine(source, "castle.aivjson"), "{}");
-        File.WriteAllText(Path.Combine(source, "lord.modlord.json"), "{\"example.mod\":{\"value\":1}}");
-    }
-    int selected = TrailLordSourceSelector.SelectIndex(sources, null, "Author Lord", "lord");
-    Assert(sources[1 - TrailLordSourceSelector.SelectIndex(sources.Reverse().ToArray(), null,
-        "Author Lord", "lord")] == sources[selected], "export source depends on enumeration order");
-    return sources[selected];
+    Directory.CreateDirectory(root);
+    File.WriteAllText(Path.Combine(root, "lord.lordjson"), "{\"lord\":{}}");
+    File.WriteAllText(Path.Combine(root, "castle.aivjson"), "{}");
+    File.WriteAllText(Path.Combine(root, "lord.modlord.json"), "{\"example.mod\":{\"value\":1}}");
+    return root;
 }
 
 static void TestTrailLordRequirements()
@@ -1054,7 +1049,7 @@ static void TestTrailLordRequirements()
     Directory.CreateDirectory(root);
     try
     {
-        string authorSource = CreateEquivalentLordExportSources(root);
+        string authorSource = CreateLordExportSource(Path.Combine(root, "author"));
         string mission = Path.Combine(root, "Trail_Mission_01.trail");
         File.WriteAllText(mission, "embedded mission");
         var slot = new TrailLordSlot
@@ -1151,7 +1146,7 @@ static void TestBundledMission()
     Assert(loaded.Definition.Players.Where(player => player.Active).Take(2).Count() == 2, "human slots missing");
     string slotRoot = Path.Combine(fixture.Root, "Assets", "01", "AI-03");
     Directory.CreateDirectory(slotRoot);
-    string authorSource = CreateEquivalentLordExportSources(Path.Combine(fixture.Root, "replicas"));
+    string authorSource = CreateLordExportSource(Path.Combine(fixture.Root, "author"));
     File.Copy(Path.Combine(authorSource, "lord.lordjson"), Path.Combine(slotRoot, "lord.lordjson"));
     File.Copy(Path.Combine(authorSource, "castle.aivjson"), Path.Combine(slotRoot, "castle.aivjson"));
     File.WriteAllText(Path.Combine(slotRoot, "second.aivjson"), "{}", new UTF8Encoding(false));

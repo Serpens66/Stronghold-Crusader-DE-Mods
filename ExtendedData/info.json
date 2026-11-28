@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Extended Data",
   "Description": "Adds portable Custom and Coop Trail data plus complete Script Extender Custom Lord Workshop packages.",
-  "Version": "1.0.31",
+  "Version": "1.0.32",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
@@ -16,6 +16,14 @@
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.32",
+      "Changes": [
+        "Load updated Custom Lord configurations and castles by name when opening a Trail Maker mission. Keep the saved selection where the installed files are missing or ambiguous.",
+        "Save the current Lord data and export it with Custom and Coop Trails, even when the originating Lord package is unavailable.",
+        "Keep the previous mission and Lord data if saving fails. Check required script packages when starting Coop, including missions with castles from different sources."
+      ]
+    },
     {
       "Version": "1.0.31",
       "Changes": [

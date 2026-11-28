@@ -1123,11 +1123,16 @@ namespace ExtendedData
                     return;
                 }
 
-                // Captured before Vanilla rewrites the mission. Lord requirements never block the
-                // Vanilla save: on failure the existing sidecar stays untouched, exactly as before
-                // save-time capture existed, and the export resolves again and asks the author.
+                // Capture the working selection before Vanilla reloads the editor.
                 IReadOnlyList<TrailLordSlot> savedLordRequirements =
-                    CaptureSavedLordRequirements(trailPath, restartInfo, out string lordRequirementsWarning);
+                    CaptureSavedLordRequirements(trailMakerTrailPath, trailPath,
+                        restartInfo, out string lordRequirementsWarning);
+                if (savedLordRequirements == null)
+                {
+                    capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
+                    ShowTrailMakerSaveFailure(lordRequirementsWarning);
+                    return;
+                }
 
                 EngineInterface.MultiplayerSetupData setup = restartInfo.MPsetupData;
                 int speed = setup.starting_gamespeed;
@@ -1136,7 +1141,17 @@ namespace ExtendedData
                 {
                     setup.starting_gamespeed = ConfigSettings.Default_GameSpeed;
                     setup.autosave = TrailAuthoringSetup.AutoSaveOff;
-                    saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
+                    TrailAuthoringSetup.SaveMakerMission(trailPath,
+                        stage => saveCustomTrailMapOriginal(self, mapPath, mapName, stage, restartInfo),
+                        savedLordRequirements);
+                }
+                catch (Exception exception)
+                {
+                    capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-maker-save",
+                        $"Could not save Trail mission [{trailPath}]: {exception}");
+                    ShowTrailMakerSaveFailure(exception.Message);
+                    return;
                 }
                 finally
                 {
@@ -1148,16 +1163,6 @@ namespace ExtendedData
                 {
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
-                    if (savedLordRequirements != null)
-                    {
-                        try { TrailLordRequirements.Create(trailPath, savedLordRequirements).Write(trailPath); }
-                        catch (Exception exception)
-                        {
-                            Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-save-lord-requirements",
-                                $"Could not write the Lord requirements of [{trailPath}]; the mission was saved: {exception}");
-                            lordRequirementsWarning = LordRequirementsNotSavedText(exception.Message);
-                        }
-                    }
                     if (editorSaveOptions.IncludeTrailModSettings)
                     {
                         ModSettingsJson.WriteAtomic(sidecar, document);
@@ -1217,25 +1222,30 @@ namespace ExtendedData
                 }
             }
 
-            // Null when the save must leave the existing sidecar untouched; warning is user text.
-            private IReadOnlyList<TrailLordSlot> CaptureSavedLordRequirements(string trailPath,
+            // A corrupt companion file can prevent recovering previously saved Lord values.
+            private IReadOnlyList<TrailLordSlot> CaptureSavedLordRequirements(string sourceTrailPath, string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restartInfo, out string warning)
             {
                 warning = null;
                 IReadOnlyList<TrailLordSlot> slots;
                 try
                 {
-                    // No embedded-only retry here: a stored embedded-only slot would be reused by
-                    // the export and silently replace the author's confirmation there.
-                    slots = TrailLordRequirementSource.Resolve(trailPath, restartInfo,
-                        IsMakerCoopEnabled() ? CoopTrailSlotSelection.GetAiPlayerIds(CoopTrailSlotSelection.GetActiveSlots(restartInfo.lordTypes)) : null,
-                        false).Slots;
+                    slots = TrailLordRequirementSource.CaptureForSave(sourceTrailPath, restartInfo,
+                        null, out IReadOnlyList<string> problems);
+                    if (problems.Count != 0)
+                    {
+                        string details = string.Join(Environment.NewLine, problems);
+                        Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/trail-save-lord-source",
+                            $"Lord sources for [{trailPath}] could not be read: {details}");
+                        warning = SerpLocalization.Get("ExtendedData.TrailLordDataSourceWarning")
+                            .Replace("{Reason}", details);
+                    }
                 }
                 catch (Exception exception)
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/trail-save-lord-capture",
-                        $"Could not capture the Lord requirements of [{trailPath}]; the mission is saved without updating them: {exception}");
-                    warning = LordRequirementsNotSavedText((FindAuthoringGap(exception) ?? exception).Message);
+                        $"Could not prepare the Lord data for [{trailPath}]: {exception}");
+                    warning = exception.Message;
                     return null;
                 }
                 if (!IsMakerMediaEnabled())
@@ -1243,7 +1253,9 @@ namespace ExtendedData
                 LordPresentationData[] withoutMedia = slots.Select(slot => TrailLordMediaStore.SelectMedia(slot.Presentation, false)).ToArray();
                 try
                 {
-                    foreach (var slot in slots) slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation, true);
+                    foreach (var slot in slots)
+                        slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation,
+                            slot.Presentation?.SourceRoot != null);
                     TrailLordMediaStore.Stage(slots.Select(x => x.Presentation), IOPath.GetDirectoryName(IOPath.GetFullPath(trailPath)));
                 }
                 catch (Exception exception)
@@ -1252,13 +1264,16 @@ namespace ExtendedData
                     for (int index = 0; index < slots.Count; index++) slots[index].Presentation = withoutMedia[index];
                     Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/trail-save-lord-media",
                         $"Lord media of [{trailPath}] could not be embedded; metadata is saved without media: {exception.Message}");
-                    warning = SerpLocalization.Get("ExtendedData.TrailLordMediaNotEmbedded").Replace("{Reason}", exception.Message);
+                    string mediaWarning = SerpLocalization.Get("ExtendedData.TrailLordMediaNotEmbedded")
+                        .Replace("{Reason}", exception.Message);
+                    warning = warning == null ? mediaWarning : warning + Environment.NewLine + mediaWarning;
                 }
                 return slots;
             }
 
-            private static string LordRequirementsNotSavedText(string reason) =>
-                SerpLocalization.Get("ExtendedData.TrailLordRequirementsNotSaved").Replace("{Reason}", reason);
+            private static void ShowTrailMakerSaveFailure(string reason) =>
+                ShowInformation(SerpLocalization.Get("EditorSave.ModSettingsSaveFailedTitle"),
+                    SerpLocalization.Get("ExtendedData.TrailMakerSaveFailed").Replace("{Reason}", reason));
 
             private void ManageTrailButtonHook(FRONT_ManageTrail self, string command)
             {
@@ -1331,6 +1346,17 @@ namespace ExtendedData
                                         pendingTrailMakerTrailPath,
                                         IOPath.Combine(BepInEx.Paths.CachePath, "ExtendedData", "TrailMaker"),
                                         ReadEmbeddedMakerMap);
+                            }
+                            try
+                            {
+                                var catalog = CustomisationFileManager.Instance;
+                                if (catalog.filesChanged) catalog.BuildFileLists();
+                                TrailLordPackageRuntime.RefreshMakerSelection(restart);
+                            }
+                            catch (Exception exception)
+                            {
+                                Shared.DebugLogHelper.LogWarningLimited(log, "ExtendedData/trail-maker-lord-refresh",
+                                    $"Could not refresh Lord files for [{pendingTrailMakerTrailPath}]: {exception}");
                             }
                             FRONT_Multiplayer.Open(skirmishSetup: true, restartInfo: restart, coopSetup: false, trailMaker: true);
                         }
@@ -1967,12 +1993,12 @@ namespace ExtendedData
                     exportOriginal(self, destination);
                     return;
                 }
-                ExportTrail(self, destination, allowEmbeddedValuesOnly: false);
+                ExportTrail(self, destination);
             }
 
             // Every mission's Lord requirements and the Coop package are prepared before any destination
             // file is replaced. The Coop package and its editable Maker sources are published together.
-            private void ExportTrail(FRONT_ManageTrail self, string destination, bool allowEmbeddedValuesOnly)
+            private void ExportTrail(FRONT_ManageTrail self, string destination)
             {
                 string makerRoot = ConfigSettings.GetUserTrailMakerPath();
                 bool exportCoop = IsMakerCoopEnabled();
@@ -1986,9 +2012,9 @@ namespace ExtendedData
                             destination,
                             ReadModSettingsForExport,
                             (trail, restart, aiPlayerIds) => ResolveMakerRequirements(trail, restart, aiPlayerIds,
-                                allowEmbeddedValuesOnly, makerRequirements));
+                                makerRequirements));
                     // Also Maker missions beyond the 40 Coop missions keep bound requirements.
-                    PrepareMakerRequirements(makerRoot, allowEmbeddedValuesOnly, makerRequirements, exportCoop);
+                    PrepareMakerRequirements(makerRoot, makerRequirements, exportCoop);
                     long mediaBytes = TrailLordMediaStore.ByteCount(makerRequirements.Values.SelectMany(x => x).Select(x => x.Presentation));
                     if (lordMediaExportCheckbox != null) lordMediaExportCheckbox.Content = SerpLocalization.Get("ExtendedData.EmbedLordMedia") + " (" + (mediaBytes / 1048576.0).ToString("0.0", CultureInfo.CurrentCulture) + " MiB)";
                 }
@@ -1996,12 +2022,8 @@ namespace ExtendedData
                 {
                     // A later Maker mission can fail after the Coop package was already staged.
                     prepared?.Dispose();
-                    TrailLordAuthoringUnavailableException gap = FindAuthoringGap(exception);
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ExportTrail.prepare-trail-export", "Could not prepare Trail export: " + exception);
-                    if (gap != null && !allowEmbeddedValuesOnly)
-                        OfferEmbeddedValuesOnlyExport(self, destination, exception as CoopMissionExportException, gap);
-                    else
-                        ShowExportFailure(exception as CoopMissionExportException);
+                    ShowExportFailure(exception);
                     return;
                 }
 
@@ -2037,7 +2059,7 @@ namespace ExtendedData
                 catch (Exception exception)
                 {
                     Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ExportTrail.finish-trail-export", "Could not finish Trail export: " + exception);
-                    ShowExportFailure();
+                    ShowExportFailure(exception);
                 }
                 finally
                 {
@@ -2068,27 +2090,21 @@ namespace ExtendedData
 
             private IReadOnlyList<TrailLordSlot> ResolveMakerRequirements(string trailPath,
                 HUD_IngameMenu.RestartSkirmishMapInfo restart, ISet<int> includedPlayerIds,
-                bool allowEmbeddedValuesOnly, Dictionary<string, IReadOnlyList<TrailLordSlot>> resolved)
+                Dictionary<string, IReadOnlyList<TrailLordSlot>> resolved)
             {
-                TrailLordRequirementSource.Resolution resolution = TrailLordRequirementSource.Resolve(
-                    trailPath, restart, includedPlayerIds, allowEmbeddedValuesOnly);
-                foreach (var slot in resolution.Slots)
-                    slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation, IsMakerMediaEnabled());
-                resolved[IOPath.GetFullPath(trailPath)] = resolution.Slots;
-                if (resolution.MigratedFixesSources)
-                    DebugLogHelper.LogInfo(log, "Legacy Trail Fixes inheritance supplemented with current host/author sources; " +
-                        "stored preferences retained: " + IOPath.GetFileName(trailPath));
-                if (resolution.ReusedPlayerIds.Count > 0 || resolution.EmbeddedOnlyPlayerIds.Count > 0)
-                    DebugLogHelper.LogInfo(log, "Trail Lord requirements for [" + IOPath.GetFileName(trailPath) +
-                        "]: stored=[" + string.Join(",", resolution.ReusedPlayerIds) +
-                        "], embeddedOnly=[" + string.Join(",", resolution.EmbeddedOnlyPlayerIds) +
-                        "], captured=[" + string.Join(",", resolution.InstalledSources.Keys) + "].");
-                return resolution.Slots;
+                IReadOnlyList<TrailLordSlot> slots = TrailLordRequirementSource.ReadForExport(
+                    trailPath, restart, includedPlayerIds);
+                bool includeMedia = IsMakerMediaEnabled();
+                foreach (var slot in slots)
+                    slot.Presentation = TrailLordMediaStore.SelectMedia(slot.Presentation,
+                        includeMedia && slot.Presentation?.MediaId != null);
+                resolved[IOPath.GetFullPath(trailPath)] = slots;
+                return slots;
             }
 
             // Maker missions keep their original player IDs. Coop Maker sources describe only the slots
             // that remain AI after the first two occupied slots become host and guest.
-            private void PrepareMakerRequirements(string makerRoot, bool allowEmbeddedValuesOnly,
+            private void PrepareMakerRequirements(string makerRoot,
                 Dictionary<string, IReadOnlyList<TrailLordSlot>> resolved, bool coopMakerSource)
             {
                 foreach (string trail in MakerTrailsInExportOrder(makerRoot))
@@ -2103,8 +2119,7 @@ namespace ExtendedData
                         ? CoopTrailSlotSelection.GetAiPlayerIds(
                             CoopTrailSlotSelection.GetActiveSlots(header.restartSkirmishInfo.lordTypes))
                         : null;
-                    ResolveMakerRequirements(trail, header.restartSkirmishInfo, includedPlayerIds,
-                        allowEmbeddedValuesOnly, resolved);
+                    ResolveMakerRequirements(trail, header.restartSkirmishInfo, includedPlayerIds, resolved);
                 }
             }
 
@@ -2116,48 +2131,6 @@ namespace ExtendedData
                     string sourceTrail = IOPath.Combine(makerRoot, FRONT_ManageTrail.GetMakerFileName(sourceIndex) + ".trail");
                     if (File.Exists(sourceTrail))
                         yield return sourceTrail;
-                }
-            }
-
-            private static TrailLordAuthoringUnavailableException FindAuthoringGap(Exception exception)
-            {
-                for (Exception current = exception; current != null; current = current.InnerException)
-                    if (current is TrailLordAuthoringUnavailableException gap)
-                        return gap;
-                return null;
-            }
-
-            // Explicit authoring decision; the default remains to abort. The decision is stored with
-            // the affected slots (embeddedValuesOnly) and is retained by later exports.
-            private void OfferEmbeddedValuesOnlyExport(FRONT_ManageTrail self, string destination,
-                CoopMissionExportException missionFailure, TrailLordAuthoringUnavailableException gap)
-            {
-                try
-                {
-                    string message = SerpLocalization.Get("ExtendedData.ExportEmbeddedOnlyQuestion")
-                        .Replace("{File}", IOPath.GetFileName(gap.TrailPath ?? string.Empty))
-                        .Replace("{Mission}", missionFailure?.Ordinal.ToString() ?? "-")
-                        .Replace("{Lord}", gap.LordName ?? string.Empty)
-                        .Replace("{Player}", gap.PlayerId.ToString())
-                        .Replace("{Reason}", gap.InnerException?.Message ?? gap.Message);
-                    HUD_ConfirmationPopup.ShowConfirmationMessage(
-                        SerpLocalization.Get("ExtendedData.ExportEmbeddedOnlyTitle"),
-                        delegate
-                        {
-                            DebugLogHelper.LogInfo(log, "Trail export continues with embedded AI data only after the author's confirmation: [" +
-                                gap.TrailPath + "], player " + gap.PlayerId + ".");
-                            ExportTrail(self, destination, allowEmbeddedValuesOnly: true);
-                            MapFileManager.Instance.RescanCustomTrailsFolder();
-                        },
-                        delegate { },
-                        message,
-                        MPConf: true,
-                        tall: true);
-                }
-                catch (Exception exception)
-                {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/OfferEmbeddedValuesOnlyExport", "Could not show the embedded-data export decision: " + exception);
-                    ShowExportFailure(missionFailure);
                 }
             }
 
@@ -2408,14 +2381,15 @@ namespace ExtendedData
                     Directory.Delete(trailMakerSource, true);
             }
 
-            private void ShowExportFailure(CoopMissionExportException missionFailure = null)
+            private void ShowExportFailure(Exception exception)
             {
                 try
                 {
                     // Name the failing mission and its concrete cause; file errors are not
                     // reported as an unexplained multiplayer incompatibility.
+                    var missionFailure = exception as CoopMissionExportException;
                     string message = missionFailure == null
-                        ? SerpLocalization.Get("ExtendedData.ExportFailedLog")
+                        ? SerpLocalization.Get("ExtendedData.ExportFailedLog") + Environment.NewLine + exception.Message
                         : SerpLocalization.Get("ExtendedData.ExportFailedMission")
                             .Replace("{Mission}", missionFailure.Ordinal.ToString())
                             .Replace("{File}", IOPath.GetFileName(missionFailure.SourcePath ?? string.Empty))
@@ -2427,9 +2401,9 @@ namespace ExtendedData
                     MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
                     MainViewModel.Instance.FrontEndMenu.UpdateFrontMenuPopupScale();
                 }
-                catch (Exception exception)
+                catch (Exception popupException)
                 {
-                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ShowExportFailure", "Could not display the Trail export error popup: " + exception);
+                    Shared.DebugLogHelper.LogErrorLimited(log, "ExtendedData/TrailMissionSettingsCoordinator/ShowExportFailure", "Could not display the Trail export error popup: " + popupException);
                 }
             }
             private static void ShowInformation(string title, string message)

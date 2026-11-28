@@ -6,119 +6,109 @@ using System.Linq;
 
 namespace ExtendedData
 {
-    // Thrown when a Custom-AIC slot has neither stored, identity-bound extra values nor a
-    // verifiable installed author package. The caller decides; nothing is assumed absent.
-    internal sealed class TrailLordAuthoringUnavailableException : Exception
-    {
-        internal TrailLordAuthoringUnavailableException(string trailPath, int playerId, string lordName,
-            Exception inner)
-            : base("Lord " + lordName + " (player " + playerId + ") of [" + Path.GetFileName(trailPath) +
-                "] has no verifiable extra values: " + inner.Message, inner)
-        {
-            TrailPath = trailPath;
-            PlayerId = playerId;
-            LordName = lordName;
-        }
-
-        internal string TrailPath { get; }
-        internal int PlayerId { get; }
-        internal string LordName { get; }
-    }
-
     internal static class TrailLordRequirementSource
     {
-        internal sealed class Resolution
+        internal static IReadOnlyList<TrailLordSlot> CaptureForSave(
+            string sourceTrailPath, HUD_IngameMenu.RestartSkirmishMapInfo restart,
+            ISet<int> includedPlayerIds, out IReadOnlyList<string> warnings)
         {
-            internal IReadOnlyList<TrailLordSlot> Slots;
-            // Only slots captured from an installation; reused and embedded-only slots have none.
-            internal IReadOnlyDictionary<int, TrailLordPackageRuntime.Candidate> InstalledSources;
-            internal IReadOnlyList<int> ReusedPlayerIds;
-            internal IReadOnlyList<int> EmbeddedOnlyPlayerIds;
-            internal bool MigratedFixesSources;
-        }
-
-        // Stored requirements are the source of extra values and installation duties. A re-saved
-        // Trail keeps a slot's stored values only while that slot's authored Lord, configuration
-        // and ordered AIV list are unchanged; changed or new slots use the author capture.
-        internal static Resolution Resolve(string trailPath,
-            HUD_IngameMenu.RestartSkirmishMapInfo restart, ISet<int> includedPlayerIds,
-            bool allowEmbeddedValuesOnly)
-        {
-            // A damaged or contradictory sidecar throws here and is never silently replaced.
-            TrailLordRequirements stored = TrailLordRequirements.ReadUnbound(trailPath, out _);
-            if (stored != null) TrailLordMediaStore.BindAndVerify(stored.Slots.Select(x => x.Presentation), Path.GetDirectoryName(trailPath));
+            var problems = new List<string>();
+            warnings = problems;
+            TrailLordRequirements stored = null;
+            bool readStored = false;
             var fixes = new FixesLordPreferencesBridge();
             var slots = new List<TrailLordSlot>();
-            var sources = new Dictionary<int, TrailLordPackageRuntime.Candidate>();
-            var reused = new List<int>();
-            var embeddedOnly = new List<int>();
             foreach (int playerId in TrailLordPackageRuntime.CustomLordPlayerIds(restart, includedPlayerIds))
             {
-                FRONT_Multiplayer.MPAIVInfo info = restart.aivs[playerId - 1];
+                var info = restart.aivs[playerId - 1];
                 TrailLordSlot current = TrailLordPackageRuntime.SavedIdentity(info, playerId);
-                TrailLordSlot storedSlot = stored?.Slots.FirstOrDefault(slot => slot.PlayerId == playerId);
-                if (storedSlot != null && TrailLordRequirements.HasSameAuthoredIdentity(storedSlot, current))
-                {
-                    if (storedSlot.Presentation == null)
-                    {
-                        try { var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId); storedSlot.Presentation = TrailLordMediaStore.CaptureOrFallback(author.Name, author.Config.path, out _); }
-                        catch (InvalidDataException) { storedSlot.Presentation = new LordPresentationData { DisplayName = LordPresentationData.FallbackName(storedSlot.LordName) }; }
-                    }
-                    else if (storedSlot.Presentation.SourceRoot == null && storedSlot.Presentation.MediaId == null)
-                    {
-                        try
-                        {
-                            var author = TrailLordPackageRuntime.ResolveAuthorSource(info, playerId);
-                            var captured = TrailLordMediaStore.CaptureOrFallback(author.Name, author.Config.path, out _);
-                            if (storedSlot.Presentation.MetadataJson == null) storedSlot.Presentation = captured;
-                            else if (storedSlot.Presentation.MetadataJson == captured.MetadataJson)
-                                storedSlot.Presentation.SourceRoot = captured.SourceRoot;
-                        }
-                        catch (InvalidDataException) { /* Stored metadata stays authoritative without an author installation. */ }
-                    }
-                    slots.Add(storedSlot);
-                    reused.Add(playerId);
-                    continue;
-                }
                 try
                 {
-                    slots.Add(TrailLordPackageRuntime.CaptureSlot(info, playerId, fixes,
-                        out TrailLordPackageRuntime.Candidate source));
-                    sources[playerId] = source;
-                }
-                catch (Exception exception)
-                {
-                    if (!allowEmbeddedValuesOnly)
-                        throw new TrailLordAuthoringUnavailableException(trailPath, playerId,
-                            current.LordName, exception);
-                    current.EmbeddedValuesOnly = true;
-                    slots.Add(current);
-                    embeddedOnly.Add(playerId);
-                }
-            }
-            bool migrated = false;
-            if (fixes.Installed)
-            {
-                var captured = LordDataSnapshot.CreateTrail("author:" + trailPath, true,
-                    slots.Where(slot => !slot.EmbeddedValuesOnly).Select(slot => new LordDataSlot
+                    var source = TrailLordPackageRuntime.FindMakerSource(info);
+                    if (source != null)
                     {
-                        PlayerId = slot.PlayerId, LordType = slot.LordType, LordName = slot.LordName,
-                        ConfigName = slot.ConfigName, ConfigChecksum = slot.ConfigChecksum,
-                        ModLordJson = slot.ModLordJson, Presentation = slot.Presentation, FixesJson = slot.FixesJson, FixesSources = slot.FixesSources,
-                    }));
-                var completed = fixes.CompleteSources(captured, slot => restart.aivs[slot.PlayerId - 1].lordConfig.lordData.opponent_type);
-                migrated = !ReferenceEquals(captured, completed);
-                foreach (LordDataSlot slot in completed.Slots)
-                    slots.Single(value => value.PlayerId == slot.PlayerId).FixesSources = slot.FixesSources;
+                        slots.Add(TrailLordPackageRuntime.CaptureSlot(info, playerId, fixes, source));
+                        continue;
+                    }
+                }
+                catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+                    exception is InvalidDataException || exception is ArgumentException ||
+                    exception is FormatException || exception is InvalidOperationException)
+                {
+                    problems.Add(current.LordName + " (player " + playerId + "): " + exception.Message);
+                }
+
+                if (!readStored)
+                {
+                    stored = string.IsNullOrWhiteSpace(sourceTrailPath) ? null :
+                        TrailLordRequirements.ReadUnbound(sourceTrailPath, out _);
+                    readStored = true;
+                }
+                TrailLordSlot fallback = stored?.Slots.FirstOrDefault(slot => SameSelection(slot, current));
+                if (fallback?.Presentation?.MediaId != null)
+                {
+                    try
+                    {
+                        TrailLordMediaStore.BindAndVerify(new[] { fallback.Presentation },
+                            Path.GetDirectoryName(Path.GetFullPath(sourceTrailPath)));
+                    }
+                    catch (Exception exception) when (exception is IOException ||
+                        exception is UnauthorizedAccessException || exception is InvalidDataException)
+                    {
+                        problems.Add(current.LordName + " (player " + playerId + "): " + exception.Message);
+                        fallback.Presentation = TrailLordMediaStore.SelectMedia(fallback.Presentation, false);
+                    }
+                }
+                slots.Add(WithStoredExtras(current, fallback));
             }
-            return new Resolution
+            return slots;
+        }
+
+        internal static IReadOnlyList<TrailLordSlot> ReadForExport(string trailPath,
+            HUD_IngameMenu.RestartSkirmishMapInfo restart, ISet<int> includedPlayerIds)
+        {
+            TrailLordRequirements stored = TrailLordRequirements.ReadUnbound(trailPath, out bool bound);
+            var slots = new List<TrailLordSlot>();
+            foreach (int playerId in TrailLordPackageRuntime.CustomLordPlayerIds(restart, includedPlayerIds))
             {
-                Slots = slots,
-                InstalledSources = sources,
-                ReusedPlayerIds = reused,
-                EmbeddedOnlyPlayerIds = embeddedOnly,
-                MigratedFixesSources = migrated,
-            };
+                TrailLordSlot current = TrailLordPackageRuntime.SavedIdentity(restart.aivs[playerId - 1], playerId);
+                TrailLordSlot saved = stored?.Slots.FirstOrDefault(slot => slot.PlayerId == playerId);
+                if (saved != null && !SameSelection(saved, current))
+                {
+                    if (bound)
+                        throw new InvalidDataException("Stored Lord requirements do not match player " + playerId +
+                            " of [" + Path.GetFileName(trailPath) + "].");
+                    // Older Maker saves could rewrite the mission without renewing its sidecar.
+                    saved = null;
+                }
+                slots.Add(WithStoredExtras(current, saved));
+            }
+            TrailLordMediaStore.BindAndVerify(slots.Select(slot => slot.Presentation),
+                Path.GetDirectoryName(Path.GetFullPath(trailPath)));
+            return slots;
+        }
+
+        private static bool SameSelection(TrailLordSlot stored, TrailLordSlot current) =>
+            stored.PlayerId == current.PlayerId &&
+            (!stored.LordType.HasValue || stored.LordType == current.LordType) &&
+            string.Equals(stored.LordName, current.LordName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(stored.ConfigName, current.ConfigName, StringComparison.OrdinalIgnoreCase);
+
+        private static TrailLordSlot WithStoredExtras(TrailLordSlot current, TrailLordSlot saved)
+        {
+            if (saved == null)
+            {
+                current.EmbeddedValuesOnly = true;
+                return current;
+            }
+            current.Presentation = saved.Presentation;
+            current.RequiresInstalledPackage = saved.RequiresInstalledPackage;
+            current.PackageDigest = saved.PackageDigest;
+            current.ModLordJson = saved.ModLordJson;
+            current.FixesJson = saved.FixesJson;
+            current.FixesSources = saved.FixesSources;
+            current.EmbeddedValuesOnly = saved.EmbeddedValuesOnly;
+            return current;
         }
     }
 }

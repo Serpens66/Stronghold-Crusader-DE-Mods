@@ -22,8 +22,8 @@ namespace ExtendedData
         public string ModLordJson { get; set; }
         public string FixesJson { get; set; }
         public IReadOnlyList<FixesPreferenceSource> FixesSources { get; set; }
-        // Authoring evidence: the exporter explicitly chose the AIC/AIV embedded in the Trail
-        // without unknown extra values. It never implies that no such values existed.
+        // This slot carries only the AIC/AIV embedded in the Trail. Older exports set this
+        // after explicit confirmation; the marker does not assert that no extra values existed.
         public bool EmbeddedValuesOnly { get; set; }
     }
 
@@ -113,14 +113,16 @@ namespace ExtendedData
             return result;
         }
 
-        // Re-saving a Trail rewrites its bytes. Callers may reuse the stored values only after
-        // re-establishing each slot's authored identity against the current mission content.
+        // The Maker can recover matching Lord data from an older sidecar. Playable exports
+        // bind the resulting values to the finished mission bytes again.
         internal static TrailLordRequirements ReadUnbound(string missionPath, out bool boundToMission)
         {
             boundToMission = false;
             string path = SidecarPath(missionPath);
-            if (!File.Exists(path)) return null;
-            byte[] bytes = File.ReadAllBytes(path);
+            byte[] bytes;
+            try { bytes = File.ReadAllBytes(path); }
+            catch (FileNotFoundException) { return null; }
+            catch (DirectoryNotFoundException) { return null; }
             if (bytes.Length > MaximumBytes) throw new InvalidDataException("Lord requirements exceed 512 KiB.");
             var root = Object(Shared.DependencyFreeJson.Parse(new UTF8Encoding(false, true).GetString(bytes)));
             int version = Convert.ToInt32(root["version"]);
@@ -154,19 +156,6 @@ namespace ExtendedData
             Validate(result);
             boundToMission = string.Equals(result.MissionDigest, Hash(File.ReadAllBytes(missionPath)), StringComparison.Ordinal);
             return result;
-        }
-
-        // Compares the authored data a stored slot describes; extra values stay valid only
-        // for exactly this Lord, configuration and ordered AIV list. Legacy files lack LordType.
-        internal static bool HasSameAuthoredIdentity(TrailLordSlot stored, TrailLordSlot current)
-        {
-            return stored != null && current != null && stored.PlayerId == current.PlayerId &&
-                (!stored.LordType.HasValue || stored.LordType == current.LordType) &&
-                string.Equals(stored.LordName, current.LordName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(stored.ConfigName, current.ConfigName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(stored.ConfigChecksum, current.ConfigChecksum, StringComparison.Ordinal) &&
-                (stored.AivChecksums ?? Array.Empty<string>()).SequenceEqual(
-                    current.AivChecksums ?? Array.Empty<string>(), StringComparer.Ordinal);
         }
 
         private static void Validate(TrailLordRequirements value)

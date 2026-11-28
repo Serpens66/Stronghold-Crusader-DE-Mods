@@ -7,6 +7,7 @@ public sealed partial class CustomisationFileManager
     public readonly List<CustomLord> CustomLords = new();
     public readonly Dictionary<int, List<CustomAIV>> AivsByType = new();
     public List<CustomLord> GetCustomLords() => CustomLords;
+    public object GetCustomLordImage(string name, ref byte[] data) => null;
     public List<CustomAIV> getLordAIVList(int type) =>
         AivsByType.TryGetValue(type, out var aivs) ? aivs : new List<CustomAIV>();
     public sealed class CustomLord

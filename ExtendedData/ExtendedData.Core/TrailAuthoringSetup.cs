@@ -15,6 +15,66 @@ namespace ExtendedData.Core
         private const int AutoSaveOffset = 6;
         internal const int AutoSaveOff = 0;
 
+        internal static void SaveMakerMission(string destination, Action<string> writeMission,
+            IReadOnlyList<TrailLordSlot> slots)
+        {
+            string target = Path.GetFullPath(destination);
+            string stage = Path.Combine(Path.GetDirectoryName(target), "." + Guid.NewGuid().ToString("N") + ".trail");
+            string backup = Path.ChangeExtension(stage, ".backup");
+            bool preserveBackup = false;
+            try
+            {
+                writeMission(stage);
+                if (!File.Exists(stage))
+                    throw new IOException("The game did not write the Trail mission: " + target);
+                TrailContainer.ReadRestartData(File.ReadAllBytes(stage));
+                string sidecar = TrailLordRequirements.SidecarPath(stage);
+                TrailLordRequirements.Create(stage, slots).Write(stage);
+
+                bool replacing = File.Exists(target);
+                if (replacing)
+                {
+                    File.Copy(target, backup);
+                    Shared.AtomicFileReplacement.Replace(stage, target);
+                }
+                else File.Move(stage, target);
+                try
+                {
+                    string sidecarTarget = TrailLordRequirements.SidecarPath(target);
+                    if (File.Exists(sidecarTarget)) Shared.AtomicFileReplacement.Replace(sidecar, sidecarTarget);
+                    else File.Move(sidecar, sidecarTarget);
+                }
+                catch (Exception publicationError)
+                {
+                    try
+                    {
+                        if (replacing) Shared.AtomicFileReplacement.Replace(backup, target);
+                        else File.Delete(target);
+                    }
+                    catch (Exception recoveryError)
+                    {
+                        preserveBackup = true;
+                        throw new IOException("Could not restore the previous Trail after a save error: " + backup,
+                            new AggregateException(publicationError, recoveryError));
+                    }
+                    throw;
+                }
+            }
+            finally
+            {
+                DeleteSaveTemporary(stage);
+                DeleteSaveTemporary(TrailLordRequirements.SidecarPath(stage));
+                if (!preserveBackup) DeleteSaveTemporary(backup);
+            }
+        }
+
+        private static void DeleteSaveTemporary(string path)
+        {
+            try { File.Delete(path); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
         internal static byte[] Neutralize(byte[] trail, int defaultGameSpeed)
         {
             TrailContainerLayout layout = TrailContainer.ReadLayout(trail);

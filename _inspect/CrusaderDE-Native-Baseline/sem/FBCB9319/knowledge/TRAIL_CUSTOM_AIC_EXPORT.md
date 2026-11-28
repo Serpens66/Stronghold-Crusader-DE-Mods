@@ -60,3 +60,20 @@ snapshot membership, current configuration binding, required external packages a
 participant acknowledgements remain separate launch requirements. Saved-snapshot
 reconstruction retains its existing path. No native address or hook changes here;
 new two-peer gameplay acceptance is still required after the managed correction.
+
+## Installed catalog and the Maker's working selection (2026-11-28) [Vanilla facts]
+
+The installed managed assembly and CrusaderDE.dll match the hashes above. The
+Maker Load branch reads the mission's restart data and can refresh the named
+Lord's portrait. `FRONT_Multiplayer.Open` rebuilds the installed catalog when
+`CustomisationFileManager.filesChanged` is set, then
+`PopulateAIVsFromRestartInfo` copies the saved AIC and ordered AIV list into the
+working selection. The catalog refresh itself leaves these selections intact.
+The AI settings view presents installed configurations and castles as choices.
+
+`TMManage` collects the current lobby settings and working Lord selection.
+`FRONT_ManageTrail.SaveMission` passes that restart object to
+`EditorDirector.SaveCustomTrailMap`. If its map load succeeds, Vanilla passes the
+encoded restart data and the supplied destination to `CreateTrailMission`.
+On map-load failure the method returns without writing a Trail. These are
+managed authoring contracts and introduce no native address dependency.

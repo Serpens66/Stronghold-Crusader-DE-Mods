@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "series": "SP-trail-coop-lords",
+  "role": "sp",
+  "quitWhenDone": true,
+  "quitDelayMs": 1000,
+  "steps": [
+    { "id": "menu", "do": "WaitMainMenu", "timeoutMs": 180000, "allowErrors": true, "stopOnFail": true },
+    { "id": "round-trip", "do": "Trail.CoopLordRoundTrip", "timeoutMs": 180000, "stopOnFail": true }
+  ]
+}

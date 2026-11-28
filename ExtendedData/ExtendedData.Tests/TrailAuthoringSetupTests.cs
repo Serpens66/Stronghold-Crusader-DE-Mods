@@ -1,5 +1,6 @@
 using System.Text;
 using APIShared.Maps;
+using ExtendedData;
 using ExtendedData.Core;
 
 internal static class TrailAuthoringSetupTests
@@ -44,6 +45,67 @@ internal static class TrailAuthoringSetupTests
 
         TestBundledCoopAssets();
         TestExportPublicationRollback();
+    }
+
+    internal static void SaveMakerMissionKeepsConsistentPair()
+    {
+        DirectoryInfo fixture = Directory.CreateTempSubdirectory("ExtendedDataMakerSave-");
+        string target = Path.Combine(fixture.FullName, "Trail_Mission_2.trail");
+        string sidecar = TrailLordRequirements.SidecarPath(target);
+        try
+        {
+            byte[] oldMission = Container(60, AuthoredSetup);
+            byte[] newMission = Container(60, NeutralSetup);
+            var edited = new TrailLordSlot
+            {
+                PlayerId = 5, LordType = -1, LordName = "Lord Bessy", ConfigName = "bessy",
+                ConfigChecksum = "13", AivChecksums = new[] { "17", "19" },
+                ModLordJson = "{\"test.mod\":{\"value\":1}}",
+            };
+            File.WriteAllBytes(target, oldMission);
+            TrailLordRequirements.Create(target, new[] { edited }).Write(target);
+            byte[] oldSidecar = File.ReadAllBytes(sidecar);
+
+            edited.ConfigChecksum = "81";
+            edited.ModLordJson = "{\"test.mod\":{\"value\":2}}";
+            try
+            {
+                TrailAuthoringSetup.SaveMakerMission(target, _ => { }, new[] { edited });
+                throw new Exception("A failed Vanilla write was treated as a successful save.");
+            }
+            catch (IOException) { }
+            CheckPreviousPair();
+
+            using (File.Open(sidecar, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                try
+                {
+                    TrailAuthoringSetup.SaveMakerMission(target, stage => File.WriteAllBytes(stage, newMission), new[] { edited });
+                    throw new Exception("A save with a locked sidecar reported success.");
+                }
+                catch (IOException) { }
+            }
+            CheckPreviousPair();
+
+            TrailAuthoringSetup.SaveMakerMission(target, stage => File.WriteAllBytes(stage, newMission), new[] { edited });
+            var saved = TrailLordRequirements.Read(target).Slots.Single();
+            if (!File.ReadAllBytes(target).SequenceEqual(newMission) || saved.ConfigChecksum != "81" ||
+                saved.ModLordJson != edited.ModLordJson || Directory.GetFiles(fixture.FullName).Length != 2)
+                throw new Exception("A successful retry did not publish only the new bound pair.");
+
+            void CheckPreviousPair()
+            {
+                if (!File.ReadAllBytes(target).SequenceEqual(oldMission) ||
+                    !File.ReadAllBytes(sidecar).SequenceEqual(oldSidecar) || Directory.GetFiles(fixture.FullName).Length != 2)
+                    throw new Exception("The failed save changed the old pair or left temporary files.");
+            }
+        }
+        finally
+        {
+            File.Delete(sidecar);
+            File.Delete(target);
+            fixture.Delete();
+        }
     }
 
     private static void TestBundledCoopAssets()
