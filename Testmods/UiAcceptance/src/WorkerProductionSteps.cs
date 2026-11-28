@@ -10,6 +10,7 @@ using APIShared.Economy;
 using APIShared.Modifiers;
 using APIShared.Simulation;
 using CrusaderDE;
+using HarmonyLib;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -32,6 +33,10 @@ namespace UiAcceptance
         private static readonly List<Action> restoreFixtureSettings = new List<Action>();
         private static bool extraFeaturesProfile;
         private static string savedPath, callbackFailure;
+        [ThreadStatic] private static string saveTestDirectory;
+        [ThreadStatic] private static bool quickSaveRequested;
+        private static bool saveRoutesPatched;
+        private static string temporarySaveDirectory;
         private static byte[] savedRow;
         private static long previousSession;
         private static bool capacityRegistered, capacityPending;
@@ -85,6 +90,7 @@ namespace UiAcceptance
             Runner.Register("Production.MillerDelivery", MillerDelivery);
             Runner.Register("Production.QuarterAndCrc", QuarterAndCrc);
             Runner.Register("Production.Save", Save);
+            Runner.Register("Production.SaveAlternate", SaveAlternate);
             Runner.Register("Production.Reload", Reload);
             Runner.Register("Production.Restart", Restart);
             Runner.Register("Production.ExpectFresh", ExpectFresh);
@@ -561,13 +567,88 @@ namespace UiAcceptance
                 savedRow = Row(woodId);
                 Runner.Require(EngineInterface.SaveSaveGame(savedPath, screen.x, screen.y, x, y, false, false, editor), "Critical native save returned failure.");
             }
+            VerifySavedProduction("manual");
+        }
+
+        private static IEnumerable<Wait> SaveAlternate(Step step)
+        {
+            string route = step.Arg(0);
+            Runner.Require(!editor && (route == "quick" || route == "auto"), "Expected a single-player quick or autosave.");
+            string testRoot = Environment.GetEnvironmentVariable("SHCDE_ATOMIC_SAVE_TEST_ROOT");
+            Runner.Require(string.IsNullOrEmpty(testRoot) || Path.IsPathRooted(testRoot) && Directory.Exists(testRoot),
+                "The configured test save root must be an existing absolute directory.");
+            string directory = string.IsNullOrEmpty(testRoot)
+                ? Path.Combine(Path.GetTempPath(), "ProductionAcceptance-" + Guid.NewGuid().ToString("N"))
+                : Path.Combine(testRoot, route);
+            Runner.Require(!Directory.Exists(directory), "Save test directory is already in use.");
+            Directory.CreateDirectory(directory);
+            if (string.IsNullOrEmpty(testRoot)) temporarySaveDirectory = directory;
+            if (!saveRoutesPatched)
+            {
+                var flags = BindingFlags.Static | BindingFlags.NonPublic;
+                UiAcceptancePlugin.Harmony.Patch(typeof(ConfigSettings).GetMethod(nameof(ConfigSettings.GetSavesPath), Type.EmptyTypes),
+                    prefix: new HarmonyMethod(typeof(WorkerProductionSteps).GetMethod(nameof(UseTestSavePath), flags)));
+                UiAcceptancePlugin.Harmony.Patch(typeof(KeyManager).GetMethod(nameof(KeyManager.IsActionPressed), new[] { typeof(Enums.KeyFunctions) }),
+                    prefix: new HarmonyMethod(typeof(WorkerProductionSteps).GetMethod(nameof(PressQuickSave), flags)));
+                saveRoutesPatched = true;
+            }
+            Director.instance.SetPausedState(true);
+            yield return new Until("quiescent paused director for alternate save", () => Director.instance.SafeToSave());
+            previousSession = UiAcceptancePlugin.LastContext.SessionId;
+            lock (HuntSteps.Engine()) savedRow = Row(woodId);
+            saveTestDirectory = directory;
+            try
+            {
+                Runner.Require(ConfigSettings.GetSavesPath() == directory, "The save directory redirect is inactive.");
+                if (route == "quick")
+                {
+                    quickSaveRequested = true;
+                    yield return new Until("Vanilla QuickSave file", () =>
+                        Directory.GetFiles(directory, "QuickSave *.sav").Length == 1);
+                    savedPath = Directory.GetFiles(directory, "QuickSave *.sav")[0];
+                    Runner.Require(!quickSaveRequested, "The Vanilla QuickSave action did not run.");
+                }
+                else
+                {
+                    var autosave = Type.GetType("BugfixesAndQoL.LocalAutosaveRuntime, BugfixesAndQoL", true);
+                    var write = autosave.GetMethod("WriteSave", BindingFlags.Static | BindingFlags.NonPublic);
+                    Runner.Require(write?.ReturnType == typeof(bool) && (bool)write.Invoke(null, null),
+                        "The local autosave writer did not commit its staging file.");
+                    savedPath = Path.Combine(directory, "Autosave - Singleplayer.sav");
+                    Runner.Require(Directory.GetDirectories(directory).Length == 0, "The local autosave left a staging directory.");
+                }
+            }
+            finally
+            {
+                quickSaveRequested = false;
+                saveTestDirectory = null;
+            }
+            VerifySavedProduction(route);
+        }
+
+        private static bool UseTestSavePath(ref string __result)
+        {
+            if (saveTestDirectory == null) return true;
+            __result = saveTestDirectory;
+            return false;
+        }
+
+        private static bool PressQuickSave(Enums.KeyFunctions __0, ref bool __result)
+        {
+            if (!quickSaveRequested || __0 != Enums.KeyFunctions.QuickSave) return true;
+            quickSaveRequested = false;
+            __result = true;
+            return false;
+        }
+
+        private static void VerifySavedProduction(string route)
+        {
             Runner.Require(File.Exists(savedPath), "Production save file missing.");
             var runtime = typeof(WorkerProductionModifiers).Assembly.GetType("APIShared.Economy.WorkerProductionStateRuntime", true);
             object requirement = runtime.GetMethod("InspectSelectedSaveRequirement", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new object[] { savedPath });
             Runner.Require((bool)Property(requirement, "IsValid") && (bool)Property(requirement, "RequiresExtended") &&
                 ((string)Property(requirement, "Digest")).Length == 64, "The actual native save lacks a valid required production sidecar.");
-            AcceptLog.Info("PRODUCTION_SAVED path=" + savedPath + " fraction=" + Fraction(savedRow));
-            yield break;
+            AcceptLog.Info("PRODUCTION_SAVED route=" + route + " path=" + savedPath + " fraction=" + Fraction(savedRow));
         }
 
         private static IEnumerable<Wait> Reload(Step step)
@@ -599,6 +680,12 @@ namespace UiAcceptance
             Runner.Require(callbackFailure == null && reloadVerified, "NativeLoaded restore checkpoint failed: " + callbackFailure);
             Runner.Require(UiAcceptancePlugin.LastContext.SessionId != previousSession, "Load reused the previous session.");
             AcceptLog.Info("PRODUCTION_RESTORED editor=" + editor + " nativeLoadedBeforeRun=True fraction=" + Fraction(savedRow));
+            if (temporarySaveDirectory != null)
+            {
+                File.Delete(savedPath);
+                Directory.Delete(temporarySaveDirectory);
+                temporarySaveDirectory = null;
+            }
         }
 
         private static unsafe void Initializing(MissionLifecycleNotification note)
