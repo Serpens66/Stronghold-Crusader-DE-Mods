@@ -1,90 +1,348 @@
 using System;
-using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
-using AIVParser.Core;
+using APIShared;
+using APIShared.Statistics;
 using CrusaderDE;
 using SHCDESE.API;
-using SHCDESE.Interop;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Interop.Enums;
-namespace CastlePlanner {
- internal sealed partial class BlueprintRuntimeController {
-  private BlueprintLivePlan spectatorPlan;
-  private bool spectatorRequested;
-  private volatile bool spectatorSampling;
-  private int spectatorPlayer=-1,spectatorTicks,spectatorDirty;
-  private void InitializeSpectatorBlueprints(){
-   subscriptions.Add(APIShared.PlayerPerspectiveAPI.SubscribeChanges(CastlePlannerPlugin.PluginGuid,"blueprint-view",change=>{
-    APIShared.ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryPost(()=>{if(HasSpectatorIdentity)RefreshSpectatorIdentity(true);RequestFrame();});
-   }));
-   GameTimeManagerAPI.Instance.OnTick+=tick=>{if(BlueprintSpectatorPolicy.ShouldSample(ref spectatorTicks,spectatorSampling)){Interlocked.Exchange(ref spectatorDirty,1);RequestFrame();}};
-  }
-  private void RefreshSpectatorIdentity(bool force=false){
-   int player=HasSpectatorIdentity?APIShared.PlayerPerspectiveAPI.GetViewedPlayerId():-1;
-   if(!force && player==spectatorPlayer)return;
-   spectatorPlayer=player;spectatorAivFileName=null;spectatorPlan=null;layout=null;renderer.Clear();blueprintVisible=false;
-   controlledKeepAvailable=false;Interlocked.Exchange(ref spectatorDirty,1);
-   RefreshHud();
-  }
-  private Noesis.SolidColorBrush spectatorBrush;
-  private int spectatorBrushPlayer=-1;
-  private void ResetSpectatorBlueprints(){spectatorBrush=null;spectatorBrushPlayer=-1;spectatorAivNames.Clear();spectatorAivFileName=null;spectatorNameErrorLogged=false;spectatorTicks=0;spectatorRequested=false;spectatorSampling=false;spectatorPlan=null;spectatorPlayer=-1;Interlocked.Exchange(ref spectatorDirty,0);}
-  private unsafe BlueprintLivePlan CaptureSpectatorPlan(){
-   int player=spectatorPlayer;
-   if(player<1 || player>8 || !GamePlayerManagerAPI.Instance.IsAIPlayer(player))return null;
-   var field=typeof(EngineInterface).GetField("threadLock",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic);
-   if(field==null || field.FieldType!=typeof(object))throw new MissingFieldException("EngineInterface.threadLock contract changed.");
-   object gate=field.GetValue(null);if(gate==null)return null;
-   lock(gate){
-    var merit=EngineInterface.GetMeritData();if(merit[player,0]!=player || merit[player,1]<0)return null;
-    // The village can outlive its Keep. Validate the current 1-based building ID,
-    // including owner and live type, before publishing the retained plan.
-    int keepId=GamePlayerManagerAPI.Instance.GetPlayerKeepId(player);
-    var buildings=GameBuildingManagerAPI.Instance;
-    if(!global::APIShared.BuildingAccess.TryGetById(buildings, keepId,out GameBuilding* keep, out _) ||
-       keep->r_PlayerIdOwner!=player || !IsKeep(keep->r_BuildingType) || keep->r_AliveState!=AliveState.IsAlive)return null;
-    var api=GameAIVManagerAPI.Instance;
-    if(!api.TryGetVillageSlotByPlayerId(player,out int slot) || !api.TryGetVillageByPlayerId(player,out AivVillageState* village) || village->OwnerPlayerId!=player || village->LayoutSelectionState==AivLayoutSelectionState.None)return null;
-    if(village->Rotation!=SHCDESE.Interop.Enums.AivRotation.South && village->Rotation!=SHCDESE.Interop.Enums.AivRotation.East && village->Rotation!=SHCDESE.Interop.Enums.AivRotation.North && village->Rotation!=SHCDESE.Interop.Enums.AivRotation.West)return null;
-    var steps=api.GetBuildSteps(slot);int maximum=village->MaximumBuildStep;
-    if(maximum<0 || maximum>=steps.Length)return null;
-    var result=new List<BlueprintLiveStep>();
-    for(int frame=0;frame<=maximum;frame++){
-     var step=steps[frame];
-     if(!BlueprintSpectatorPolicy.IncludeStep(step.State))continue;
-     if(step.BuildingType==0 || step.TileCount==0)continue;
-     if(GameAIVManagerAPI.UsesOrderedMapTileBuffer(step.BuildingType)){
-      int count=api.GetOrderedMapTiles(slot).Length;
-      if(step.MapTileIdOrBufferIndex<0 || step.MapTileIdOrBufferIndex>count-step.TileCount)return null;
-     }
-     var tiles=api.GetBuildStepMapTiles(slot,frame);var positions=new List<BlueprintWorldTile>();
-     foreach(int tile in tiles){if(tile<=0 || tile>=GameTileManagerView.NativePackedTileCapacity)continue;var p=GameTileManagerAPI.Instance.GetTileVectorFromId(tile);positions.Add(new BlueprintWorldTile(p.X,p.Y));}
-     if(positions.Count>0 && positions.Count==tiles.Length)result.Add(new BlueprintLiveStep((int)step.BuildingType,positions.ToArray()));
+
+namespace CastlePlanner
+{
+    internal sealed partial class BlueprintRuntimeController
+    {
+        private readonly BlueprintSpectatorCaptureState spectatorCapture = new BlueprintSpectatorCaptureState();
+        private Func<long, bool> isSpectatorSessionReady;
+        private EngineReadbackRegistration spectatorReadback;
+        private SpectatorReadRequest spectatorPending;
+        private SpectatorReadRequest spectatorInbox;
+        private BlueprintSpectatorKeep[] spectatorKeeps;
+        private BlueprintLivePlan[] spectatorPlans;
+        private BlueprintLayout[] spectatorLayouts;
+        private int spectatorPlayer = -1;
+        private int spectatorKeepsToCheck;
+        private int spectatorLostKeeps;
+        private int spectatorUnverifiedKeeps;
+        private bool spectatorKeepReadFailed;
+        private Noesis.SolidColorBrush spectatorBrush;
+        private int spectatorBrushPlayer = -1;
+
+        private void InitializeSpectatorBlueprints()
+        {
+            var client = ApiShared.ForMod(CastlePlannerPlugin.PluginGuid);
+            subscriptions.Add(PlayerPerspectiveAPI.SubscribeChanges(CastlePlannerPlugin.PluginGuid, "blueprint-view", change =>
+                client.Ui.TryPost(() =>
+                {
+                    if (HasSpectatorIdentity)
+                        RefreshSpectatorIdentity();
+                    RequestFrame();
+                })));
+
+            try
+            {
+                BindSpectatorReadiness(client);
+            }
+            catch (Exception error)
+            {
+                Shared.DebugLogHelper.LogErrorLimited(log, "SpectatorBlueprintReadiness",
+                    "AI blueprint mission readiness unavailable: " + error.GetBaseException().Message);
+                return;
+            }
+
+            if (!EngineReadbacks.TryRegister(CastlePlannerPlugin.PluginGuid, "blueprint-spectator",
+                CopySpectatorReadback, out spectatorReadback, out string reason))
+                Shared.DebugLogHelper.LogErrorLimited(log, "SpectatorBlueprintReadback",
+                    "AI blueprint engine readback unavailable: " + reason);
+        }
+
+        // An older SDK can lack this capability. Keep the dependency out of the
+        // ordinary blueprint controller's startup path when resolving that SDK.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private void BindSpectatorReadiness(ModApiClient client)
+        {
+            if (!client.TryGetMissionPlayStateReadiness(out var readiness, out var diagnostic) ||
+                !readiness.TryRegisterObserver("blueprint-spectator", _ => RequestFrame(), out diagnostic))
+                throw new InvalidOperationException(diagnostic?.Reason);
+
+            isSpectatorSessionReady = session => readiness.Current?.SessionId == session;
+        }
+
+        private void ResetSpectatorBlueprints()
+        {
+            CancelSpectatorReadback();
+            Volatile.Write(ref spectatorKeeps, null);
+            spectatorKeepsToCheck = 0;
+            spectatorLostKeeps = 0;
+            spectatorUnverifiedKeeps = 0;
+            spectatorKeepReadFailed = false;
+            spectatorPlans = null;
+            spectatorLayouts = null;
+            spectatorCapture.Reset();
+            spectatorPlayer = -1;
+            spectatorBrush = null;
+            spectatorBrushPlayer = -1;
+            spectatorAivNames.Clear();
+            spectatorAivFileName = null;
+            spectatorNameErrorLogged = false;
+        }
+
+        private void RefreshSpectatorIdentity()
+        {
+            int player = PlayerPerspectiveAPI.GetViewedPlayerId();
+            if (player == spectatorPlayer)
+                return;
+
+            spectatorPlayer = player;
+            PresentCachedSpectatorPlan();
+        }
+
+        private void SetSpectatorRequested(bool requested)
+        {
+            spectatorCapture.SetRequested(requested);
+            if (requested)
+                spectatorKeepsToCheck |= spectatorUnverifiedKeeps;
+            else if (spectatorPending?.Kind == SpectatorReadKind.Plans)
+                CancelSpectatorReadback();
+            PresentCachedSpectatorPlan();
+        }
+
+        private void PresentCachedSpectatorPlan()
+        {
+            int player = spectatorPlayer;
+            var cached = player > 0 && player <= GamePlayerManagerAPI.MAX_PLAYERS
+                ? spectatorLayouts?[player] : null;
+            var plan = cached != null ? spectatorPlans[player] : null;
+            RefreshSpectatorAivName(plan);
+            controlledKeepAvailable = plan != null;
+
+            int pendingChecks = spectatorKeepsToCheck | spectatorUnverifiedKeeps;
+            if (spectatorPending?.Kind == SpectatorReadKind.CheckKeeps)
+                pendingChecks |= spectatorPending.KeepMask;
+            bool checkingKeep = player > 0 && (pendingChecks & (1 << player)) != 0;
+            BlueprintLayout next = spectatorCapture.Requested && EffectiveBlueprintMode && !checkingKeep ? cached : null;
+            if (!ReferenceEquals(layout, next))
+            {
+                if (next == null && cached != null && ReferenceEquals(layout, cached))
+                {
+                    // A simple toggle can show the renderer's existing geometry again.
+                    SetBlueprintVisible(false, "spectator toggle");
+                    RefreshHud();
+                    return;
+                }
+
+                renderer.Clear();
+                blueprintVisible = false;
+                layout = next;
+                if (next != null)
+                    renderer.PreloadDepthCaptures(next);
+            }
+
+            if (next != null)
+                SetBlueprintVisible(true, "spectator AI plan");
+            RefreshHud();
+        }
+
+        private void RebuildSpectatorLayouts()
+        {
+            if (spectatorPlans == null)
+                return;
+
+            var options = settings.GetBlueprintDisplayOptions();
+            for (int player = 1; player < spectatorPlans.Length; player++)
+            {
+                var plan = spectatorPlans[player];
+                spectatorLayouts[player] = null;
+                if (plan == null)
+                    continue;
+
+                try { spectatorLayouts[player] = plan.Build(options); }
+                catch (Exception error)
+                {
+                    Shared.DebugLogHelper.LogErrorLimited(log, "SpectatorBlueprintLayout",
+                        $"AI blueprint layout unavailable for player {player}: {error}");
+                }
+            }
+        }
+
+        private void ObserveSpectatorKeepDeletion(BuildingDeleteEventArgs args)
+        {
+            var keeps = Volatile.Read(ref spectatorKeeps);
+            if (keeps == null || args.BuildingId < 1)
+                return;
+
+            for (int player = 1; player < keeps.Length; player++)
+            {
+                if (keeps[player].Id != args.BuildingId)
+                    continue;
+
+                int removedPlayer = player;
+                ApiShared.ForMod(CastlePlannerPlugin.PluginGuid).Ui.TryPost(() =>
+                {
+                    if (!ReferenceEquals(keeps, spectatorKeeps) ||
+                        (spectatorLostKeeps & (1 << removedPlayer)) != 0)
+                        return;
+
+                    spectatorKeepsToCheck |= 1 << removedPlayer;
+                    if (HasSpectatorIdentity && spectatorPlayer == removedPlayer && blueprintVisible)
+                        SetBlueprintVisible(false, "spectator Keep verification");
+                    RequestFrame();
+                });
+                return;
+            }
+        }
+
+        private void UpdateSpectatorReadback()
+        {
+            bool needsKeeps = spectatorKeeps == null && !spectatorKeepReadFailed;
+            if (spectatorPending == null && !needsKeeps && spectatorKeepsToCheck == 0 &&
+                !spectatorCapture.NeedsCapture)
+                return;
+
+            long session = observerRole.SessionId;
+            if (spectatorReadback == null || !mapActive || editorSessionActive || !EffectiveBlueprintMode ||
+                session <= 0 || !isSpectatorSessionReady(session) ||
+                GameData.Instance?.lastGameState?.game_type != (int)eGameTypeModes.GAMETYPE_MULTIPLAYER)
+            {
+                CancelSpectatorReadback();
+                return;
+            }
+
+            var completed = spectatorPending;
+            if (completed != null)
+            {
+                if (completed.Kind == SpectatorReadKind.Plans &&
+                    (!HasSpectatorIdentity || !spectatorCapture.Requested))
+                {
+                    CancelSpectatorReadback();
+                    return;
+                }
+                if (!completed.Completed)
+                {
+                    RequestSpectatorReadbackFrame();
+                    return;
+                }
+
+                spectatorPending = null;
+                if (!completed.Cancelled)
+                    ApplySpectatorReadback(completed);
+            }
+
+            if (spectatorKeeps == null && !spectatorKeepReadFailed)
+                QueueSpectatorReadback(new SpectatorReadRequest(session, SpectatorReadKind.Keeps));
+            else if (spectatorKeepsToCheck != 0)
+            {
+                QueueSpectatorReadback(new SpectatorReadRequest(session, SpectatorReadKind.CheckKeeps,
+                    spectatorKeeps, spectatorKeepsToCheck));
+                spectatorKeepsToCheck = 0;
+            }
+            else if (HasSpectatorIdentity && spectatorCapture.NeedsCapture && spectatorKeeps != null)
+                QueueSpectatorReadback(new SpectatorReadRequest(session, SpectatorReadKind.Plans,
+                    spectatorKeeps, spectatorLostKeeps, GetSpectatorOrderedTileCapacity()));
+        }
+
+        private void ApplySpectatorReadback(SpectatorReadRequest completed)
+        {
+            if (completed.Error != null)
+            {
+                if (completed.Kind == SpectatorReadKind.Keeps)
+                    spectatorKeepReadFailed = true;
+                if (completed.Kind == SpectatorReadKind.Plans)
+                    spectatorCapture.Finish(false);
+                Shared.DebugLogHelper.LogErrorLimited(log, "SpectatorBlueprintCopy",
+                    "AI blueprint readback failed: " + completed.Error);
+                if (completed.Kind == SpectatorReadKind.CheckKeeps)
+                    spectatorUnverifiedKeeps |= completed.KeepMask;
+                RefreshHud();
+                return;
+            }
+
+            switch (completed.Kind)
+            {
+                case SpectatorReadKind.Keeps:
+                    Volatile.Write(ref spectatorKeeps, completed.Keeps);
+                    break;
+
+                case SpectatorReadKind.CheckKeeps:
+                    spectatorUnverifiedKeeps &= ~completed.KeepMask;
+                    DiscardSpectatorPlans(completed.LostKeeps);
+                    break;
+
+                case SpectatorReadKind.Plans:
+                    spectatorPlayer = PlayerPerspectiveAPI.GetViewedPlayerId();
+                    spectatorLostKeeps |= completed.LostKeeps;
+                    spectatorPlans = completed.MaterializePlans();
+                    spectatorLayouts = new BlueprintLayout[spectatorPlans.Length];
+                    spectatorCapture.Finish(true);
+                    RebuildSpectatorLayouts();
+                    PresentCachedSpectatorPlan();
+                    break;
+            }
+        }
+
+        private void DiscardSpectatorPlans(int lostKeeps)
+        {
+            spectatorLostKeeps |= lostKeeps;
+            if (spectatorPlans == null)
+                return;
+
+            for (int player = 1; player < spectatorPlans.Length; player++)
+            {
+                if ((lostKeeps & (1 << player)) == 0)
+                    continue;
+
+                spectatorPlans[player] = null;
+                spectatorLayouts[player] = null;
+            }
+            if (HasSpectatorIdentity)
+                PresentCachedSpectatorPlan();
+        }
+
+        private void QueueSpectatorReadback(SpectatorReadRequest request)
+        {
+            spectatorPending = request;
+            Volatile.Write(ref spectatorInbox, request);
+            spectatorReadback.Request();
+            RequestSpectatorReadbackFrame();
+        }
+
+        private void RequestSpectatorReadbackFrame() => frameWork.RequestAfter(TimeSpan.FromMilliseconds(30));
+
+        private void CancelSpectatorReadback()
+        {
+            var request = spectatorPending;
+            if (request == null)
+                return;
+
+            request.Cancelled = true;
+            Interlocked.CompareExchange(ref spectatorInbox, null, request);
+            spectatorReadback.Cancel();
+            spectatorPending = null;
+            if (request.Kind == SpectatorReadKind.CheckKeeps)
+                spectatorKeepsToCheck |= request.KeepMask;
+        }
+
+        private void CopySpectatorReadback()
+        {
+            var request = Interlocked.Exchange(ref spectatorInbox, null);
+            if (request == null)
+                return;
+
+            try
+            {
+                // The readiness service takes its own state lock. Inside the engine
+                // monitor use only the mission adapter's published context.
+                if (!request.Cancelled && Shared.MissionEvents.CurrentContext?.SessionId == request.Session)
+                    request.CopyFromSimulation();
+                else
+                    request.Cancelled = true;
+            }
+            catch (Exception error) { request.Error = error; }
+            finally { request.Completed = true; }
+        }
+
+        private BlueprintHudDisplayState? SpectatorCaptureStatus =>
+            spectatorCapture.GetStatus(spectatorReadback != null && !spectatorKeepReadFailed);
     }
-    return result.Count==0?null:new BlueprintLivePlan(player,slot,village->SelectedVariantIndex,village->LayoutOriginX,village->LayoutOriginY,village->KeepX,village->KeepY,village->Rotation==SHCDESE.Interop.Enums.AivRotation.East?AIVParser.Core.AivRotation.Degrees90:village->Rotation==SHCDESE.Interop.Enums.AivRotation.North?AIVParser.Core.AivRotation.Degrees180:village->Rotation==SHCDESE.Interop.Enums.AivRotation.West?AIVParser.Core.AivRotation.Degrees270:AIVParser.Core.AivRotation.Degrees0,result.ToArray());
-   }
-  }
-  private void UpdateSpectatorBlueprint(){
-   if(!HasSpectatorIdentity || !EffectiveBlueprintMode)return;
-   spectatorSampling=spectatorRequested || Hud.SettingsPanelVisible;
-   if(Interlocked.Exchange(ref spectatorDirty,0)==0)return;
-   try{
-    var current=CaptureSpectatorPlan();
-    RefreshSpectatorAivName(current);
-    controlledKeepAvailable=current!=null;
-    if(current==null){spectatorPlan=null;layout=null;renderer.Clear();blueprintVisible=false;RefreshHud();return;}
-    if(!spectatorRequested){spectatorPlan=current;layout=null;RefreshHud();return;}
-    if(current.SameGeometry(spectatorPlan) && layout!=null){RefreshHud();return;}
-    spectatorPlan=current;layout=current.Build(settings.GetBlueprintDisplayOptions());
-    layoutKeepX=current.KeepX;layoutKeepY=current.KeepY;renderer.Clear();blueprintVisible=false;
-    renderer.PreloadDepthCaptures(layout);
-    if(spectatorRequested)SetBlueprintVisible(true,"spectator AI plan");else RefreshHud();
-   }catch(Exception error){spectatorAivFileName=null;spectatorPlan=null;layout=null;renderer.Clear();blueprintVisible=false;controlledKeepAvailable=false;RefreshHud();Shared.DebugLogHelper.LogErrorLimited(log,"SpectatorBlueprint","AI Blueprint unavailable: "+error);}
-  }
-  private void ToggleSpectatorBlueprint(){
-   spectatorRequested=!spectatorRequested;
-   if(!spectatorRequested){SetBlueprintVisible(false,"spectator toggle");spectatorSampling=Hud.SettingsPanelVisible;return;}
-   Interlocked.Exchange(ref spectatorDirty,1);UpdateSpectatorBlueprint();
-   if(layout!=null && !blueprintVisible)SetBlueprintVisible(true,"spectator toggle");
-  }
- }
 }

@@ -33,7 +33,7 @@ namespace ConstructionCostsTest
         private ConstructionCostTarget tower = ConstructionCostTarget.FromMapper(eMappers.MAPPER_TOWER4);
         private static readonly eGoods[] NativeGoods = { eGoods.STORED_WOOD_PLANKS, eGoods.STORED_STONE_BLOCKS, eGoods.STORED_IRON_INGOTS, eGoods.STORED_PITCH_RAW, eGoods.STORED_GOLD };
         internal Fixture(string map, string scenario, Guid runId, Action<string> log) { this.map = map; this.scenario = scenario; this.runId = runId; this.log = log; }
-        internal static bool Owns(string value) => value == "costs" || value == "costs-extra-refund" || value == "costs-tooltip" || value == "costs-freebuild-undo" || value == "costs-refund70" || value == "costs-callbacks";
+        internal static bool Owns(string value) => value == "costs" || value == "costs-extra-refund" || value == "costs-tooltip" || value == "costs-freebuild-undo" || value == "costs-refund70" || value == "costs-callbacks" || value == "costs-stock-boundary";
         internal IEnumerable<AutomationStep> Steps()
         {
             yield return new AutomationStep("typed-contract-and-registration", TimeSpan.FromSeconds(30), Register);
@@ -43,6 +43,14 @@ namespace ConstructionCostsTest
                 yield break;
             }
             yield return new AutomationStep("skirmish", TimeSpan.FromSeconds(240), Start);
+            if (scenario == "costs-stock-boundary")
+            {
+                yield return new AutomationStep("exact-gold-balance", TimeSpan.FromSeconds(60), ExactGoldBalance, true);
+                yield return new AutomationStep("ordinary-human-refund", TimeSpan.FromSeconds(45), Refund, true);
+                yield return new AutomationStep("exact-bread-and-late-vetoes", TimeSpan.FromSeconds(60), ExactBreadAndLateVetoes, true);
+                yield return new AutomationStep("restore-native-costs", TimeSpan.FromSeconds(20), Restore, true);
+                yield break;
+            }
             if (scenario == "costs-refund70")
             {
                 yield return new AutomationStep("precision70-paid-well", TimeSpan.FromSeconds(60), PrecisionWell, true);

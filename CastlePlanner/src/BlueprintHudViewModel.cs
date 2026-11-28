@@ -368,13 +368,15 @@ namespace CastlePlanner
             bool isReady,
             bool isVisible,
             int completedDepthCaptures,
-            int requestedDepthCaptures)
+            int requestedDepthCaptures,
+            BlueprintHudDisplayState? spectatorCaptureStatus = null)
         {
-            this.completedDepthCaptures = Math.Max(0, completedDepthCaptures);
-            this.requestedDepthCaptures = Math.Max(
+            bool spectatorPlanPending = spectatorCaptureStatus == BlueprintHudDisplayState.Loading;
+            this.completedDepthCaptures = spectatorPlanPending ? 0 : Math.Max(0, completedDepthCaptures);
+            this.requestedDepthCaptures = spectatorPlanPending ? 1 : Math.Max(
                 this.completedDepthCaptures,
                 requestedDepthCaptures);
-            displayState = BlueprintHudStatePolicy.Resolve(
+            displayState = spectatorCaptureStatus ?? BlueprintHudStatePolicy.Resolve(
                 controlledKeepAvailable,
                 isVisible,
                 this.completedDepthCaptures,

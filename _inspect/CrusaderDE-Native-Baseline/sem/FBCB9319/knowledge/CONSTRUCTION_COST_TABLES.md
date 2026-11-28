@@ -167,3 +167,22 @@ the local mark and `0x19A5D0` to remove the unit from synchronized selection.
 The route checks can leave unassigned units selected. Local marks can appear
 before the selected tribe is established, so mark count alone does not prove
 the test setup is ready to exercise the assignment branch.
+
+### Placement validator call contexts (2026-11-28) [Vanilla facts]
+
+The installed DLL and the semantic exports matched SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The `0x77E60` references in `semantic-functions.jsonl` and their argument
+flows in `semantic-decompiled-functions.c` establish the following:
+
+- The map-action hover path at `0x90CD0` supplies byte `1` as validator
+  argument seven. The build body at `0x6D580` passes byte `0` and forwards the
+  same player, top-left tile, mapper and size that it received. If the native
+  placement override is clear, it reads the blocked state at tile manager
+  `+0x204E6FC` after validation and returns before construction or cost debit
+  when blocked.
+- The two position-search helpers at `0xBD690` and `0xBD7A0` also pass
+  byte `0` while iterating candidate tiles. `0x76780` uses `0xBD7A0` during
+  quarry construction. The delayed statue position search at `0xE8340` also
+  passes byte `0`, with argument six `-2`. On site acceptance it invokes
+  `0x6D580` with the chosen statue mapper and size `2`.

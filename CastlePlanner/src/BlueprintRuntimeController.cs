@@ -130,7 +130,7 @@ namespace CastlePlanner
 
             initialized = true;
             if (!settings.TryRegisterBlueprintKeybind(
-                () => layout != null && EffectiveBlueprintMode && mapActive && CanUseGameplayHotkeys(),
+                () => (layout != null || HasSpectatorIdentity) && EffectiveBlueprintMode && mapActive && CanUseGameplayHotkeys(),
                 ToggleBlueprint, out string keybindReason))
                 Shared.DebugLogHelper.LogErrorLimited(log, "CastlePlanner/BlueprintKeybind", "Blueprint keybind registration failed: " + keybindReason);
             RefreshHud();
@@ -238,13 +238,25 @@ namespace CastlePlanner
                 {
                     spectatorSuppressed = spectator;
                     bool wanted = blueprintVisible;
-                    ResetSpectatorBlueprints();
                     renderer?.Clear(); layout = null; blueprintVisible = false;
+                    controlledKeepAvailable = false;
                     preparePending = false; showAfterPrepare = false;
                     pendingViewSettleTime = -1f; suppressOverlayUntilViewSettled = false;
                     layoutKeepX = int.MinValue; layoutKeepY = int.MinValue;
-                    if (spectator) { spectatorRequested = wanted; RefreshSpectatorIdentity(true); }
-                    else if (EffectiveBlueprintMode) SchedulePrepare(false);
+                    if (spectator)
+                    {
+                        spectatorCapture.SetRequested(wanted);
+                        RefreshSpectatorIdentity();
+                    }
+                    else
+                    {
+                        spectatorPlayer = -1;
+                        spectatorAivFileName = null;
+                        spectatorCapture.SetRequested(false);
+                        if (spectatorPending?.Kind == SpectatorReadKind.Plans)
+                            CancelSpectatorReadback();
+                        if (EffectiveBlueprintMode) SchedulePrepare(false);
+                    }
                     RefreshHud();
                 }
             }
@@ -258,8 +270,7 @@ namespace CastlePlanner
         {
             if (observerRole.TakeInvalidation()) RefreshBlueprintRoleEvidence();
             ApplyBlueprintRoleTransition();
-            spectatorSampling = HasSpectatorIdentity && EffectiveBlueprintMode && (spectatorRequested || Hud.SettingsPanelVisible);
-            if (HasSpectatorIdentity && System.Threading.Volatile.Read(ref spectatorDirty) != 0) UpdateSpectatorBlueprint();
+            UpdateSpectatorReadback();
             // A hidden projection has no frame-dependent work after its one-time preparation.
             if (!blueprintVisible && !depthLoadReady &&
                 !(mapActive && buildingImageLibrary.HasCompletedDepthRead) &&
@@ -465,6 +476,18 @@ namespace CastlePlanner
 
         private void OnSettingsChanged()
         {
+            if (HasSpectatorIdentity)
+            {
+                if (!EffectiveBlueprintMode)
+                    SetSpectatorRequested(false);
+                else
+                {
+                    RebuildSpectatorLayouts();
+                    PresentCachedSpectatorPlan();
+                }
+                return;
+            }
+
             bool restoreVisibility =
                 (preview?.IsPreviewActive == true && preview.HasSelectedCastle) ||
                 (blueprintVisible && EffectiveBlueprintMode);
@@ -508,6 +531,15 @@ namespace CastlePlanner
 
         private void OnPreviewSelectionChanged()
         {
+            if (HasSpectatorIdentity)
+            {
+                if (!EffectiveBlueprintMode)
+                    SetSpectatorRequested(false);
+                else
+                    PresentCachedSpectatorPlan();
+                return;
+            }
+
             // Preview changes stay visible while choosing a castle. Leaving a
             // no-castle preview always restores the normal layout hidden.
             bool restoreVisibility = preview.IsPreviewActive;
@@ -552,7 +584,11 @@ namespace CastlePlanner
 
         private void TryPrepareBlueprint()
         {
-            if (HasSpectatorIdentity) { preparePending = false; System.Threading.Interlocked.Exchange(ref spectatorDirty, 1); UpdateSpectatorBlueprint(); return; }
+            if (HasSpectatorIdentity)
+            {
+                preparePending = false;
+                return;
+            }
             if (!TryFindControlledKeep(out int keepX, out int keepY))
             {
                 if (controlledKeepAvailable)
@@ -610,6 +646,7 @@ namespace CastlePlanner
             if (args == null || args.Phase != EventHookPhase.Post)
                 return;
 
+            ObserveSpectatorKeepDeletion(args);
             Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
                 if (editorSessionActive && layout != null &&
@@ -771,9 +808,17 @@ namespace CastlePlanner
         {
             RefreshBlueprintRoleEvidence();
             ApplyBlueprintRoleTransition();
-            if (HasSpectatorIdentity && spectatorPlayer != APIShared.PlayerPerspectiveAPI.GetViewedPlayerId())
-                RefreshSpectatorIdentity(true);
-            if (HasSpectatorIdentity && EffectiveBlueprintMode) { ToggleSpectatorBlueprint(); return; }
+            if (HasSpectatorIdentity && EffectiveBlueprintMode)
+            {
+                if (spectatorCapture.Requested)
+                    SetSpectatorRequested(false);
+                else
+                {
+                    RefreshSpectatorIdentity();
+                    SetSpectatorRequested(true);
+                }
+                return;
+            }
             if (!EffectiveBlueprintMode || !mapActive)
             {
                 Shared.DebugLogHelper.LogWarningLimited(log, "CastlePlanner/BlueprintRuntimeController/ToggleBlueprint.toggle-ignored-because-blueprint", "Blueprint toggle ignored because Blueprint mode or the map is inactive.");
@@ -1049,7 +1094,8 @@ namespace CastlePlanner
                 layout != null,
                 blueprintVisible,
                 renderer?.CompletedDepthCaptureCount ?? 0,
-                renderer?.RequestedDepthCaptureCount ?? 0);
+                renderer?.RequestedDepthCaptureCount ?? 0,
+                spectator ? SpectatorCaptureStatus : null);
         }
 
         private void OnEditorMapReady()

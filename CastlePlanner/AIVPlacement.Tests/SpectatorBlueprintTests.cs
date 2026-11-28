@@ -10,8 +10,32 @@ internal static class SpectatorBlueprintTests {
  internal static void Run(){
   int checks=0;
   void Check(bool value,string message){checks++;if(!value)throw new Exception(message);}
-  int ticks=0;for(int i=1;i<=120;i++)Check(BlueprintSpectatorPolicy.ShouldSample(ref ticks,true)==(i%40==0),"snapshot scheduling is once per 40 ticks");
-  for(int i=0;i<80;i++)Check(!BlueprintSpectatorPolicy.ShouldSample(ref ticks,false),"no sampling when closed");
+  var capture = new BlueprintSpectatorCaptureState();
+  Check(capture.GetStatus(true) == BlueprintHudDisplayState.Off && !capture.NeedsCapture,
+      "a fresh session offers an off toggle without reading full geometry");
+  capture.SetRequested(true);
+  Check(capture.GetStatus(true) == BlueprintHudDisplayState.Loading && capture.NeedsCapture,
+      "first toggle requests full geometry and shows loading");
+  capture.SetRequested(false);
+  Check(!capture.NeedsCapture, "toggle off while pending cancels demand");
+  capture.SetRequested(true);
+  capture.Finish(false);
+  Check(!capture.NeedsCapture, "an error does not schedule repeated copies");
+  capture.SetRequested(false);
+  capture.SetRequested(true);
+  Check(capture.NeedsCapture, "an explicit toggle can retry a failed copy");
+  capture.Finish(true);
+  capture.SetRequested(false);
+  capture.SetRequested(true);
+  Check(capture.GetStatus(true) == null && !capture.NeedsCapture, "reopening the overlay uses the session snapshot");
+  capture.Reset();
+  capture.SetRequested(true);
+  Check(capture.NeedsCapture, "a new session needs its own snapshot");
+  var keep = new BlueprintSpectatorKeep(42, 123, 200, 300);
+  Check(keep.Matches(keep) && !keep.Matches(new BlueprintSpectatorKeep(42, 124, 200, 300)) &&
+      !keep.Matches(new BlueprintSpectatorKeep(43, 123, 200, 300)) &&
+      !keep.Matches(new BlueprintSpectatorKeep(42, 123, 201, 300)),
+      "slot reuse or anchor changes invalidate the cached blueprint");
   foreach(var st in Enum.GetValues<SHCDESE.Interop.Enums.AivBuildStepState>())Check(BlueprintSpectatorPolicy.IncludeStep(st)==(st!=SHCDESE.Interop.Enums.AivBuildStepState.Inactive && st!=SHCDESE.Interop.Enums.AivBuildStepState.Abandoned),"mirror native rejection of inactive/abandoned steps");
   foreach(AivRotation rotation in Enum.GetValues(typeof(AivRotation)))
   foreach(int size in new[]{1,2,3,5,8})
@@ -27,15 +51,11 @@ internal static class SpectatorBlueprintTests {
    int[] types={(int)SHCDESE.Interop.eMappers.MAPPER_WALL,(int)SHCDESE.Interop.eMappers.MAPPER_PITCH_DITCH,(int)SHCDESE.Interop.eMappers.MAPPER_MOAT,(int)SHCDESE.Interop.eMappers.MAPPER_GATE_STONE1A,(int)SHCDESE.Interop.eMappers.MAPPER_GATE_STONE2A,(int)SHCDESE.Interop.eMappers.MAPPER_DRAWBRIDGE,(int)SHCDESE.Interop.eMappers.MAPPER_STAIR1,(int)SHCDESE.Interop.eMappers.MAPPER_TOWER1};
    var steps=new List<BlueprintLiveStep>();var frames=new List<AivJsonFrame>{new AivJsonFrame {itemType=(int)SHCDESE.Interop.eMappers.MAPPER_KEEP2,tilePositionOfsets=new List<int>{5050}}};
    for(int i=0;i<types.Length;i++){var raw=new AivGridPoint(20+(i/5)*20,12+(i%5)*15);var pos=AivNativeBuildingPlacement.ResolveBuildStructureOrigin(raw,AivMapperCatalog.Resolve(types[i]).FootprintSize??1,referenceX,referenceY,rotation);steps.Add(new BlueprintLiveStep(types[i],new[]{new BlueprintWorldTile(pos.X,pos.Y)}));frames.Add(new AivJsonFrame {itemType=types[i],tilePositionOfsets=new List<int>{raw.Row*100+raw.Column}});}
-   var plan=new BlueprintLivePlan(2,7,3,200,300,250,350,rotation,steps.ToArray());
+   var plan=new BlueprintLivePlan(2,3,200,300,250,350,rotation,steps.ToArray());
    var options=new AivSpawnOptions {SpawnFortifications=true,SpawnDefensiveGroundFeatures=true,SpawnBuildings=true,SpawnFearFactorBuildings=true};
    var actual=plan.Build(options);var expected=BlueprintLayoutBuilder.Build(new AivJsonDocument {frames=frames,miscItems=new List<AivJsonMiscItem>()},referenceX,referenceY,rotation,BlueprintProjectionMode.NativeFixedGrid);
    Check(actual.Tiles.Select(t=>t.Tile).OrderBy(t=>t.X).ThenBy(t=>t.Y).SequenceEqual(expected.Tiles.Select(t=>t.Tile).OrderBy(t=>t.X).ThenBy(t=>t.Y)),"live coordinates match renderer: rotation="+rotation+", missing="+string.Join(";",expected.Tiles.Select(t=>t.Tile).Except(actual.Tiles.Select(t=>t.Tile)).Select(t=>t.X+","+t.Y))+", types="+string.Join(";",types.Select(t=>t+":"+AivMapperCatalog.Resolve(t).IsKnown)));
    Check(actual.Icons.Select(i=>(i.MapperValue,i.MinimumWorldX,i.MaximumWorldX,i.MinimumWorldY,i.MaximumWorldY,i.AdjacentGateCenter,i.StairLowEnd,i.StairHighEnd)).SequenceEqual(expected.Icons.Select(i=>(i.MapperValue,i.MinimumWorldX,i.MaximumWorldX,i.MinimumWorldY,i.MaximumWorldY,i.AdjacentGateCenter,i.StairLowEnd,i.StairHighEnd))),"prepared gate/stair/tower icon geometry matches original projection");
-   Check(plan.SameGeometry(new BlueprintLivePlan(2,7,3,200,300,250,350,rotation,steps.ToArray())),"unchanged plan reuses geometry");
-   Check(!plan.SameGeometry(new BlueprintLivePlan(3,7,3,200,300,250,350,rotation,steps.ToArray())),"owner changes invalidate slot reuse");
-   Check(!plan.SameGeometry(new BlueprintLivePlan(2,7,4,200,300,250,350,rotation,steps.ToArray())),"variant changes invalidate snapshot");
-   Check(!plan.SameGeometry(new BlueprintLivePlan(2,7,3,201,300,250,350,rotation,steps.ToArray())),"layout relocation invalidates snapshot");
   }
   var names=new string[(int)SHCDESE.Interop.AILords.SK_JEWEL,8];
   int wolf=(int)SHCDESE.Interop.AILords.SK_WOLF-1;

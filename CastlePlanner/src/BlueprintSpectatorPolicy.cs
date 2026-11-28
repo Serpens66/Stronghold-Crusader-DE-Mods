@@ -2,10 +2,53 @@ namespace CastlePlanner {
  internal static class BlueprintSpectatorPolicy {
   internal static bool IncludeStep(SHCDESE.Interop.Enums.AivBuildStepState state) =>
    state==SHCDESE.Interop.Enums.AivBuildStepState.Pending || state==SHCDESE.Interop.Enums.AivBuildStepState.Unknown2 || state==SHCDESE.Interop.Enums.AivBuildStepState.Built || state==SHCDESE.Interop.Enums.AivBuildStepState.RetryPending;
-  internal static bool ShouldSample(ref int ticks,bool active){if(!active){ticks=0;return false;}if(++ticks<40)return false;ticks=0;return true;}
 
   internal static bool IsSpectator(bool mapActive,bool editor,bool multiplayerMode,bool spectatorFlag,int controlledPlayer,bool eliminatedParticipant=false) =>
    mapActive && !editor && multiplayerMode && ((spectatorFlag && controlledPlayer<=0) || eliminatedParticipant);
+ }
+
+ internal sealed class BlueprintSpectatorCaptureState
+ {
+  internal bool Requested { get; private set; }
+  internal bool Completed { get; private set; }
+  private bool failed;
+
+  internal void SetRequested(bool requested)
+  {
+   Requested = requested;
+   if (!requested) failed = false;
+  }
+
+  internal bool NeedsCapture => Requested && CanCapture;
+  private bool CanCapture => !Completed && !failed;
+  internal BlueprintHudDisplayState? GetStatus(bool available)
+  {
+   if (!available || !CanCapture) return null;
+   return Requested ? BlueprintHudDisplayState.Loading : BlueprintHudDisplayState.Off;
+  }
+  internal void Finish(bool success)
+  {
+   Completed = success;
+   failed = !success;
+  }
+
+  internal void Reset()
+  {
+   Requested = false;
+   Completed = false;
+   failed = false;
+  }
+ }
+
+ internal readonly struct BlueprintSpectatorKeep
+ {
+  internal BlueprintSpectatorKeep(int id, uint globalId, int x, int y)
+  { Id = id; GlobalId = globalId; X = x; Y = y; }
+
+  internal readonly int Id, X, Y;
+  internal readonly uint GlobalId;
+  internal bool Matches(BlueprintSpectatorKeep other) =>
+      Id > 0 && Id == other.Id && GlobalId == other.GlobalId && X == other.X && Y == other.Y;
  }
 
  // Only confirmed positive-participant loss is retained. A later unreadable sample

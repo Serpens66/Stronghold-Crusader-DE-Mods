@@ -246,6 +246,7 @@
     <Compile Include="src\BlueprintAivNames.cs" />
     <Compile Include="src\BlueprintRuntimeController.AivNames.cs" />
     <Compile Include="src\BlueprintRuntimeController.Spectator.cs" />
+    <Compile Include="src\BlueprintRuntimeController.SpectatorReadback.cs" />
     <Compile Include="src\BlueprintRuntimeController.Role.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
     <Compile Include="src\CastleRotationOptions.cs" />

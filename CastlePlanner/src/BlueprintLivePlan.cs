@@ -9,11 +9,10 @@ namespace CastlePlanner {
   internal BlueprintLiveStep(int mapper,BlueprintWorldTile[] positions){Mapper=mapper;Positions=(BlueprintWorldTile[])positions.Clone();}
  }
  internal sealed class BlueprintLivePlan {
-  internal readonly int Player,Slot,Variant,OriginX,OriginY,KeepX,KeepY;
+  internal readonly int Player,Variant,OriginX,OriginY,KeepX,KeepY;
   internal readonly Rotation Rotation;
   internal readonly BlueprintLiveStep[] Steps;
-  internal BlueprintLivePlan(int player,int slot,int variant,int x,int y,int keepX,int keepY,Rotation rotation,BlueprintLiveStep[] steps){Player=player;Slot=slot;Variant=variant;OriginX=x;OriginY=y;KeepX=keepX;KeepY=keepY;Rotation=rotation;Steps=(BlueprintLiveStep[])steps.Clone();}
-  internal bool SameGeometry(BlueprintLivePlan other)=>other!=null && Player==other.Player && Slot==other.Slot && Variant==other.Variant && OriginX==other.OriginX && OriginY==other.OriginY && KeepX==other.KeepX && KeepY==other.KeepY && Rotation==other.Rotation && Steps.Length==other.Steps.Length && Steps.Zip(other.Steps,(a,b)=>a.Mapper==b.Mapper && a.Positions.SequenceEqual(b.Positions)).All(v=>v);
+  internal BlueprintLivePlan(int player,int variant,int x,int y,int keepX,int keepY,Rotation rotation,BlueprintLiveStep[] steps){Player=player;Variant=variant;OriginX=x;OriginY=y;KeepX=keepX;KeepY=keepY;Rotation=rotation;Steps=(BlueprintLiveStep[])steps.Clone();}
   internal static AivGridPoint UnprojectOrigin(BlueprintWorldTile world,int size,int originX,int originY,Rotation rotation){
    int maxRow=AivGridPoint.GridSize-1-(world.Y-originY),minColumn=world.X-originX;
    Rotation inverse=rotation==Rotation.Degrees90?Rotation.Degrees270:rotation==Rotation.Degrees270?Rotation.Degrees90:rotation;

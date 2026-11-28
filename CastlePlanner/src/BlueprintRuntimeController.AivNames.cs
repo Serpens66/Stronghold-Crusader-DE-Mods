@@ -44,7 +44,7 @@ namespace CastlePlanner
 
         private FRONT_Multiplayer.MPAIVInfo GetSpectatorAivInfo(int player)
         {
-            var menu = MainViewModel.Instance?.HUDIngameMenu;
+            var menu = MainViewModel.viewModelLoaded ? MainViewModel.Instance?.HUDIngameMenu : null;
             var game = GameData.Instance;
             if (game != null && game.coopTrailID > 0) return null;
             var slots = menu?.restartSkirmishMapInfo?.aivs;

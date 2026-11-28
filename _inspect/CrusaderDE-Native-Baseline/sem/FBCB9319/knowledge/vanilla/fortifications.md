@@ -357,3 +357,8 @@ Unit fields read in this topic (unit record = module + `0x67E8A5C` + gameId × `
 - [WALL_COSTS_REFUNDS.md](../WALL_COSTS_REFUNDS.md): wall tool selection, drag quote, execution debit, AIV, Chore 41 refund quantization and Chore 76 Undo.
 - [WALL_DEPOSIT_RESTORATION.md](../WALL_DEPOSIT_RESTORATION.md): stone/iron loss under walls, masks, undo; deposit restoration plugin.
 - [Findings/Drawbridges.md](../../../../../../Findings/Drawbridges.md) (secondary, outside the baseline, German): drawbridge height derivation chain, register contracts and rejected approaches.
+
+Placement validation at `0x77E60` receives byte `1` from map-action hover and
+byte `0` from both build execution and internal quarry-pile or statue location
+searches. The build body forwards its player, tile, mapper and size and can
+exit on the validator's blocked state before spawning or charging. [Call contexts](../CONSTRUCTION_COST_TABLES.md#placement-validator-call-contexts-2026-11-28-vanilla-facts)
